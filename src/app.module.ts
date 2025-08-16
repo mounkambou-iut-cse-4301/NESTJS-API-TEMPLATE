@@ -9,6 +9,7 @@ import { CommunesModule } from './communes/communes.module';
 import { TypesModule } from './types/types.module';
 import { DomainesModule } from './domaines/domaines.module';
 import { SousDomainesModule } from './sousdomaines/sousdomaines.module';
+import { InfrastructuresModule } from './infrastructures/infrastructures.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SousDomainesModule } from './sousdomaines/sousdomaines.module';
     TypesModule,
     DomainesModule,
     SousDomainesModule,
+    InfrastructuresModule,
   ],
 })
 export class AppModule {}
