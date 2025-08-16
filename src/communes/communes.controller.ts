@@ -1,0 +1,66 @@
+import { Controller, Get, Post, Body, Query, Param, Patch } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { CommunesService } from './communes.service';
+import { ListCommunesQueryDto } from './dto/list-communes.query.dto';
+import { CreateCommuneDto } from './dto/create-commune.dto';
+import { UpdateCommuneDto } from './dto/update-commune.dto';
+import { CommuneIdParamDto } from './dto/commune-id.param.dto';
+
+function sanitizeSort(sort: string | undefined, allowed: string[]) {
+  if (!sort) return undefined;
+  const orders: Record<string,'asc'|'desc'> = {};
+  for (const token of sort.split(',').map(s => s.trim()).filter(Boolean)) {
+    const desc = token.startsWith('-');
+    const key = desc ? token.slice(1) : token;
+    if (allowed.includes(key)) orders[key] = desc ? 'desc' : 'asc';
+  }
+  return Object.keys(orders).length ? orders : undefined;
+}
+function buildMeta(page: number, pageSize: number, total: number) {
+  const totalPages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
+  return { page, pageSize, total, totalPages };
+}
+
+@ApiTags('Communes')
+@Controller('api/v1/communes')
+export class CommunesController {
+  constructor(private readonly service: CommunesService) {}
+
+  @ApiOperation({ summary: 'Lister les communes', description: 'Liste paginée avec filtres (q, code, arrondissementId, is_verified, is_block) et tri sur id, nom, nom_en, code.' })
+  @Get()
+  async list(@Query() q: ListCommunesQueryDto) {
+    const page = Math.max(1, Number(q.page ?? 1));
+    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
+    const sort = sanitizeSort(q.sort, ['id','nom','nom_en','code']);
+    const { total, items } = await this.service.list({
+      page, pageSize, sort,
+      q: q.q,
+      arrondissementId: q.arrondissementId,
+      code: q.code,
+      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
+      is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
+    });
+    return { message: 'Liste des communes récupérée.', messageE: 'Municipalities list retrieved.', data: items, meta: buildMeta(page, pageSize, total) };
+  }
+
+  @ApiOperation({ summary: 'Créer une commune', description: 'Création d’une commune rattachée à un arrondissement, avec flags administratifs.' })
+  @Post()
+  async create(@Body() dto: CreateCommuneDto) {
+    const created = await this.service.create(dto);
+    return { message: 'Commune créée avec succès.', messageE: 'Municipality created successfully.', data: created };
+  }
+
+  @ApiOperation({ summary: 'Détail commune', description: 'Récupérer une commune par son id.' })
+  @Get(':id')
+  async getOne(@Param() p: CommuneIdParamDto) {
+    const row = await this.service.findOne(p.id);
+    return { message: 'Commune récupérée.', messageE: 'Municipality fetched.', data: row };
+  }
+
+  @ApiOperation({ summary: 'Mettre à jour une commune', description: 'Mise à jour partielle: nom, nom_en, code, arrondissementId, is_verified, is_block.' })
+  @Patch(':id')
+  async update(@Param() p: CommuneIdParamDto, @Body() dto: UpdateCommuneDto) {
+    const row = await this.service.update(p.id, dto);
+    return { message: 'Commune mise à jour.', messageE: 'Municipality updated.', data: row };
+  }
+}
