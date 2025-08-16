@@ -122,7 +122,7 @@ export class InfrastructuresService {
           description: true,
           existing_infrastructure: true,
           type: true,
-          regionId: true, departementId: true, arrondissementId: true, communeId: true,
+          regionId: true, region: true, departementId: true, departement: true, arrondissementId: true, arrondissement: true, communeId: true, commune: true,
           domaineId: true, sousdomaineId: true,
           location: true, images: true, attribus: true, composant: true,
           created_at: true, updated_at: true,
@@ -143,7 +143,7 @@ export class InfrastructuresService {
     const parentFolder = `infrastructures/${dto.communeId}`;
 
     // Normalise le JSON des composants (conservation d’images) + upload
-    const normalizedComponents = [];
+    const normalizedComponents: any[] = [];
     for (const c of ensureArray(dto.composant)) {
       const imagesUrls = await this.toCloudinaryUrls(ensureArray(c.images), `${parentFolder}/components`);
       normalizedComponents.push({
