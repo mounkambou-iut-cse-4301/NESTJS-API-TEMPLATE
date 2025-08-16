@@ -23,6 +23,7 @@ async function bootstrap() {
     app.useGlobalPipes(new ValidationPipe({
     transform: true,                 // ✅ convertit "2" -> 2 grâce aux DTO
     whitelist: true,
+      forbidNonWhitelisted: false, // pour éviter 400 si des clés en plus arrivent
     transformOptions: { enableImplicitConversion: true },
   }));
 

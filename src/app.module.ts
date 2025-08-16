@@ -6,6 +6,9 @@ import { RegionsModule } from './regions/regions.module';
 import { DepartementsModule } from './departements/departements.module';
 import { ArrondissementsModule } from './arrondissements/arrondissements.module';
 import { CommunesModule } from './communes/communes.module';
+import { TypesModule } from './types/types.module';
+import { DomainesModule } from './domaines/domaines.module';
+import { SousDomainesModule } from './sousdomaines/sousdomaines.module';
 
 @Module({
   imports: [
@@ -16,6 +19,9 @@ import { CommunesModule } from './communes/communes.module';
     DepartementsModule,
     ArrondissementsModule,
     CommunesModule,
+    TypesModule,
+    DomainesModule,
+    SousDomainesModule,
   ],
 })
 export class AppModule {}

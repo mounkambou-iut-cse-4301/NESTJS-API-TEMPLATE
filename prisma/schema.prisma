@@ -136,6 +136,34 @@ model RolePermission {
   @@id([roleId, permissionId])
 }
 
+model Domaine {
+  id          Int              @id @default(autoincrement())
+  nom         String           @unique
+  nom_en      String?
+  code        String?
+  created_at  DateTime         @default(now())
+  updated_at  DateTime         @updatedAt
+
+  sousDomaines     SousDomaine[]
+  types            TypeInfrastructure[]
+  infrastructures  Infrastructure[]
+}
+
+model SousDomaine {
+  id          Int       @id @default(autoincrement())
+  domaineId   Int
+  domaine     Domaine   @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  nom         String
+  nom_en      String?
+  code        String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  types            TypeInfrastructure[]
+  infrastructures  Infrastructure[]
+}
+
 /* =========================
    Types d'infrastructure (modèles)
    ========================= */
@@ -145,14 +173,16 @@ model TypeInfrastructure {
 
   /// Nom du type (ex: "hopital")
   name      String   @unique
-  /// Domaine fonctionnel (ex: "santé")
-  domaine   String?
+
   /// Nature du type: "simple" ou "complexe"
   type      String
 
   /// Localisation par défaut (JSON libre)
   /// Exemple: { "lat": 0, "log": 0 }
   location  Json?
+
+    /// Description textuelle du type
+  description String?
 
   /// Images par défaut (JSON libre)
   /// Exemple: ["https://..."]
@@ -178,6 +208,12 @@ model TypeInfrastructure {
   /// ]
   composant Json?
 
+  /// Classification
+  domaineId      Int?
+  sousdomaineId  Int?
+  domaine        Domaine?      @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  sousdomaine    SousDomaine?  @relation(fields: [sousdomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -197,6 +233,9 @@ model Infrastructure {
 
   /// Nom lisible (ex: "Hopital de djongolo")
   name                   String
+
+    /// Description textuelle du record communal
+  description String?
 
   /// Infrastructure déjà existante ? (1/0)
   existing_infrastructure Boolean  @default(true)
@@ -226,6 +265,13 @@ model Infrastructure {
   /// Attributs réels (JSON objet, clé → valeur)
   /// Exemple: { "NombrePharmacie": 1, "NombreChambre": 10 }
   attribus   Json
+
+  /// Classification
+  domaineId      Int?
+  sousdomaineId  Int?
+  domaine        Domaine?      @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  sousdomaine    SousDomaine?  @relation(fields: [sousdomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+
 
   /// Composants réels (JSON array)
   /// Exemple:
