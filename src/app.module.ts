@@ -10,6 +10,8 @@ import { TypesModule } from './types/types.module';
 import { DomainesModule } from './domaines/domaines.module';
 import { SousDomainesModule } from './sousdomaines/sousdomaines.module';
 import { InfrastructuresModule } from './infrastructures/infrastructures.module';
+import { GeoModule } from './geo/geo.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { InfrastructuresModule } from './infrastructures/infrastructures.module'
     DomainesModule,
     SousDomainesModule,
     InfrastructuresModule,
+    GeoModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}

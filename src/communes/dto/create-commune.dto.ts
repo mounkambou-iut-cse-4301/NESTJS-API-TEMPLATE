@@ -10,6 +10,14 @@ export class CreateCommuneDto {
   @IsOptional() @IsString()
   nom_en?: string;
 
+  @ApiPropertyOptional({ example: 3.8481 })
+  @IsOptional() @IsInt()
+  longitude?: number;
+
+  @ApiPropertyOptional({ example: 11.5021 })
+  @IsOptional() @IsInt()
+  latitude?: number;
+
   @ApiPropertyOptional({ example: 'YDE1C' })
   @IsOptional() @IsString()
   code?: string;
