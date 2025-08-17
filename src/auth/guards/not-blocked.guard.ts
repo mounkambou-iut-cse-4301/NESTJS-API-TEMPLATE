@@ -30,6 +30,8 @@ export class NotBlockedGuard implements CanActivate {
         messageE: 'Your account is blocked.',
       });
     }
+    console.log(user);
+    
     return true;
     }
 }

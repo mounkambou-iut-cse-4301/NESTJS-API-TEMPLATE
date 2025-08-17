@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Patch, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Patch, Delete, UseGuards, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -22,8 +22,8 @@ function buildMetaLocal(page: number, pageSize: number, total: number) {
   const totalPages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
   return { page, pageSize, total, totalPages };
 }
-//  @ApiBearerAuth('JWT-auth')
-// @UseGuards(JwtAuthGuard, NotBlockedGuard) // 👈 tu mets ça seulement ici si tu le veux
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard) // 👈 tu mets ça seulement ici si tu le veux
 
 @ApiTags('Users')
 @Controller('api/v1/users')
@@ -33,7 +33,7 @@ export class UsersController {
   /** GET /api/v1/users — liste + filtres + pagination */
   @ApiOperation({ summary:'api pour avoir tous les utilisateurs par filtre et par pagination'})
   @Get()
-  async list(@Query() q: ListUsersQueryDto) {
+  async list(@Query() q: ListUsersQueryDto,@Req() req: any) {
     const page = Math.max(1, Number(q.page ?? 1));
     const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
     const sort = parseSortLocal(q.sort);
@@ -46,6 +46,7 @@ export class UsersController {
       is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
       is_block: q.is_block === undefined ? undefined : q.is_block === 'true',
       q: q.q,
+      req, // pour le logging
     });
 
     return {

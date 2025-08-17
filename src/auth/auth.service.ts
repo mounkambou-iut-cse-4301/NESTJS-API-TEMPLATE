@@ -20,8 +20,78 @@ export class AuthService {
     private readonly email: EmailService,
   ) {}
  /** POST /auth/login — email + mot_de_passe → JWT signé (payload lisible) */
+//   async login(dto: LoginDto) {
+//     // 1) Cherche l’utilisateur (sans include compliqué)
+//     const user = await this.prisma.utilisateur.findUnique({
+//       where: { email: dto.email },
+//     });
+//     if (!user) {
+//       throw new UnauthorizedException({ message: 'Identifiants invalides.', messageE: 'Invalid credentials.' });
+//     }
+
+//     // 2) Vérifie le mot de passe (bcrypt)
+//     const ok = await bcrypt.compare(dto.mot_de_passe, user.mot_de_passe);
+//     if (!ok) {
+//       throw new UnauthorizedException({ message: 'Identifiants invalides.', messageE: 'Invalid credentials.' });
+//     }
+//     if (user.is_block) {
+//       throw new UnauthorizedException({ message: 'Compte bloqué.', messageE: 'Account blocked.' });
+//     }
+
+//     // 3) Récupère rôles puis permissions (séparément → typage simple et robuste)
+//     const userRoles = await this.prisma.utilisateurRole.findMany({
+//       where: { utilisateurId: user.id },
+//       include: { role: true }, // role: { id, nom }
+//     });
+//     const roleIds = userRoles.map((ur) => ur.roleId);
+
+//     const rolePerms = roleIds.length
+//       ? await this.prisma.rolePermission.findMany({
+//           where: { roleId: { in: roleIds } },
+//           include: { permission: true }, // permission: { id, code }
+//         })
+//       : [];
+
+//     const roles = userRoles.map((ur) => ({ id: ur.role.id, nom: ur.role.nom }));
+//     const permSet = new Set<string>();
+//     rolePerms.forEach((rp) => permSet.add(rp.permission.code));
+
+//     // 4) JWT payload lisible
+//     const payload = {
+//       sub: user.id,
+//       user: {
+//         id: user.id,
+//         nom: user.nom,
+//         email: user.email,
+//         telephone: user.telephone ?? null,
+//         communeId: user.communeId ?? null,
+//         is_block: user.is_block,
+//         is_verified: user.is_verified,
+//         photo_url: user.photo_url ?? null,
+//       },
+//       roles,
+//       permissions: Array.from(permSet),
+//     };
+
+//     const token = await this.jwt.signAsync(payload, {
+//       secret: this.config.get<string>('JWT_SECRET') || 'dev-secret',
+//       expiresIn: '1d',
+//     });
+
+//     return {
+//       message: 'Connexion réussie.',
+//       messageE: 'Login successful.',
+//       token,
+//       user: payload.user,
+//       roles,
+//       permissions: payload.permissions,
+//     };
+//   }
+
+  // ===== Étape 1 — FORGOT =====
+  
   async login(dto: LoginDto) {
-    // 1) Cherche l’utilisateur (sans include compliqué)
+    // 1) Utilisateur
     const user = await this.prisma.utilisateur.findUnique({
       where: { email: dto.email },
     });
@@ -29,7 +99,7 @@ export class AuthService {
       throw new UnauthorizedException({ message: 'Identifiants invalides.', messageE: 'Invalid credentials.' });
     }
 
-    // 2) Vérifie le mot de passe (bcrypt)
+    // 2) Mot de passe
     const ok = await bcrypt.compare(dto.mot_de_passe, user.mot_de_passe);
     if (!ok) {
       throw new UnauthorizedException({ message: 'Identifiants invalides.', messageE: 'Invalid credentials.' });
@@ -38,25 +108,32 @@ export class AuthService {
       throw new UnauthorizedException({ message: 'Compte bloqué.', messageE: 'Account blocked.' });
     }
 
-    // 3) Récupère rôles puis permissions (séparément → typage simple et robuste)
+    // 3) Rôles
     const userRoles = await this.prisma.utilisateurRole.findMany({
       where: { utilisateurId: user.id },
-      include: { role: true }, // role: { id, nom }
+      include: { role: true }, // { id, nom }
     });
-    const roleIds = userRoles.map((ur) => ur.roleId);
-
-    const rolePerms = roleIds.length
-      ? await this.prisma.rolePermission.findMany({
-          where: { roleId: { in: roleIds } },
-          include: { permission: true }, // permission: { id, code }
-        })
-      : [];
-
     const roles = userRoles.map((ur) => ({ id: ur.role.id, nom: ur.role.nom }));
-    const permSet = new Set<string>();
-    rolePerms.forEach((rp) => permSet.add(rp.permission.code));
+    const roleIds = userRoles.map((ur) => ur.roleId);
+    const isSuperAdmin = userRoles.some((ur) => ur.role.nom == 'SUPER ADMIN');
 
-    // 4) JWT payload lisible
+    // 4) Permissions
+    let permissions: string[] = [];
+    if (isSuperAdmin) {
+      // SUPER_ADMIN → toutes les permissions directement
+      const allPerms = await this.prisma.permission.findMany({ select: { code: true } });
+      permissions = allPerms.map((p) => p.code);
+    } else if (roleIds.length) {
+      const rolePerms = await this.prisma.rolePermission.findMany({
+        where: { roleId: { in: roleIds } },
+        include: { permission: true }, // { id, code }
+      });
+      const permSet = new Set<string>();
+      rolePerms.forEach((rp) => permSet.add(rp.permission.code));
+      permissions = Array.from(permSet);
+    }
+
+    // 5) Payload + JWT
     const payload = {
       sub: user.id,
       user: {
@@ -70,7 +147,7 @@ export class AuthService {
         photo_url: user.photo_url ?? null,
       },
       roles,
-      permissions: Array.from(permSet),
+      permissions,
     };
 
     const token = await this.jwt.signAsync(payload, {
@@ -84,11 +161,10 @@ export class AuthService {
       token,
       user: payload.user,
       roles,
-      permissions: payload.permissions,
+      permissions,
     };
   }
-
-  // ===== Étape 1 — FORGOT =====
+  
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.prisma.utilisateur.findUnique({
       where: { email: dto.email },

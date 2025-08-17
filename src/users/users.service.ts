@@ -12,58 +12,120 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
+    
   ) {}
 
   /** Liste paginée des utilisateurs avec filtres. */
-  async list(params: {
-    page: number;
-    pageSize: number;
-    sort?: Record<string, 'asc' | 'desc'>;
-    communeId?: number;
-    is_verified?: boolean;
-    is_block?: boolean;
-    q?: string;
-  }) {
-    const { page, pageSize, sort, communeId, is_verified, is_block, q } = params;
+//   async list(params: {
+//     page: number;
+//     pageSize: number;
+//     sort?: Record<string, 'asc' | 'desc'>;
+//     communeId?: number;
+//     is_verified?: boolean;
+//     is_block?: boolean;
+//     q?: string;
+//     req?: any; // pour le logging
+//   }) {
+//     const { page, pageSize, sort, communeId, is_verified, is_block, q, req } = params;
+//     const currentUserId = req?.sub as number | undefined;
+//     const userCommuneId = req?.user.communeId as number | undefined;
 
-    const where: any = {};
-    if (typeof communeId === 'number') where.communeId = communeId;
-    if (typeof is_verified === 'boolean') where.is_verified = is_verified;
-    if (typeof is_block === 'boolean') where.is_block = is_block;
-    if (q) {
-      where.OR = [
-        { nom:       { contains: q, mode: 'insensitive' } },
-        { email:     { contains: q, mode: 'insensitive' } },
-        { telephone: { contains: q, mode: 'insensitive' } },
-      ];
-    }
+//     const where: any = {};
+//     if (typeof communeId === 'number') where.communeId = communeId;
+//     if (typeof is_verified === 'boolean') where.is_verified = is_verified;
+//     if (typeof is_block === 'boolean') where.is_block = is_block;
+//     if (q) {
+//       where.OR = [
+//         { nom:       { contains: q, mode: 'insensitive' } },
+//         { email:     { contains: q, mode: 'insensitive' } },
+//         { telephone: { contains: q, mode: 'insensitive' } },
+//       ];
+//     }
 
-    const [total, items] = await this.prisma.$transaction([
-      this.prisma.utilisateur.count({ where }),
-      this.prisma.utilisateur.findMany({
-        where,
-        orderBy: (sort as any) ?? { created_at: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          nom: true,
-          email: true,
-          telephone: true,
-          communeId: true,
-          is_verified: true,
-          is_block: true,
-          created_at: true,
-          updated_at: true,
-          // Rôles si relation présente
-          roles: { select: { role: { select: { id: true, nom: true } } } },
-        },
-      }),
-    ]);
+//     const [total, items] = await this.prisma.$transaction([
+//       this.prisma.utilisateur.count({ where }),
+//       this.prisma.utilisateur.findMany({
+//         where,
+//         orderBy: (sort as any) ?? { created_at: 'desc' },
+//         skip: (page - 1) * pageSize,
+//         take: pageSize,
+//         select: {
+//           id: true,
+//           nom: true,
+//           email: true,
+//           telephone: true,
+//           communeId: true,
+//           is_verified: true,
+//           is_block: true,
+//           created_at: true,
+//           updated_at: true,
+//           // Rôles si relation présente
+//           roles: { select: { role: { select: { id: true, nom: true } } } },
+//         },
+//       }),
+//     ]);
 
-    return { total, items };
+//     return { total, items };
+//   }
+async list(params: {
+  page: number;
+  pageSize: number;
+  sort?: Record<string, 'asc' | 'desc'>;
+  communeId?: number;
+  is_verified?: boolean;
+  is_block?: boolean;
+  q?: string;
+  req?: any; // pour le logging
+}) {
+  const { page, pageSize, sort, communeId, is_verified, is_block, q, req } = params;
+  const currentUserId = req?.sub as number | undefined;
+  const userCommuneId = req?.user.communeId as number | undefined;
+
+  const where: any = {};
+
+  // Filtrage par commune
+  if (userCommuneId !== undefined && userCommuneId !== null) {
+    where.communeId = userCommuneId;
+  } else if (typeof communeId === 'number') {
+    where.communeId = communeId;
   }
 
+  // Autres filtres
+  if (typeof is_verified === 'boolean') where.is_verified = is_verified;
+  if (typeof is_block === 'boolean') where.is_block = is_block;
+  if (q) {
+    where.OR = [
+      { nom: { contains: q, mode: 'insensitive' } },
+      { email: { contains: q, mode: 'insensitive' } },
+      { telephone: { contains: q, mode: 'insensitive' } },
+    ];
+  }
+
+  const [total, items] = await this.prisma.$transaction([
+    this.prisma.utilisateur.count({ where }),
+    this.prisma.utilisateur.findMany({
+      where,
+      orderBy: (sort as any) ?? { created_at: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        nom: true,
+        email: true,
+        telephone: true,
+        communeId: true,
+        is_verified: true,
+        is_block: true,
+        created_at: true,
+        updated_at: true,
+        // Rôles si relation présente
+        roles: { select: { role: { select: { id: true, nom: true } } } },
+      },
+    }),
+  ]);
+
+  return { total, items };
+}
   /**
    * Création d'un utilisateur.
    * - téléphone OBLIGATOIRE & UNIQUE, commence par +237
