@@ -135,7 +135,7 @@ export class InfrastructuresService {
           existing_infrastructure: true,
           type: true,
           regionId: true, region: true, departementId: true, departement: true, arrondissementId: true, arrondissement: true, communeId: true, commune: true,
-          domaineId: true, sousdomaineId: true,
+          domaineId: true, domaine: { select: { id: true, nom: true, code: true } }, sousdomaineId: true, sousdomaine: { select: { id: true, nom: true, code: true } },
           location: true, images: true, attribus: true, composant: true,
           created_at: true, updated_at: true,
         },

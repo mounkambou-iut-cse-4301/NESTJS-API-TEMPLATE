@@ -97,7 +97,7 @@ export class TypesService {
         select: {
           id: true, name: true, description: true, type: true,
           location: true, images: true, attribus: true, composant: true,
-          domaineId: true, sousdomaineId: true,
+          domaineId: true, domaine: { select: { id: true, nom: true, code: true } }, sousdomaineId: true, sousdomaine: { select: { id: true, nom: true, code: true } },
           created_at: true, updated_at: true,
         },
       }),
