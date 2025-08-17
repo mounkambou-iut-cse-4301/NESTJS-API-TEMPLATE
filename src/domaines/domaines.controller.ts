@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DomainesService } from './domaines.service';
 import { ListDomainesQueryDto } from './dto/list-domaines.query.dto';
 import { CreateDomaineDto } from './dto/create-domaine.dto';
 import { UpdateDomaineDto } from './dto/update-domaine.dto';
 import { DomaineIdParamDto } from './dto/domaine-id.param.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 
 function sanitizeSort(sort: string | undefined, allowed: string[]) {
   if (!sort) return undefined;
@@ -18,7 +20,8 @@ function sanitizeSort(sort: string | undefined, allowed: string[]) {
 function meta(page:number, pageSize:number, total:number) {
   return { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total/Math.max(1,pageSize))) };
 }
-
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('Domaines')
 @Controller('api/v1/domaines')
 export class DomainesController {

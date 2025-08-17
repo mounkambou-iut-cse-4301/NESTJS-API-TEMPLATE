@@ -1,6 +1,6 @@
 // src/auth/auth.controller.ts
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -52,6 +52,8 @@ export class AuthController {
     };
   }
 
+   @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard, NotBlockedGuard)
   @Post('change-password')
   @UseGuards(JwtAuthGuard, NotBlockedGuard) // protège pour l’utilisateur connecté
   @ApiOperation({

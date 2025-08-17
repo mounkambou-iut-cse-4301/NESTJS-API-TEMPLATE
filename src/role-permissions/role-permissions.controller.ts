@@ -1,12 +1,15 @@
 // src/role-permissions/role-permissions.controller.ts
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RolePermissionsService } from './role-permissions.service';
 import { ListRolePermsQueryDto } from './dto/list-role-perms.query.dto';
 import { AttachPermsDto, DetachPermsDto } from './dto/attach-perms.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 
 function meta(p:number, ps:number, t:number){ return { page:p, pageSize:ps, total:t, totalPages: Math.max(1, Math.ceil(t/Math.max(1,ps))) }; }
-
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('Role-Permissions')
 @Controller('api/v1/role-permissions')
 export class RolePermissionsController {

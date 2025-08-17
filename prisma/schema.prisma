@@ -105,6 +105,7 @@ model Utilisateur {
 
   commune            Commune?   @relation(fields: [communeId], references: [id], onUpdate: Cascade, onDelete: SetNull)
   roles              UtilisateurRole[]
+  infrastructures   Infrastructure[] // back-rel sur Infrastructure.user
 }
 
 model Role {
@@ -250,11 +251,13 @@ model Infrastructure {
   departementId   Int
   arrondissementId Int
   communeId       Int
+  utilisateurId          Int?
 
   region         Region         @relation(fields: [regionId],        references: [id], onUpdate: Cascade, onDelete: Restrict)
   departement    Departement    @relation(fields: [departementId],   references: [id], onUpdate: Cascade, onDelete: Restrict)
   arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   commune        Commune        @relation(fields: [communeId],       references: [id], onUpdate: Cascade, onDelete: Restrict)
+  utilisateur    Utilisateur?   @relation(fields: [utilisateurId],  references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   /// Localisation réelle (JSON libre)
   /// Exemple: { "lat": 1111, "log": 212321 }

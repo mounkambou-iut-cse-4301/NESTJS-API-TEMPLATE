@@ -1,9 +1,8 @@
-// src/infrastructures/infrastructures.service.ts
+import { uploadImageToCloudinary } from './../utils/cloudinary';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInfrastructureDto } from './dto/create-infra.dto';
 import { UpdateInfrastructureDto } from './dto/update-infra.dto';
-import { uploadImageToCloudinary } from '../utils/cloudinary';
 
 type Order = Record<string, 'asc' | 'desc'>;
 
@@ -74,24 +73,37 @@ export class InfrastructuresService {
     }
   }
 
+  private async ensureUserExists(utilisateurId?: number) {
+    if (typeof utilisateurId !== 'number') return;
+    const cnt = await this.prisma.utilisateur.count({ where: { id: utilisateurId } });
+    if (!cnt) throw new BadRequestException({ message: 'Utilisateur (créateur) invalide.', messageE: 'Invalid user (creator).' });
+  }
+
   /* ---------- LIST ---------- */
-  async list(params: {
+   async list(params: {
     page: number; pageSize: number; sort?: Order;
     regionId?: number; departementId?: number; arrondissementId?: number; communeId?: number;
-    typeId?: number; type?: string; q?: string; domaineId?: number; sousdomaineId?: number;
+    typeId?: number; type?: string; q?: string; domaineId?: number; sousdomaineId?: number; utilisateurId?: number;
     created_from?: string; created_to?: string;
+    req?: any; // pour le logging
   }) {
     const {
       page, pageSize, sort,
       regionId, departementId, arrondissementId, communeId,
-      typeId, type, q, domaineId, sousdomaineId, created_from, created_to,
+      typeId, type, q, domaineId, sousdomaineId, utilisateurId, created_from, created_to, req
     } = params;
-
+  const currentUserId = req?.sub as number | undefined;
+  const userCommuneId = req?.user.communeId as number | undefined;
     const where: any = {};
     if (typeof regionId === 'number') where.regionId = regionId;
     if (typeof departementId === 'number') where.departementId = departementId;
     if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
     if (typeof communeId === 'number') where.communeId = communeId;
+    if (typeof utilisateurId === 'number') where.utilisateurId = utilisateurId;
+    if (currentUserId && userCommuneId) {
+      where.communeId = userCommuneId; // Limite aux infrastructures de la commune de l'utilisateur
+    }
+
     if (typeof typeId === 'number') where.id_type_infrastructure = typeId;
     if (typeof domaineId === 'number') where.domaineId = domaineId;
     if (typeof sousdomaineId === 'number') where.sousdomaineId = sousdomaineId;
@@ -135,14 +147,18 @@ export class InfrastructuresService {
   }
 
   /* ---------- CREATE (Cloudinary + composant JSON conservé + duplication enfants indépendants) ---------- */
-  async create(dto: CreateInfrastructureDto) {
+  async create(dto: CreateInfrastructureDto, currentUserId?: number) {
     await this.ensureTypeExists(dto.typeId);
     await this.ensureTerritoryExists(dto.regionId, dto.departementId, dto.arrondissementId, dto.communeId);
     await this.ensureClassification(dto.domaineId, dto.sousdomaineId);
 
+    // Choix du créateur: dto.utilisateurId > currentUserId > null
+    const creatorId = dto.utilisateurId ?? currentUserId ?? null;
+    await this.ensureUserExists(creatorId ?? undefined);
+
     const parentFolder = `infrastructures/${dto.communeId}`;
 
-    // Normalise le JSON des composants (conservation d’images) + upload
+    // Normalise le JSON des composants + upload images composants
     const normalizedComponents: any[] = [];
     for (const c of ensureArray(dto.composant)) {
       const imagesUrls = await this.toCloudinaryUrls(ensureArray(c.images), `${parentFolder}/components`);
@@ -167,21 +183,22 @@ export class InfrastructuresService {
       communeId: dto.communeId,
       domaineId: dto.domaineId ?? null,
       sousdomaineId: dto.sousdomaineId ?? null,
+      utilisateurId: creatorId,            // ✅ trace du créateur
       location: ensureObject(dto.location),
       images: await this.toCloudinaryUrls(dto.images, parentFolder),
       attribus: ensureObject(dto.attribus),
-      composant: normalizedComponents,      // ✅ JSON conservé (indépendant)
+      composant: normalizedComponents,     // ✅ JSON conservé (indépendant)
     };
 
     return await this.prisma.$transaction(async (tx) => {
-      // 1) crée le parent (avec JSON composant déjà prêt)
+      // 1) crée le parent
       const parent = await tx.infrastructure.create({
         data: dataParent,
         select: { id: true },
       });
       const parentIdStr = toStrId(parent.id);
 
-      // 2) crée des records ENFANTS indépendants (aucun lien stocké dans le JSON parent)
+      // 2) crée des records ENFANTS indépendants (utilisateurId hérité du créateur)
       for (const c of normalizedComponents) {
         await tx.infrastructure.create({
           data: {
@@ -189,15 +206,16 @@ export class InfrastructuresService {
             name: `${dto.name} — ${c.name ?? 'Composant'}`,
             description: c.description ?? null,
             existing_infrastructure: c.existingInfrastructure ?? true,
-            type: c.type, // déjà upper
+            type: c.type,
             regionId: dto.regionId,
             departementId: dto.departementId,
             arrondissementId: dto.arrondissementId,
             communeId: dto.communeId,
             domaineId: dto.domaineId ?? null,
             sousdomaineId: dto.sousdomaineId ?? null,
+            utilisateurId: creatorId, // ✅
             location: c.location,
-            images: c.images,                 // ✅ mêmes URLs que dans le JSON
+            images: c.images,
             attribus: c.attribus,
             composant: Array.isArray(c.composant) ? c.composant : [],
           },
@@ -209,7 +227,7 @@ export class InfrastructuresService {
     });
   }
 
-  /* ---------- GET ONE (include=type,territory ; composants = JSON tel quel) ---------- */
+  /* ---------- GET ONE ---------- */
   async findOne(idStr: string, include?: string[]) {
     const id = BigInt(idStr);
     const row = await this.prisma.infrastructure.findUnique({
@@ -223,6 +241,7 @@ export class InfrastructuresService {
         type: true,
         regionId: true, departementId: true, arrondissementId: true, communeId: true,
         domaineId: true, sousdomaineId: true,
+        utilisateurId: true,
         location: true, images: true, attribus: true, composant: true,
         created_at: true, updated_at: true,
         ...(include?.includes('type') ? { typeRef: { select: { id: true, name: true, type: true, domaineId: true, sousdomaineId: true } } } : {}),
@@ -236,11 +255,10 @@ export class InfrastructuresService {
     });
     if (!row) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
 
-    // Pas de "composantsDetail" fetch (indépendance). On renvoie le JSON tel quel.
     return { ...row, id: toStrId(row.id) };
   }
 
-  /* ---------- UPDATE (met à jour le parent ; composants JSON conservés/écrasés ; enfants non touchés) ---------- */
+  /* ---------- UPDATE ---------- */
   async update(idStr: string, dto: UpdateInfrastructureDto) {
     const id = BigInt(idStr);
     const current = await this.prisma.infrastructure.findUnique({
@@ -248,7 +266,7 @@ export class InfrastructuresService {
       select: {
         id: true, id_type_infrastructure: true, name: true,
         regionId: true, departementId: true, arrondissementId: true, communeId: true,
-        domaineId: true, sousdomaineId: true,
+        domaineId: true, sousdomaineId: true, utilisateurId: true,
       },
     });
     if (!current) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
@@ -266,9 +284,13 @@ export class InfrastructuresService {
     const effSdom = dto.sousdomaineId ?? current.sousdomaineId ?? undefined;
     await this.ensureClassification(effDom, effSdom);
 
+    if (typeof dto.utilisateurId === 'number') {
+      await this.ensureUserExists(dto.utilisateurId);
+    }
+
     const folder = `infrastructures/${effCom}`;
 
-    // Si des composants sont fournis, on les **remplace** dans le JSON parent (indépendance) après normalisation images.
+    // Remplacement optionnel du JSON composant (indépendance) avec re-upload
     let newComposant: any[] | undefined = undefined;
     if (Array.isArray(dto.composant)) {
       newComposant = [];
@@ -278,7 +300,7 @@ export class InfrastructuresService {
           ...c,
           type: (c.type ?? 'SIMPLE').toUpperCase(),
           location: ensureObject(c.location),
-          images: imgs,                    // ✅ conserver images
+          images: imgs,
           attribus: ensureObject(c.attribus),
         });
       }
@@ -296,10 +318,11 @@ export class InfrastructuresService {
       communeId: dto.communeId,
       domaineId: dto.domaineId,
       sousdomaineId: dto.sousdomaineId,
+      utilisateurId: dto.utilisateurId, // ✅ modifiable si fourni
       location: dto.location ? ensureObject(dto.location) : undefined,
       images: dto.images ? await this.toCloudinaryUrls(dto.images, folder) : undefined,
       attribus: dto.attribus ? ensureObject(dto.attribus) : undefined,
-      composant: newComposant,  // si fourni, on écrase ; sinon laissé undefined (pas de changement)
+      composant: newComposant,
     };
 
     const updated = await this.prisma.infrastructure.update({
@@ -307,7 +330,7 @@ export class InfrastructuresService {
       select: {
         id: true, id_type_infrastructure: true, name: true, description: true, type: true,
         regionId: true, departementId: true, arrondissementId: true, communeId: true,
-        domaineId: true, sousdomaineId: true,
+        domaineId: true, sousdomaineId: true, utilisateurId: true,
         location: true, images: true, attribus: true, composant: true, updated_at: true,
       },
     });
@@ -315,7 +338,7 @@ export class InfrastructuresService {
     return { ...updated, id: toStrId(updated.id) };
   }
 
-  /* ---------- DELETE (indépendant : ne touche pas d’éventuels enfants) ---------- */
+  /* ---------- DELETE ---------- */
   async remove(idStr: string) {
     const id = BigInt(idStr);
     const exists = await this.prisma.infrastructure.count({ where: { id } });
@@ -330,21 +353,21 @@ export class InfrastructuresService {
       'id','name','description','type','existing_infrastructure',
       'id_type_infrastructure',
       'regionId','departementId','arrondissementId','communeId',
-      'domaineId','sousdomaineId',
+      'domaineId','sousdomaineId','utilisateurId',
       'created_at','updated_at'
     ];
     const rows = full.items.map((r: any) => ([
       r.id, r.name, r.description ?? '', r.type, r.existing_infrastructure ? 1 : 0,
       r.id_type_infrastructure,
       r.regionId, r.departementId, r.arrondissementId, r.communeId,
-      r.domaineId ?? '', r.sousdomaineId ?? '',
+      r.domaineId ?? '', r.sousdomaineId ?? '', r.utilisateurId ?? '',
       r.created_at?.toISOString?.() ?? '', r.updated_at?.toISOString?.() ?? ''
     ].map(v => (typeof v === 'string' && v.includes(',')) ? `"${v.replace(/"/g,'""')}"` : v).join(',')));
     return [headers.join(','), ...rows].join('\n');
   }
 
   /* ---------- BULK ---------- */
-  async validateBulk(items: CreateInfrastructureDto[]) {
+  async validateBulk(items: CreateInfrastructureDto[], defaultUserId?: number) {
     const errors: { index: number; message: string; messageE: string }[] = [];
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
@@ -352,6 +375,12 @@ export class InfrastructuresService {
         await this.ensureTypeExists(it.typeId);
         await this.ensureTerritoryExists(it.regionId, it.departementId, it.arrondissementId, it.communeId);
         await this.ensureClassification(it.domaineId, it.sousdomaineId);
+        // utilisateurId: si non fourni et defaultUserId présent, c’est OK. Sinon facultatif (schema nullable).
+        if (typeof it.utilisateurId === 'number') {
+          await this.ensureUserExists(it.utilisateurId);
+        } else if (typeof defaultUserId === 'number') {
+          await this.ensureUserExists(defaultUserId);
+        }
         if (!it.name) throw new Error('name requis');
         if (!it.type) throw new Error('type requis');
         if (!it.location) throw new Error('location requis');
@@ -363,11 +392,11 @@ export class InfrastructuresService {
     return { valid: errors.length === 0, errors, count: items.length };
   }
 
-  async bulk(items: CreateInfrastructureDto[]) {
+  async bulk(items: CreateInfrastructureDto[], currentUserId?: number) {
     const result: { index: number; id?: string; error?: string }[] = [];
     for (let i = 0; i < items.length; i++) {
       try {
-        const created = await this.create(items[i]);
+        const created = await this.create(items[i], currentUserId);
         result.push({ index: i, id: created.id });
       } catch (e: any) {
         result.push({ index: i, error: e?.message ?? 'unknown error' });

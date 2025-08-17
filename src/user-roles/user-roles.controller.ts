@@ -1,12 +1,15 @@
 // src/user-roles/user-roles.controller.ts
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRolesService } from './user-roles.service';
 import { ListUserRolesQueryDto } from './dto/list-user-roles.query.dto';
 import { AssignRolesDto, RevokeRolesDto } from './dto/assign-roles.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 
 function meta(p:number, ps:number, t:number){ return { page:p, pageSize:ps, total:t, totalPages: Math.max(1, Math.ceil(t/Math.max(1,ps))) }; }
-
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('User-Roles')
 @Controller('api/v1/user-roles')
 export class UserRolesController {

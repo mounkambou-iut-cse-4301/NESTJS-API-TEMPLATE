@@ -60,6 +60,11 @@ export class CreateInfrastructureDto {
   @ApiProperty({ example: 1 }) @Transform(({ value }) => Number(value)) @IsInt() @Min(1) departementId: number;
   @ApiProperty({ example: 1 }) @Transform(({ value }) => Number(value)) @IsInt() @Min(1) arrondissementId: number;
   @ApiProperty({ example: 1 }) @Transform(({ value }) => Number(value)) @IsInt() @Min(1) communeId: number;
+/* Créateur (nullable côté DB, mais on l’exige côté API pour tracer, ou fallback sur user connecté) */
+  @ApiProperty({ example: 5, description: 'ID de l’utilisateur créateur. Si omis, on prendra l’utilisateur connecté.' })
+  @Transform(({ value }) => Number(value)) @IsInt() @Min(1)
+  utilisateurId: number;  
+
 
   /* Classification */
   @ApiPropertyOptional({ example: 1 }) @Transform(({ value }) => value === undefined ? undefined : Number(value))

@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SousDomainesService } from './sousdomaines.service';
 import { ListSousDomainesQueryDto } from './dto/list-sousdomaines.query.dto';
 import { CreateSousDomaineDto } from './dto/create-sousdomaine.dto';
 import { UpdateSousDomaineDto } from './dto/update-sousdomaine.dto';
 import { SousDomaineIdParamDto } from './dto/sousdomaine-id.param.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 
 function sanitizeSort(sort: string | undefined, allowed: string[]) {
   if (!sort) return undefined;
@@ -18,7 +20,8 @@ function sanitizeSort(sort: string | undefined, allowed: string[]) {
 function meta(page:number, pageSize:number, total:number) {
   return { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total/Math.max(1,pageSize))) };
 }
-
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('SousDomaines')
 @Controller('api/v1/sous-domaines')
 export class SousDomainesController {

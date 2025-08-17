@@ -10,8 +10,13 @@ export class CommunesService {
   async list(params: {
     page: number; pageSize: number; sort?: Record<string,'asc'|'desc'>;
     q?: string; arrondissementId?: number; code?: string; is_verified?: boolean; is_block?: boolean;
+    req?: any; // pour le logging
   }) {
-    const { page, pageSize, sort, q, arrondissementId, code, is_verified, is_block } = params;
+    const { page, pageSize, sort, q, arrondissementId, code, is_verified, is_block, req } = params;
+    const currentUserId = req?.sub as number | undefined;
+    const userCommuneId = req?.user?.communeId as number | undefined;
+    console.log(userCommuneId, currentUserId);
+
     const where: any = {};
     if (q) {
       where.OR = [
@@ -24,6 +29,12 @@ export class CommunesService {
     if (code) where.code = code;
     if (typeof is_verified === 'boolean') where.is_verified = is_verified;
     if (typeof is_block === 'boolean') where.is_block = is_block;
+    if (currentUserId && userCommuneId) {
+        console.log(userCommuneId);
+        
+      // Si l'utilisateur est connecté et a une commune associée, on filtre par cette commune
+      where.id = userCommuneId;
+    }
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.commune.count({ where }),

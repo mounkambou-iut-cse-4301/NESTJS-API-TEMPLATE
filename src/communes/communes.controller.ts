@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Query, Param, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Query, Param, Patch, Req, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CommunesService } from './communes.service';
 import { ListCommunesQueryDto } from './dto/list-communes.query.dto';
 import { CreateCommuneDto } from './dto/create-commune.dto';
 import { UpdateCommuneDto } from './dto/update-commune.dto';
 import { CommuneIdParamDto } from './dto/commune-id.param.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 
 function sanitizeSort(sort: string | undefined, allowed: string[]) {
   if (!sort) return undefined;
@@ -21,6 +23,8 @@ function buildMeta(page: number, pageSize: number, total: number) {
   return { page, pageSize, total, totalPages };
 }
 
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('Communes')
 @Controller('api/v1/communes')
 export class CommunesController {
@@ -28,7 +32,7 @@ export class CommunesController {
 
   @ApiOperation({ summary: 'Lister les communes', description: 'Liste paginée avec filtres (q, code, arrondissementId, is_verified, is_block) et tri sur id, nom, nom_en, code.' })
   @Get()
-  async list(@Query() q: ListCommunesQueryDto) {
+  async list(@Query() q: ListCommunesQueryDto, @Req() req: any) {
     const page = Math.max(1, Number(q.page ?? 1));
     const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
     const sort = sanitizeSort(q.sort, ['id','nom','nom_en','code']);
@@ -39,6 +43,7 @@ export class CommunesController {
       code: q.code,
       is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
       is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
+        req, // pour le logging
     });
     return { message: 'Liste des communes récupérée.', messageE: 'Municipalities list retrieved.', data: items, meta: buildMeta(page, pageSize, total) };
   }

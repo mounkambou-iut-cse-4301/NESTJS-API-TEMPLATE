@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TypesService } from './types.service';
 import { ListTypesQueryDto } from './dto/list-types.query.dto';
 import { CreateTypeDto } from './dto/create-type.dto';
 import { UpdateTypeDto } from './dto/update-type.dto';
 import { TypeIdParamDto } from './dto/type-id.param.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 
 function sanitizeSort(sort: string | undefined, allowed: string[]) {
   if (!sort) return undefined;
@@ -18,7 +20,8 @@ function sanitizeSort(sort: string | undefined, allowed: string[]) {
 function meta(p:number, s:number, total:number) {
   return { page: p, pageSize: s, total, totalPages: Math.max(1, Math.ceil(total/Math.max(1,s))) };
 }
-
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('TypesInfrastructure')
 @Controller('api/v1/types')
 export class TypesController {

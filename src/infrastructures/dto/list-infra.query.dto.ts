@@ -38,6 +38,10 @@ export class ListInfraQueryDto {
   @ApiPropertyOptional({ description: 'Filtre domaineId' })
   @Transform(({ value }) => value === undefined ? undefined : Number(value))
   @IsOptional() @IsInt() @Min(1) domaineId?: number;
+    
+  @ApiPropertyOptional({ description: 'Filtre communeId' })
+  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @IsOptional() @IsInt() @Min(1) utilisateurId?: number;
 
   @ApiPropertyOptional({ description: 'Filtre sousdomaineId' })
   @Transform(({ value }) => value === undefined ? undefined : Number(value))

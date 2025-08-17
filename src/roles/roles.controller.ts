@@ -1,16 +1,19 @@
 // src/roles/roles.controller.ts
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RolesService } from './roles.service';
 import { ListRolesQueryDto } from './dto/list-roles.query.dto';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 
 function meta(page:number, pageSize:number, total:number){
   const totalPages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
   return { page, pageSize, total, totalPages };
 }
-
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('Roles')
 @Controller('api/v1/roles')
 export class RolesController {
