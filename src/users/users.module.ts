@@ -1,14 +1,15 @@
+// src/users/users.module.ts
 import { Module } from '@nestjs/common';
-import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
+import { PrismaModule } from '../prisma/prisma.module';
+import { AuthModule } from '../auth/auth.module'; // ✅
 import { EmailService } from 'src/utils/email.service';
-import { PrismaModule } from 'src/prisma/prisma.module';
-// EmailService est dans utils/cloudinary.ts (comme tu l'as écrit)
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule], // ✅ nécessaire pour résoudre JwtService via AuthModule
   controllers: [UsersController],
-  providers: [UsersService, EmailService],
+  providers: [UsersService,EmailService],           // ❌ ne pas mettre JwtAuthGuard ici
   exports: [UsersService],
 })
 export class UsersModule {}

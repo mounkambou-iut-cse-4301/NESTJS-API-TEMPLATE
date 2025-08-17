@@ -12,6 +12,7 @@ import { SousDomainesModule } from './sousdomaines/sousdomaines.module';
 import { InfrastructuresModule } from './infrastructures/infrastructures.module';
 import { GeoModule } from './geo/geo.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     InfrastructuresModule,
     GeoModule,
     AnalyticsModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

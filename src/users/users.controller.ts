@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Param, Query, Patch, Delete } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Query, Patch, Delete, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersQueryDto } from './dto/list-users.query.dto';
 import { UserIdParamDto } from './dto/user-id.param.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 
 function parseSortLocal(sort?: string): Record<string, 'asc' | 'desc'> | undefined {
   if (!sort) return undefined;
@@ -20,6 +22,8 @@ function buildMetaLocal(page: number, pageSize: number, total: number) {
   const totalPages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
   return { page, pageSize, total, totalPages };
 }
+//  @ApiBearerAuth('JWT-auth')
+// @UseGuards(JwtAuthGuard, NotBlockedGuard) // 👈 tu mets ça seulement ici si tu le veux
 
 @ApiTags('Users')
 @Controller('api/v1/users')
