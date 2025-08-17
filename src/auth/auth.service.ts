@@ -9,6 +9,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { EmailService } from '../utils/email.service';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,74 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly email: EmailService,
   ) {}
+ /** POST /auth/login — email + mot_de_passe → JWT signé (payload lisible) */
+  async login(dto: LoginDto) {
+    // 1) Cherche l’utilisateur (sans include compliqué)
+    const user = await this.prisma.utilisateur.findUnique({
+      where: { email: dto.email },
+    });
+    if (!user) {
+      throw new UnauthorizedException({ message: 'Identifiants invalides.', messageE: 'Invalid credentials.' });
+    }
+
+    // 2) Vérifie le mot de passe (bcrypt)
+    const ok = await bcrypt.compare(dto.mot_de_passe, user.mot_de_passe);
+    if (!ok) {
+      throw new UnauthorizedException({ message: 'Identifiants invalides.', messageE: 'Invalid credentials.' });
+    }
+    if (user.is_block) {
+      throw new UnauthorizedException({ message: 'Compte bloqué.', messageE: 'Account blocked.' });
+    }
+
+    // 3) Récupère rôles puis permissions (séparément → typage simple et robuste)
+    const userRoles = await this.prisma.utilisateurRole.findMany({
+      where: { utilisateurId: user.id },
+      include: { role: true }, // role: { id, nom }
+    });
+    const roleIds = userRoles.map((ur) => ur.roleId);
+
+    const rolePerms = roleIds.length
+      ? await this.prisma.rolePermission.findMany({
+          where: { roleId: { in: roleIds } },
+          include: { permission: true }, // permission: { id, code }
+        })
+      : [];
+
+    const roles = userRoles.map((ur) => ({ id: ur.role.id, nom: ur.role.nom }));
+    const permSet = new Set<string>();
+    rolePerms.forEach((rp) => permSet.add(rp.permission.code));
+
+    // 4) JWT payload lisible
+    const payload = {
+      sub: user.id,
+      user: {
+        id: user.id,
+        nom: user.nom,
+        email: user.email,
+        telephone: user.telephone ?? null,
+        communeId: user.communeId ?? null,
+        is_block: user.is_block,
+        is_verified: user.is_verified,
+        photo_url: user.photo_url ?? null,
+      },
+      roles,
+      permissions: Array.from(permSet),
+    };
+
+    const token = await this.jwt.signAsync(payload, {
+      secret: this.config.get<string>('JWT_SECRET') || 'dev-secret',
+      expiresIn: '1d',
+    });
+
+    return {
+      message: 'Connexion réussie.',
+      messageE: 'Login successful.',
+      token,
+      user: payload.user,
+      roles,
+      permissions: payload.permissions,
+    };
+  }
 
   // ===== Étape 1 — FORGOT =====
   async forgotPassword(dto: ForgotPasswordDto) {

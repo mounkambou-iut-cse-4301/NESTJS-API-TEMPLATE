@@ -7,11 +7,21 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { NotBlockedGuard } from './guards/not-blocked.guard';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { LoginDto } from './dto/login.dto';
 
 @ApiTags('Auth')
 @Controller('api/v1/auth')
 export class AuthController {
   constructor(private readonly service: AuthService) {}
+
+    @Post('login')
+  @ApiOperation({
+    summary: 'Connexion : email + mot de passe → JWT signé (payload lisible : user, rôles, permissions).',
+    description: `Vérifie les identifiants, refuse si le compte est bloqué. Le JWT est signé avec JWT_SECRET (pas chiffré).`,
+  })
+  async login(@Body() dto: LoginDto) {
+    return await this.service.login(dto);
+  }
 
   @Post('forgot-password')
   @ApiOperation({
