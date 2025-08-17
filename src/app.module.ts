@@ -13,6 +13,10 @@ import { InfrastructuresModule } from './infrastructures/infrastructures.module'
 import { GeoModule } from './geo/geo.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthModule } from './auth/auth.module';
+import { RolesModule } from './roles/roles.module';
+import { PermissionsModule } from './permissions/permissions.module';
+import { UserRolesModule } from './user-roles/user-roles.module';
+import { RolePermissionsModule } from './role-permissions/role-permissions.module';
 
 @Module({
   imports: [
@@ -30,6 +34,10 @@ import { AuthModule } from './auth/auth.module';
     GeoModule,
     AnalyticsModule,
     AuthModule,
+    RolesModule,
+    PermissionsModule,
+    UserRolesModule,
+    RolePermissionsModule,
   ],
 })
 export class AppModule {}
