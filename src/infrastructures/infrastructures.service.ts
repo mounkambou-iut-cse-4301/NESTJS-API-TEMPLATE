@@ -130,6 +130,7 @@ export class InfrastructuresService {
         select: {
           id: true,
           id_type_infrastructure: true,
+          typeRef: { select: { id: true, name: true, type: true, domaineId: true, sousdomaineId: true } },
           name: true,
           description: true,
           existing_infrastructure: true,
@@ -142,7 +143,7 @@ export class InfrastructuresService {
       }),
     ]);
 
-    const items = rows.map(r => ({ ...r, id: toStrId(r.id) }));
+    const items = rows.map(r => ({ ...r, id: toStrId(r.id), name_type_infrastructure: r.typeRef.name }));
     return { total, items };
   }
 
