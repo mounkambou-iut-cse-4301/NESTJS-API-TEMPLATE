@@ -26,7 +26,13 @@ export class UpdateUserDto {
   @ApiPropertyOptional()
   @IsOptional() @IsInt()
   communeId?: number;
+    @ApiPropertyOptional({ example: "yaounde" })
+  @IsOptional() @IsString()
+  ville?: string;
 
+  @ApiPropertyOptional({ example: "bastos" })
+  @IsOptional() @IsString()
+  adresse?: string;
   @ApiPropertyOptional()
   @IsOptional() @IsBoolean()
   is_verified?: boolean;

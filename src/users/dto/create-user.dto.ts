@@ -27,6 +27,14 @@ export class CreateUserDto {
   @IsOptional() @IsInt()
   communeId?: number;
 
+    @ApiPropertyOptional({ example: "yaounde" })
+  @IsOptional() @IsString()
+  ville?: string;
+
+  @ApiPropertyOptional({ example: "bastos" })
+  @IsOptional() @IsString()
+  adresse?: string;
+
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   is_verified?: boolean;

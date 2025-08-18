@@ -275,6 +275,8 @@ async create(dto: CreateUserDto) {
       mot_de_passe: hash,
       telephone: dto.telephone,
       communeId: dto.communeId ?? null,
+      ville: dto.ville ?? null,
+      adresse: dto.adresse ?? null,
       is_verified: dto.is_verified ?? false,
       is_block: dto.is_block ?? false,
     };
@@ -326,6 +328,9 @@ Please change your password at first login.
         email: true,
         telephone: true,
         communeId: true,
+        commune: { select: { id: true, nom: true,nom_en:true,arrondissement:true,departement:true,region:true } },
+        ville: true,
+        adresse: true,
         is_verified: true,
         is_block: true,
         created_at: true,
@@ -393,6 +398,8 @@ Please change your password at first login.
       email: dto.email,
       telephone: dto.telephone,
       communeId: dto.communeId,
+      ville: dto.ville,
+      adresse:dto.adresse,
       is_verified: dto.is_verified,
       is_block: dto.is_block,
     };

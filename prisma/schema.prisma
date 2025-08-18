@@ -97,6 +97,8 @@ model Utilisateur {
   /// Compte vérifié (email / validation admin)
   is_verified        Boolean    @default(false)
   photo_url          String?    // URL Cloudinary
+  ville              String?
+  adresse            String?
   /// Compte bloqué (accès refusé)
   is_block           Boolean    @default(false)
   derniere_connexion DateTime?
