@@ -267,8 +267,6 @@
 //   }
 // }
 
-
-// src/analytics/analytics.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -293,16 +291,22 @@ type Scope = {
 
 function toStrId(id:any){ return typeof id === 'bigint' ? id.toString() : String(id); }
 
-/** Construit un where strict à partir des IDs fournis (indépendant de level). */
-function buildWhere(q: Scope) {
+/** Construit un where strict + scoping automatique par commune utilisateur si présent. */
+function buildWhere(q: Scope, req?: any) {
   const where: any = {};
-  if (q.regionId)        where.regionId = Number(q.regionId);
-  if (q.departementId)   where.departementId = Number(q.departementId);
-  if (q.arrondissementId)where.arrondissementId = Number(q.arrondissementId);
-  if (q.communeId)       where.communeId = Number(q.communeId);
-  if (q.typeId)          where.id_type_infrastructure = Number(q.typeId);
-  if (q.domaineId)       where.domaineId = Number(q.domaineId);
-  if (q.sousdomaineId)   where.sousdomaineId = Number(q.sousdomaineId);
+  if (q.regionId)         where.regionId = Number(q.regionId);
+  if (q.departementId)    where.departementId = Number(q.departementId);
+  if (q.arrondissementId) where.arrondissementId = Number(q.arrondissementId);
+  if (q.communeId)        where.communeId = Number(q.communeId);
+  if (q.typeId)           where.id_type_infrastructure = Number(q.typeId);
+  if (q.domaineId)        where.domaineId = Number(q.domaineId);
+  if (q.sousdomaineId)    where.sousdomaineId = Number(q.sousdomaineId);
+
+  // 🔒 Scoping automatique : si l’utilisateur a une commune, on force le filtre communeId
+  const userCommuneId = req?.user?.communeId as number | undefined;
+  if (userCommuneId) {
+    where.communeId = Number(userCommuneId);
+  }
   return where;
 }
 
@@ -322,24 +326,27 @@ function sqlWhere(where: Record<string, any>) {
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Vérifie que les IDs territoriaux fournis existent. Si l’un n’existe pas → false. */
-  private async territoryIdsExist(q: Scope): Promise<boolean> {
+  /** Vérifie que les IDs territoriaux fournis existent (et la commune scoping si présente). */
+  private async territoryIdsExist(q: Scope, req?: any): Promise<boolean> {
     const checks: Promise<number>[] = [];
-    if (q.regionId)        checks.push(this.prisma.region.count({ where: { id: Number(q.regionId) } }));
-    if (q.departementId)   checks.push(this.prisma.departement.count({ where: { id: Number(q.departementId) } }));
-    if (q.arrondissementId)checks.push(this.prisma.arrondissement.count({ where: { id: Number(q.arrondissementId) } }));
-    if (q.communeId)       checks.push(this.prisma.commune.count({ where: { id: Number(q.communeId) } }));
+    if (q.regionId)         checks.push(this.prisma.region.count({ where: { id: Number(q.regionId) } }));
+    if (q.departementId)    checks.push(this.prisma.departement.count({ where: { id: Number(q.departementId) } }));
+    if (q.arrondissementId) checks.push(this.prisma.arrondissement.count({ where: { id: Number(q.arrondissementId) } }));
+    if (q.communeId)        checks.push(this.prisma.commune.count({ where: { id: Number(q.communeId) } }));
+    // 👇 Ajout : si scoping utilisateur -> on valide que sa commune existe
+    const userCommuneId = req?.user?.communeId as number | undefined;
+    if (userCommuneId)      checks.push(this.prisma.commune.count({ where: { id: Number(userCommuneId) } }));
+
     if (!checks.length) return true; // pas de filtre territorial => OK
     const results = await Promise.all(checks);
     return results.every(c => c > 0);
   }
 
   /* ========== A. Overview ========== */
-  async overview(q: Scope) {
-    const where = buildWhere(q);
+  async overview(q: Scope, req?: any) {
+    const where = buildWhere(q, req);
 
-    // Si des IDs territoriaux sont fournis et qu’ils n’existent pas -> tout vide / 0
-    if (!(await this.territoryIdsExist(q))) {
+    if (!(await this.territoryIdsExist(q, req))) {
       return {
         message: 'Vue d’ensemble.',
         messageE: 'Overview.',
@@ -366,9 +373,9 @@ export class AnalyticsService {
   }
 
   /* ========== B. Distribution par type ========== */
-  async distributionTypes(q: Scope) {
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async distributionTypes(q: Scope, req?: any) {
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message: 'Répartition par type.', messageE: 'Distribution by type.', items: [] };
     }
 
@@ -397,9 +404,9 @@ export class AnalyticsService {
   }
 
   /* ========== B. Distribution par domaine ========== */
-  async distributionDomaines(q: Scope) {
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async distributionDomaines(q: Scope, req?: any) {
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message: 'Répartition par domaine.', messageE: 'Distribution by domain.', items: [] };
     }
 
@@ -424,9 +431,9 @@ export class AnalyticsService {
   /* ========== C. Séries temporelles ========== */
   private fmt(group_by:'mois'|'trimestre'|'annee'){ return group_by==='annee' ? '%Y' : group_by==='trimestre' ? 'T' : '%Y-%m'; }
 
-  async timeseriesCreated(q: Scope){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async timeseriesCreated(q: Scope, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Série temporelle (créations).', messageE:'Time series (created).', items: [] };
     }
 
@@ -462,9 +469,9 @@ export class AnalyticsService {
     }
   }
 
-  async timeseriesUpdates(q: Scope){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async timeseriesUpdates(q: Scope, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Série temporelle (mises à jour).', messageE:'Time series (updates).', items: [] };
     }
 
@@ -501,9 +508,9 @@ export class AnalyticsService {
   }
 
   /* ========== D. Top-N (tri côté Node) ========== */
-  async topCommunes(q: Scope){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async topCommunes(q: Scope, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Top communes.', messageE:'Top communes.', items: [] };
     }
 
@@ -528,9 +535,9 @@ export class AnalyticsService {
     return { message:'Top communes.', messageE:'Top communes.', items };
   }
 
-  async topTypes(q: Scope){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async topTypes(q: Scope, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Top types.', messageE:'Top types.', items: [] };
     }
 
@@ -556,9 +563,9 @@ export class AnalyticsService {
   }
 
   /* ========== E. Choropleth ========== */
-  async mapChoropleth(q: Scope){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async mapChoropleth(q: Scope, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Choropleth prêt.', messageE:'Choropleth ready.', items: [] };
     }
     const rows = await this.prisma.infrastructure.groupBy({
@@ -569,9 +576,9 @@ export class AnalyticsService {
   }
 
   /* ========== Heatmap points ========== */
-  async mapHeatmap(q: Scope){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async mapHeatmap(q: Scope, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Heatmap prête.', messageE:'Heatmap ready.', items: [] };
     }
     if (q.from || q.to) {
@@ -588,9 +595,9 @@ export class AnalyticsService {
   }
 
   /* ========== F. Complétude ========== */
-  async completeness(q: Scope & { attr: string }){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async completeness(q: Scope & { attr: string }, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Complétude calculée.', messageE:'Completeness computed.', data: { total: 0, filled: 0, percent: 0 } };
     }
 
@@ -612,19 +619,19 @@ export class AnalyticsService {
   }
 
   /* ========== Coverage ========== */
-  async coverage(q: Scope){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async coverage(q: Scope, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Couverture calculée.', messageE:'Coverage computed.', data: { communes_total: 0, communes_couvertes: 0, percent: 0 } };
     }
 
     const active = await this.prisma.infrastructure.groupBy({ by: ['communeId'], where, orderBy: { communeId: 'asc' }, _count: { _all: true } });
 
-    // Calcule le total des communes dans le scope fourni
+    // total communes dans le scope (attention : si scoping par commune utilisateur, ce total est global au périmètre défini)
     const communeScope: any = {};
-    if (q.regionId)        communeScope.regionId = Number(q.regionId);
-    if (q.departementId)   communeScope.departementId = Number(q.departementId);
-    if (q.arrondissementId)communeScope.arrondissementId = Number(q.arrondissementId);
+    if (q.regionId)         communeScope.regionId = Number(q.regionId);
+    if (q.departementId)    communeScope.departementId = Number(q.departementId);
+    if (q.arrondissementId) communeScope.arrondissementId = Number(q.arrondissementId);
 
     const totalCommunes = await this.prisma.commune.count({ where: communeScope });
     const percent = totalCommunes ? +(active.length*100/totalCommunes).toFixed(2) : 0;
@@ -632,9 +639,9 @@ export class AnalyticsService {
   }
 
   /* ========== G. Attributs spécifiques ========== */
-  async attrDistribution(q: Scope & { attr: string }){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async attrDistribution(q: Scope & { attr: string }, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Distribution attribut.', messageE:'Attribute distribution.', items: [] };
     }
     const key = q.attr.replace(/"/g,'\\"');
@@ -648,9 +655,9 @@ export class AnalyticsService {
     return { message:'Distribution attribut.', messageE:'Attribute distribution.', items: rows.map(r=>({ value: r.value, count: Number(r.c) })) };
   }
 
-  async attrCrosstab(q: Scope & { attrA: string; attrB: string }){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async attrCrosstab(q: Scope & { attrA: string; attrB: string }, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Crosstab attributs.', messageE:'Attributes crosstab.', items: [] };
     }
     const A = q.attrA.replace(/"/g,'\\"');
@@ -669,9 +676,9 @@ export class AnalyticsService {
   }
 
   /* ========== H. Fraîcheur & Activité ========== */
-  async freshness(q: Scope & { max_age_days?: number }){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async freshness(q: Scope & { max_age_days?: number }, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Fraîcheur calculée.', messageE:'Freshness computed.', data: { total: 0, recent: 0, percent_recent: 0 } };
     }
     const days = Number(q.max_age_days ?? 90);
@@ -683,9 +690,9 @@ export class AnalyticsService {
     return { message:'Fraîcheur calculée.', messageE:'Freshness computed.', data: { total, recent, percent_recent: percent } };
   }
 
-  async activity(q: Scope & { from?: string; to?: string }){
-    const where = buildWhere(q);
-    if (!(await this.territoryIdsExist(q))) {
+  async activity(q: Scope & { from?: string; to?: string }, req?: any){
+    const where = buildWhere(q, req);
+    if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Activité agrégée.', messageE:'Aggregated activity.', items: [] };
     }
 

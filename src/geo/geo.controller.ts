@@ -12,7 +12,9 @@ export class GeoController {
   constructor(private readonly service: GeoService) {}
 
   @Get('geo/nearby')
-  @ApiOperation({ summary: 'Infras dans un rayon (mètres) autour lat/lon' })
+  @ApiOperation({
+    summary: 'Obtenir les infrastructures situées dans un rayon spécifié (en mètres) autour d’un point GPS donné (latitude, longitude).',
+  })
   async nearby(@Query() q: NearbyDto) {
     return await this.service.nearby({
       ...q,
@@ -22,7 +24,9 @@ export class GeoController {
   }
 
   @Post('geo/within')
-  @ApiOperation({ summary: 'Infras dans un polygone (GeoJSON Polygon)' })
+  @ApiOperation({
+    summary: 'Obtenir les infrastructures situées à l’intérieur d’un polygone défini par des coordonnées GeoJSON.',
+  })
   async within(@Body() b: GeoWithinDto) {
     return await this.service.within({
       ...b,
@@ -32,13 +36,17 @@ export class GeoController {
   }
 
   @Get('geo/distance')
-  @ApiOperation({ summary: 'Distance entre deux infrastructures (m, km)' })
+  @ApiOperation({
+    summary: 'Calculer la distance entre deux infrastructures spécifiées par leurs identifiants, avec un résultat en mètres ou kilomètres.',
+  })
   async distance(@Query() q: DistanceDto) {
     return await this.service.distance(q.fromId, q.toId);
   }
 
   @Get('geo/tiles/heatmap')
-  @ApiOperation({ summary: 'Tuiles heatmap (agrégées côté serveur)' })
+  @ApiOperation({
+    summary: 'Obtenir des tuiles de heatmap agrégées côté serveur pour un niveau de zoom et des coordonnées spécifiques.',
+  })
   async heatmap(@Query() q: HeatmapTileDto) {
     return await this.service.heatmapTile(q.z, q.x, q.y, q.typeId);
   }
