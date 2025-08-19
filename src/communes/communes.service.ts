@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommuneDto } from './dto/create-commune.dto';
 import { UpdateCommuneDto } from './dto/update-commune.dto';
 
+// Typage fort de la ligne renvoyée par groupBy() pour éviter les erreurs TS sur _count
+type RoleGroupRow = { roleId: number; _count: { _all: number } };
 @Injectable()
 export class CommunesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -228,41 +230,82 @@ export class CommunesService {
   //   return row;
   // }
 async findOne(id: number) {
-  const row = await this.prisma.commune.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      nom: true,
-      nom_en: true,
-      nom_maire: true,
-      longitude: true,
-      infrastructures: true,
-      utilisateurs: true,
-      latitude: true,
-      code: true,
-      arrondissementId: true,
-      departementId: true,
-      regionId: true,
-      typeCommuneId: true,
-      is_verified: true,
-      is_block: true,
-    },
-  });
-
-  if (!row) {
-    throw new NotFoundException({
-      message: 'Commune introuvable.',
-      messageE: 'Municipality not found.',
+    // 1) Commune minimale (sans tables enfants volumineuses)
+    const commune = await this.prisma.commune.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        nom: true,
+        nom_en: true,
+        code: true,
+        latitude: true,
+        longitude: true,
+        arrondissementId: true,
+        arrondissement:true,
+        departementId: true,
+        departement:true,
+        regionId: true,
+        region:true,
+        typeCommuneId: true,
+        typeCommune:true,
+        is_verified: true,
+        is_block: true,
+      },
     });
+
+    if (!commune) {
+      throw new NotFoundException({
+        message: 'Commune introuvable.',
+        messageE: 'Municipality not found.',
+      });
+    }
+
+    // 2) Agrégats dans une transaction (garde les PrismaPromise intacts)
+    const [infraCount, grouped] = await this.prisma.$transaction([
+      this.prisma.infrastructure.count({ where: { communeId: id } }),
+      this.prisma.utilisateurRole.groupBy({
+        by: ['roleId'],
+        where: { user: { communeId: id } }, // relation "user" définie dans ton schema
+        orderBy: { roleId: 'asc' },
+        _count: { _all: true },
+      }),
+    ]);
+
+    // Typage post-transaction pour accéder à _count._all sans erreur TS
+    const groupedRoles = grouped as RoleGroupRow[];
+
+    // 3) On récupère les libellés des rôles
+    const roleIds = groupedRoles.map((g) => g.roleId);
+    const roles = roleIds.length
+      ? await this.prisma.role.findMany({
+          where: { id: { in: roleIds } },
+          select: { id: true, nom: true },
+        })
+      : [];
+    const roleNameById = new Map(roles.map((r) => [r.id, r.nom]));
+
+    // 4) Mise en forme de la répartition + total users
+    const users_by_role = groupedRoles.map((gr) => ({
+      roleId: gr.roleId,
+      role: roleNameById.get(gr.roleId) ?? 'INCONNU',
+      count: gr._count._all, // bien typé
+    }));
+    const totalUsers = users_by_role.reduce((acc, r) => acc + r.count, 0);
+
+    // 5) Réponse finale — pas de BigInt ici, donc pas besoin de sérialisation spéciale
+    return {
+      message: 'Synthèse commune.',
+      messageE: 'Municipality summary.',
+      data: {
+        commune, // infos de base de la commune
+        totals: {
+          infrastructures: infraCount,
+          users: totalUsers,
+        },
+        users_by_role,
+      },
+    };
   }
-
-  // Convert BigInt values to numbers or strings
-  const serializedRow = JSON.parse(JSON.stringify(row, (key, value) =>
-    typeof value === 'bigint' ? value.toString() : value
-  ));
-
-  return serializedRow;
-}
   async update(id: number, dto: UpdateCommuneDto) {
     await this.ensureExists(id);
 
