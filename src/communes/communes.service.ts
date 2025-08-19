@@ -228,56 +228,41 @@ export class CommunesService {
   //   return row;
   // }
 async findOne(id: number) {
-  const commune = await this.prisma.commune.findUnique({
+  const row = await this.prisma.commune.findUnique({
     where: { id },
-    select: { id: true, nom: true, code: true },
+    select: {
+      id: true,
+      nom: true,
+      nom_en: true,
+      nom_maire: true,
+      longitude: true,
+      infrastructures: true,
+      utilisateurs: true,
+      latitude: true,
+      code: true,
+      arrondissementId: true,
+      departementId: true,
+      regionId: true,
+      typeCommuneId: true,
+      is_verified: true,
+      is_block: true,
+    },
   });
-  if (!commune) {
+
+  if (!row) {
     throw new NotFoundException({
       message: 'Commune introuvable.',
       messageE: 'Municipality not found.',
     });
   }
 
-  type RoleGroupRow = { roleId: number; _count: { _all: number } };
+  // Convert BigInt values to numbers or strings
+  const serializedRow = JSON.parse(JSON.stringify(row, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ));
 
-  const [infraCount, groupedRoles] = await this.prisma.$transaction([
-    this.prisma.infrastructure.count({ where: { communeId: id } }),
-    this.prisma.utilisateurRole.groupBy({
-      by: ['roleId'],
-      where: { user: { communeId: id } },
-      orderBy: { roleId: 'asc' },
-      _count: { _all: true },
-    }) as unknown as Promise<RoleGroupRow[]>,
-  ]);
-
-  const roleIds = groupedRoles.map(g => g.roleId);
-  const roles = roleIds.length
-    ? await this.prisma.role.findMany({
-        where: { id: { in: roleIds } },
-        select: { id: true, nom: true },
-      })
-    : [];
-  const roleNameById = new Map(roles.map(r => [r.id, r.nom]));
-
-  const usersByRole = groupedRoles.map((gr) => ({
-    roleId: gr.roleId,
-    role: roleNameById.get(gr.roleId) ?? 'INCONNU',
-    count: gr._count._all,
-  }));
-  const totalUsers = usersByRole.reduce((acc, r) => acc + r.count, 0);
-
-  return {
-    message: 'Synthèse commune.',
-    messageE: 'Municipality summary.',
-    data: {
-      commune: { id: commune.id, nom: commune.nom, code: commune.code },
-      totals: { infrastructures: infraCount, users: totalUsers },
-      users_by_role: usersByRole,
-    },
-  };
+  return serializedRow;
 }
-
   async update(id: number, dto: UpdateCommuneDto) {
     await this.ensureExists(id);
 
