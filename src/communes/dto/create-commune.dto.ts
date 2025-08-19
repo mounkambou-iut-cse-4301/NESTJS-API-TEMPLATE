@@ -26,7 +26,11 @@ export class CreateCommuneDto {
   @IsInt()
   arrondissementId: number;
 
-  @ApiPropertyOptional({ example: false })
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional() @IsInt()
+  typeCommuneId?: number;
+
+   @ApiPropertyOptional({ example: false })
   @IsOptional() @IsBoolean()
   is_verified?: boolean;
 

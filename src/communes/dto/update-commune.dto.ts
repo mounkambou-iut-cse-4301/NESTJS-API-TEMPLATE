@@ -10,4 +10,7 @@ export class UpdateCommuneDto {
   @ApiPropertyOptional({ description: 'FK Arrondissement.id' }) @IsOptional() @IsInt() arrondissementId?: number;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() is_verified?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() is_block?: boolean;
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional() @IsInt()
+  typeCommuneId?: number;
 }

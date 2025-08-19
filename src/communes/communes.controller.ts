@@ -41,6 +41,7 @@ export class CommunesController {
       q: q.q,
       arrondissementId: q.arrondissementId,
       code: q.code,
+      typeCommuneId: q.typeCommuneId,
       is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
       is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
         req, // pour le logging

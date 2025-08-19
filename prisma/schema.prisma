@@ -66,6 +66,7 @@ model Commune {
   longitude        Float?
   latitude         Float?
   code             String?         @unique
+  typeCommuneId    Int?
 
   /// Commune vérifiée ?
   is_verified      Boolean         @default(false)
@@ -78,6 +79,7 @@ model Commune {
   arrondissement   Arrondissement  @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   departement      Departement     @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   region           Region          @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  typeCommune      TypeCommune?    @relation(fields: [typeCommuneId], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   utilisateurs     Utilisateur[]   // back-rel sur Utilisateur.commune
   infrastructures  Infrastructure[] // back-rel sur Infrastructure.commune
@@ -108,6 +110,8 @@ model Utilisateur {
   commune            Commune?   @relation(fields: [communeId], references: [id], onUpdate: Cascade, onDelete: SetNull)
   roles              UtilisateurRole[]
   infrastructures   Infrastructure[] // back-rel sur Infrastructure.user
+
+  Parcour Parcour[]
 }
 
 model Role {
@@ -169,6 +173,46 @@ model SousDomaine {
   infrastructures  Infrastructure[]
 }
 
+/// Points collectés sur le terrain (trace GPS)
+model Parcour {
+  id           BigInt       @id @default(autoincrement())
+  collecteurId  Int?
+  collecteur    Utilisateur?  @relation(fields: [collecteurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  latitude     Float
+  longitude    Float
+  recordedAt   DateTime
+
+  created_at   DateTime     @default(now())
+  updated_at   DateTime     @updatedAt
+
+  @@index([collecteurId], name: "idx_parcour_collecteur")
+  @@index([recordedAt],  name: "idx_parcour_recordedAt")
+}
+
+/// Typologie administrative d’une commune (ex: URBAINE / RURALE)
+model TypeCommune {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  Commune Commune[]
+}
+
+/// Référentiel de compétences (ex: SANTÉ, ÉDUCATION…)
+model Competence {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  Infrastructure Infrastructure[]
+
+  TypeInfrastructure TypeInfrastructure[]
+}
+
+
 /* =========================
    Types d'infrastructure (modèles)
    ========================= */
@@ -216,8 +260,10 @@ model TypeInfrastructure {
   /// Classification
   domaineId      Int?
   sousdomaineId  Int?
+  competenceId  Int?
   domaine        Domaine?      @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
   sousdomaine    SousDomaine?  @relation(fields: [sousdomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  competence     Competence?   @relation(fields: [competenceId], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -254,12 +300,14 @@ model Infrastructure {
   arrondissementId Int
   communeId       Int
   utilisateurId          Int?
+  competenceId          Int?
 
   region         Region         @relation(fields: [regionId],        references: [id], onUpdate: Cascade, onDelete: Restrict)
   departement    Departement    @relation(fields: [departementId],   references: [id], onUpdate: Cascade, onDelete: Restrict)
   arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   commune        Commune        @relation(fields: [communeId],       references: [id], onUpdate: Cascade, onDelete: Restrict)
   utilisateur    Utilisateur?   @relation(fields: [utilisateurId],  references: [id], onUpdate: Cascade, onDelete: SetNull)
+  competence     Competence?    @relation(fields: [competenceId],  references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   /// Localisation réelle (JSON libre)
   /// Exemple: { "lat": 1111, "log": 212321 }

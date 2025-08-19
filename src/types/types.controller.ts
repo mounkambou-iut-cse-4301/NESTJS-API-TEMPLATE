@@ -37,7 +37,7 @@ export class TypesController {
     const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
     const sort = sanitizeSort(q.sort, ['id','name','type','created_at']);
     const { total, items } = await this.service.list({
-      page, pageSize, sort, q: q.q, type: q.type, domaineId: q.domaineId, sousdomaineId: q.sousdomaineId,
+      page, pageSize, sort, q: q.q, type: q.type, domaineId: q.domaineId, sousdomaineId: q.sousdomaineId, competenceId: q.competenceId
     });
     return { message: 'Liste des types récupérée.', messageE: 'Types list retrieved.', data: items, meta: meta(page,pageSize,total) };
   }

@@ -39,9 +39,13 @@ export class ListInfraQueryDto {
   @Transform(({ value }) => value === undefined ? undefined : Number(value))
   @IsOptional() @IsInt() @Min(1) domaineId?: number;
     
-  @ApiPropertyOptional({ description: 'Filtre communeId' })
+  @ApiPropertyOptional({ description: 'Filtre utilisateurId' })
   @Transform(({ value }) => value === undefined ? undefined : Number(value))
   @IsOptional() @IsInt() @Min(1) utilisateurId?: number;
+
+   @ApiPropertyOptional({ description: 'Filtre competenceId' })
+  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @IsOptional() @IsInt() @Min(1) competenceId?: number;
 
   @ApiPropertyOptional({ description: 'Filtre sousdomaineId' })
   @Transform(({ value }) => value === undefined ? undefined : Number(value))

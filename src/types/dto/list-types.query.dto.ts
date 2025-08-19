@@ -31,6 +31,13 @@ export class ListTypesQueryDto {
   @IsOptional() @IsInt() @Min(1)
   domaineId?: number;
 
+    @ApiPropertyOptional({ description: 'Filtre par compentenceId', example: 1 })
+    @Transform(({ value }) => value === undefined ? undefined : Number(value))
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    competenceId?: number;
+
   @ApiPropertyOptional({ description: 'Filtre par sousdomaineId' })
   @Transform(({ value }) => value === undefined ? undefined : Number(value))
   @IsOptional() @IsInt() @Min(1)

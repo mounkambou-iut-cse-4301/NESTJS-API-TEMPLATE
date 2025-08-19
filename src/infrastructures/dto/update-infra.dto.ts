@@ -48,6 +48,8 @@ export class UpdateInfrastructureDto {
   /* Classification */
   @ApiPropertyOptional({ example: 1 }) @IsOptional() @Transform(({ value }) => Number(value)) @IsInt() @Min(1) domaineId?: number;
   @ApiPropertyOptional({ example: 2 }) @IsOptional() @Transform(({ value }) => Number(value)) @IsInt() @Min(1) sousdomaineId?: number;
+    @ApiPropertyOptional({ example: 2 }) @Transform(({ value }) => value === undefined ? undefined : Number(value))
+    @IsOptional() @IsInt() @Min(1) competenceId?: number;
 
   /* Données réelles */
   @ApiPropertyOptional({ example: { lat: 3.8615, log: 11.5164 } }) @IsOptional() @IsObject() location?: any;

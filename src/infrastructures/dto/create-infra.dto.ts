@@ -73,6 +73,9 @@ export class CreateInfrastructureDto {
   @ApiPropertyOptional({ example: 2 }) @Transform(({ value }) => value === undefined ? undefined : Number(value))
   @IsOptional() @IsInt() @Min(1) sousdomaineId?: number;
 
+   @ApiPropertyOptional({ example: 2 }) @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @IsOptional() @IsInt() @Min(1) competenceId?: number;
+
   /* Données réelles */
   @ApiProperty({ example: { lat: 1111, log: 212321 } })
   @IsObject() location: any;

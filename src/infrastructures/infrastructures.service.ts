@@ -62,7 +62,7 @@ export class InfrastructuresService {
     }
   }
 
-  private async ensureClassification(domaineId?: number, sousdomaineId?: number) {
+  private async ensureClassification(domaineId?: number, sousdomaineId?: number, effComp?: number | null) {
     if (typeof domaineId === 'number') {
       const cnt = await this.prisma.domaine.count({ where: { id: domaineId } });
       if (!cnt) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
@@ -84,13 +84,13 @@ export class InfrastructuresService {
     page: number; pageSize: number; sort?: Order;
     regionId?: number; departementId?: number; arrondissementId?: number; communeId?: number;
     typeId?: number; type?: string; q?: string; domaineId?: number; sousdomaineId?: number; utilisateurId?: number;
-    created_from?: string; created_to?: string;
+    created_from?: string; created_to?: string; competenceId?: number;
     req?: any; // pour le logging
   }) {
     const {
       page, pageSize, sort,
       regionId, departementId, arrondissementId, communeId,
-      typeId, type, q, domaineId, sousdomaineId, utilisateurId, created_from, created_to, req
+      typeId, type, q, domaineId, sousdomaineId, utilisateurId, created_from, created_to,competenceId, req
     } = params;
   const currentUserId = req?.sub as number | undefined;
   const userCommuneId = req?.user.communeId as number | undefined;
@@ -100,6 +100,7 @@ export class InfrastructuresService {
     if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
     if (typeof communeId === 'number') where.communeId = communeId;
     if (typeof utilisateurId === 'number') where.utilisateurId = utilisateurId;
+if (typeof competenceId === 'number') where.competenceId = competenceId;
     if (currentUserId && userCommuneId) {
       where.communeId = userCommuneId; // Limite aux infrastructures de la commune de l'utilisateur
     }
@@ -137,7 +138,7 @@ export class InfrastructuresService {
           type: true,
           regionId: true, region: true, departementId: true, departement: true, arrondissementId: true, arrondissement: true, communeId: true, commune: true,
           domaineId: true, domaine: { select: { id: true, nom: true, code: true } }, sousdomaineId: true, sousdomaine: { select: { id: true, nom: true, code: true } },
-          location: true, images: true, attribus: true, composant: true,
+          location: true, images: true, attribus: true, composant: true,competenceId: true, competence: { select: { id: true, name: true } },
           created_at: true, updated_at: true,
         },
       }),
@@ -180,6 +181,7 @@ export class InfrastructuresService {
       type: dto.type, // SIMPLE|COMPLEXE (upper par DTO)
       regionId: dto.regionId,
       departementId: dto.departementId,
+      competenceId: dto.competenceId ?? null,
       arrondissementId: dto.arrondissementId,
       communeId: dto.communeId,
       domaineId: dto.domaineId ?? null,
@@ -210,6 +212,8 @@ export class InfrastructuresService {
             type: c.type,
             regionId: dto.regionId,
             departementId: dto.departementId,
+            competenceId: dto.competenceId ?? null,
+
             arrondissementId: dto.arrondissementId,
             communeId: dto.communeId,
             domaineId: dto.domaineId ?? null,
@@ -251,6 +255,7 @@ export class InfrastructuresService {
           departement:   { select: { id: true, nom: true } },
           arrondissement:{ select: { id: true, nom: true } },
           commune:       { select: { id: true, nom: true } },
+          competence:    { select: { id: true, name: true } },
         } : {}),
       },
     });
@@ -268,6 +273,7 @@ export class InfrastructuresService {
         id: true, id_type_infrastructure: true, name: true,
         regionId: true, departementId: true, arrondissementId: true, communeId: true,
         domaineId: true, sousdomaineId: true, utilisateurId: true,
+        competenceId: true,
       },
     });
     if (!current) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
@@ -283,7 +289,9 @@ export class InfrastructuresService {
 
     const effDom  = dto.domaineId ?? current.domaineId ?? undefined;
     const effSdom = dto.sousdomaineId ?? current.sousdomaineId ?? undefined;
-    await this.ensureClassification(effDom, effSdom);
+        const effComp   = dto.competenceId ?? current.competenceId;
+
+    await this.ensureClassification(effDom, effSdom,effComp);
 
     if (typeof dto.utilisateurId === 'number') {
       await this.ensureUserExists(dto.utilisateurId);
@@ -320,6 +328,7 @@ export class InfrastructuresService {
       domaineId: dto.domaineId,
       sousdomaineId: dto.sousdomaineId,
       utilisateurId: dto.utilisateurId, // ✅ modifiable si fourni
+      competenceId: dto.competenceId ?? null,
       location: dto.location ? ensureObject(dto.location) : undefined,
       images: dto.images ? await this.toCloudinaryUrls(dto.images, folder) : undefined,
       attribus: dto.attribus ? ensureObject(dto.attribus) : undefined,
@@ -333,6 +342,7 @@ export class InfrastructuresService {
         regionId: true, departementId: true, arrondissementId: true, communeId: true,
         domaineId: true, sousdomaineId: true, utilisateurId: true,
         location: true, images: true, attribus: true, composant: true, updated_at: true,
+        competenceId: true,
       },
     });
 

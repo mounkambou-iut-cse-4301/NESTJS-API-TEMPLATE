@@ -47,6 +47,13 @@ export class CreateTypeDto {
   @Min(1)
   domaineId?: number;
 
+   @ApiPropertyOptional({ description: 'FK Compentence', example: 1 })
+  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  competenceId?: number;
+
   @ApiPropertyOptional({ description: 'FK SousDomaine', example: 2 })
   @Transform(({ value }) => value === undefined ? undefined : Number(value))
   @IsOptional()

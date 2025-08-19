@@ -17,6 +17,9 @@ import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { UserRolesModule } from './user-roles/user-roles.module';
 import { RolePermissionsModule } from './role-permissions/role-permissions.module';
+import { ParcoursModule } from './parcours/parcours.module';
+import { CompetencesModule } from './competences/competences.module';
+import { TypeCommunesModule } from './type-communes/type-communes.module';
 
 @Module({
   imports: [
@@ -38,6 +41,9 @@ import { RolePermissionsModule } from './role-permissions/role-permissions.modul
     PermissionsModule,
     UserRolesModule,
     RolePermissionsModule,
+    ParcoursModule,
+    CompetencesModule,
+    TypeCommunesModule,
   ],
 })
 export class AppModule {}

@@ -73,9 +73,9 @@ export class TypesService {
 
   async list(params: {
     page: number; pageSize: number; sort?: Record<string,'asc'|'desc'>;
-    q?: string; type?: string; domaineId?: number; sousdomaineId?: number;
+    q?: string; type?: string; domaineId?: number; sousdomaineId?: number; competenceId?: number;
   }) {
-    const { page, pageSize, sort, q, type, domaineId, sousdomaineId } = params;
+    const { page, pageSize, sort, q, type, domaineId, sousdomaineId, competenceId } = params;
     const where: any = {};
     if (q) {
       where.OR = [
@@ -86,6 +86,7 @@ export class TypesService {
     if (type) where.type = type;
     if (typeof domaineId === 'number') where.domaineId = domaineId;
     if (typeof sousdomaineId === 'number') where.sousdomaineId = sousdomaineId;
+    if (typeof competenceId === 'number') where.competenceId = competenceId;
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.typeInfrastructure.count({ where }),
@@ -97,7 +98,7 @@ export class TypesService {
         select: {
           id: true, name: true, description: true, type: true,
           location: true, images: true, attribus: true, composant: true,
-          domaineId: true, domaine: { select: { id: true, nom: true, code: true } }, sousdomaineId: true, sousdomaine: { select: { id: true, nom: true, code: true } },
+          domaineId: true, domaine: { select: { id: true, nom: true, code: true } }, sousdomaineId: true, sousdomaine: { select: { id: true, nom: true, code: true } }, competenceId: true, competence: true,
           created_at: true, updated_at: true,
         },
       }),
@@ -136,8 +137,9 @@ export class TypesService {
           composant: normalized.composant,
           domaineId: dto.domaineId ?? null,
           sousdomaineId: dto.sousdomaineId ?? null,
+          competenceId: dto.competenceId ?? null,
         },
-        select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true },
+        select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true, competenceId: true },
       });
       return created;
     } catch (e: any) {
@@ -152,7 +154,7 @@ export class TypesService {
       select: {
         id: true, name: true, description: true, type: true,
         location: true, images: true, attribus: true, composant: true,
-        domaineId: true, sousdomaineId: true,
+        domaineId: true, sousdomaineId: true, competenceId: true,
         created_at: true, updated_at: true,
       },
     });
@@ -192,6 +194,7 @@ export class TypesService {
           attribus: normalized.attribus,
           composant: normalized.composant,
           domaineId: dto.domaineId,
+          competenceId: dto.competenceId,
           sousdomaineId: dto.sousdomaineId,
         },
         select: {

@@ -30,6 +30,10 @@ export class ListCommunesQueryDto {
   @IsOptional() @IsString()
   code?: string;
 
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional() @IsInt()
+  typeCommuneId?: number;
+
   @ApiPropertyOptional({ description: 'Filtre is_verified' })
   @IsOptional() @IsBooleanString()
   is_verified?: string;

@@ -42,7 +42,7 @@ export class InfrastructuresController {
       page, pageSize, sort,
       regionId: q.regionId, departementId: q.departementId, arrondissementId: q.arrondissementId, communeId: q.communeId,
       typeId: q.typeId, type: q.type, q: q.q, domaineId: q.domaineId, sousdomaineId: q.sousdomaineId, utilisateurId: q.utilisateurId,
-      created_from: q.created_from, created_to: q.created_to,
+      created_from: q.created_from, created_to: q.created_to, competenceId: q.competenceId,
         req, // pour le logging
     });
     return { message: 'Liste récupérée.', messageE: 'List retrieved.', data: items, meta: meta(page, pageSize, total) };

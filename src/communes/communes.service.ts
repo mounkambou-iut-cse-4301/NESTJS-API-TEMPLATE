@@ -1,3 +1,4 @@
+import { TypeCommune } from './../../generated/prisma/index.d';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommuneDto } from './dto/create-commune.dto';
@@ -9,13 +10,12 @@ export class CommunesService {
 
   async list(params: {
     page: number; pageSize: number; sort?: Record<string,'asc'|'desc'>;
-    q?: string; arrondissementId?: number; code?: string; is_verified?: boolean; is_block?: boolean;
+    q?: string; arrondissementId?: number; code?: string; is_verified?: boolean; is_block?: boolean; typeCommuneId?: number;
     req?: any; // pour le logging
   }) {
-    const { page, pageSize, sort, q, arrondissementId, code, is_verified, is_block, req } = params;
+    const { page, pageSize, sort, q, arrondissementId, code, is_verified, is_block, typeCommuneId, req } = params;
     const currentUserId = req?.sub as number | undefined;
     const userCommuneId = req?.user?.communeId as number | undefined;
-    console.log(userCommuneId, currentUserId);
 
     const where: any = {};
     if (q) {
@@ -26,6 +26,7 @@ export class CommunesService {
       ];
     }
     if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
+    if (typeof typeCommuneId === 'number') where.typeCommuneId = typeCommuneId; 
     if (code) where.code = code;
     if (typeof is_verified === 'boolean') where.is_verified = is_verified;
     if (typeof is_block === 'boolean') where.is_block = is_block;
@@ -56,6 +57,7 @@ export class CommunesService {
           is_verified: true,
           is_block: true,
           arrondissement: { select: { id: true, nom: true, departementId: true } },
+          typeCommune: true,
         },
       }),
     ]);
@@ -89,6 +91,7 @@ export class CommunesService {
             latitude: dto.latitude,
 
           code: dto.code,
+          typeCommuneId: dto.typeCommuneId??null,
           arrondissementId: arr.id,
           departementId: arr.departementId,
           regionId: arr.departement.regionId,
@@ -104,6 +107,7 @@ export class CommunesService {
           code: true,
           arrondissementId: true,
           departementId: true,
+          typeCommune:true,
           regionId: true,
           is_verified: true,
           is_block: true,
@@ -134,6 +138,7 @@ export class CommunesService {
         arrondissementId: true,
         departementId: true,
         regionId: true,
+        typeCommuneId: true,
         is_verified: true,
         is_block: true,
       },
@@ -153,6 +158,7 @@ export class CommunesService {
     const data: any = {
       nom: dto.nom,
       nom_en: dto.nom_en,
+      typeCommuneId: dto.typeCommuneId,
       longitude: dto.longitude,
       latitude: dto.latitude,
       code: dto.code,
@@ -181,6 +187,19 @@ export class CommunesService {
       data.regionId = arr.departement.regionId;
     }
 
+    if (typeof dto.typeCommuneId === 'number') {
+      const typeCommune = await this.prisma.typeCommune.findUnique({
+        where: { id: dto.typeCommuneId },
+      });
+      if (!typeCommune) {
+        throw new BadRequestException({
+          message: 'Type de commune inconnu.',
+          messageE: 'Unknown municipality type.',
+        });
+      }
+      data.typeCommuneId = typeCommune.id;
+    }
+
     try {
       const updated = await this.prisma.commune.update({
         where: { id },
@@ -194,6 +213,7 @@ export class CommunesService {
           code: true,
           arrondissementId: true,
           departementId: true,
+          typeCommuneId: true,
           regionId: true,
           is_verified: true,
           is_block: true,
