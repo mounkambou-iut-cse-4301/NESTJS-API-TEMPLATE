@@ -448,4 +448,65 @@ Please change your password at first login.
       });
     }
   }
+
+  /** Dashboard pour l'utilisateur courant (via req.user / req.sub) */
+  async dashboard(id: number) {
+
+    const userId = id;
+    console.log("userId:", userId);
+
+    if (!userId) {
+      throw new BadRequestException({
+        message: 'Utilisateur non identifié.',
+        messageE: 'User not identified.',
+      });
+    }
+
+    // 1) Total créé par cet utilisateur
+    const total = await this.prisma.infrastructure.count({
+      where: { utilisateurId: userId },
+    });
+
+    if (!total) {
+      // Aucun enregistrement → pas de dernier jour
+      return {
+        total_infrastructures: 0,
+        last_day: null,
+        last_day_count: 0,
+      };
+    }
+
+    // 2) Dernier created_at
+    const lastRow = await this.prisma.infrastructure.findFirst({
+      where: { utilisateurId: userId },
+      orderBy: { created_at: 'desc' },
+      select: { created_at: true },
+    });
+
+    if (!lastRow?.created_at) {
+      return {
+        total_infrastructures: total,
+        last_day: null,
+        last_day_count: 0,
+      };
+    }
+
+    // On calcule le "jour" (YYYY-MM-DD) du dernier enregistrement
+    const lastDay = lastRow.created_at.toISOString().slice(0, 10);
+
+    // 3) Combien ce jour-là — on fait le comptage au niveau SQL par DATE() pour éviter les surprises de timezone
+    const rows: any[] = await this.prisma.$queryRawUnsafe(`
+      SELECT COUNT(*) AS c
+      FROM Infrastructure
+      WHERE utilisateurId = ${Number(userId)}
+        AND DATE(created_at) = DATE('${lastDay}')
+    `);
+    const lastDayCount = Number(rows?.[0]?.c ?? 0);
+
+    return {
+      total_infrastructures: total,
+      last_day: lastDay,
+      last_day_count: lastDayCount,
+    };
+  }
 }

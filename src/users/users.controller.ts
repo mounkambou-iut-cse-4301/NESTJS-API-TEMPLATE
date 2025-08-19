@@ -104,4 +104,23 @@ export class UsersController {
       data: { id: params.id },
     };
   }
+
+
+  @ApiOperation({
+    summary: 'Dashboard utilisateur',
+    description:
+      `Retourne:
+- total_infrastructures: nombre total d'infras créées par l’utilisateur,
+- last_day: dernier jour (YYYY-MM-DD) où il a créé une infra,
+- last_day_count: combien ce jour-là.`,
+  })
+  @Get(':id/dashboard')
+  async dashboard(@Param() params: UserIdParamDto) {
+    const data = await this.service.dashboard(params.id);
+    return {
+      message: 'Tableau de bord utilisateur.',
+      messageE: 'User dashboard.',
+      data,
+    };
+  }
 }
