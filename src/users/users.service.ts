@@ -328,7 +328,7 @@ Please change your password at first login.
         email: true,
         telephone: true,
         communeId: true,
-        commune: { select: { id: true, nom: true,nom_en:true,arrondissement:true,departement:true,region:true } },
+        commune: { select: { id: true, nom: true,nom_en:true,arrondissement:true,departement:true,region:true,typeCommune:true } },
         ville: true,
         adresse: true,
         is_verified: true,

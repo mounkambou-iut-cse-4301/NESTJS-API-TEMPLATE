@@ -14,7 +14,8 @@ async function bootstrap() {
       'http://localhost:3001',
       'http://localhost:3002',
       'http://localhost:5173',
-      'http://localhost:5174'
+      'http://localhost:5174',
+      'https://admin.sigcom.collexios.com'
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
