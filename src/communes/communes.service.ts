@@ -198,34 +198,71 @@ export class CommunesService {
     }
   }
 
-  async findOne(id: number) {
-    const row = await this.prisma.commune.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        nom: true,
-        nom_en: true,
-        nom_maire:true,
-        longitude: true,
-        latitude: true,
-        code: true,
-        arrondissementId: true,
-        departementId: true,
-        regionId: true,
-        typeCommuneId: true,
-        is_verified: true,
-        is_block: true,
-      },
+  // async findOne(id: number) {
+  //   const row = await this.prisma.commune.findUnique({
+  //     where: { id },
+  //     select: {
+  //       id: true,
+  //       nom: true,
+  //       nom_en: true,
+  //       nom_maire:true,
+  //       longitude: true,
+  //       infrastructures:true,
+  //       utilisateurs:true,
+  //       latitude: true,
+  //       code: true,
+  //       arrondissementId: true,
+  //       departementId: true,
+  //       regionId: true,
+  //       typeCommuneId: true,
+  //       is_verified: true,
+  //       is_block: true,
+  //     },
+  //   });
+  //   if (!row) {
+  //     throw new NotFoundException({
+  //       message: 'Commune introuvable.',
+  //       messageE: 'Municipality not found.',
+  //     });
+  //   }
+  //   return row;
+  // }
+async findOne(id: number) {
+  const row = await this.prisma.commune.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      nom: true,
+      nom_en: true,
+      nom_maire: true,
+      longitude: true,
+      infrastructures: true,
+      utilisateurs: true,
+      latitude: true,
+      code: true,
+      arrondissementId: true,
+      departementId: true,
+      regionId: true,
+      typeCommuneId: true,
+      is_verified: true,
+      is_block: true,
+    },
+  });
+
+  if (!row) {
+    throw new NotFoundException({
+      message: 'Commune introuvable.',
+      messageE: 'Municipality not found.',
     });
-    if (!row) {
-      throw new NotFoundException({
-        message: 'Commune introuvable.',
-        messageE: 'Municipality not found.',
-      });
-    }
-    return row;
   }
 
+  // Convert BigInt values to numbers or strings
+  const serializedRow = JSON.parse(JSON.stringify(row, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ));
+
+  return serializedRow;
+}
   async update(id: number, dto: UpdateCommuneDto) {
     await this.ensureExists(id);
 
@@ -315,5 +352,33 @@ export class CommunesService {
         messageE: 'Municipality not found.',
       });
     }
+  }
+
+  async toggleBlock(id: number) {
+    // 1) Vérifie l’existence + récupère le statut actuel
+    const current = await this.prisma.commune.findUnique({
+      where: { id },
+      select: { id: true, nom: true, is_block: true },
+    });
+    if (!current) {
+      throw new NotFoundException({
+        message: 'Commune introuvable.',
+        messageE: 'Municipality not found.',
+      });
+    }
+
+    // 2) Inverse le statut
+    const updated = await this.prisma.commune.update({
+      where: { id },
+      data: { is_block: !current.is_block },
+      select: {
+        id: true,
+        nom: true,
+        is_block: true,
+        updated_at: true,
+      },
+    });
+
+    return updated;
   }
 }

@@ -69,4 +69,20 @@ export class CommunesController {
     const row = await this.service.update(p.id, dto);
     return { message: 'Commune mise à jour.', messageE: 'Municipality updated.', data: row };
   }
+
+  @Patch(':id/toggle-block')
+  @ApiOperation({
+    summary: 'Activer / Désactiver une commune',
+    description:
+      'Inverse le statut de blocage (is_block). Si la commune était active (is_block=false), elle devient désactivée (is_block=true), et inversement.',
+  })
+  async toggleBlock(@Param() p: CommuneIdParamDto) {
+    const updated = await this.service.toggleBlock(p.id);
+    const wasBlocked = updated.is_block; // statut après MAJ
+    return {
+      message: wasBlocked ? 'Commune désactivée (bloquée).' : 'Commune activée (débloquée).',
+      messageE: wasBlocked ? 'Municipality deactivated (blocked).' : 'Municipality activated (unblocked).',
+      data: updated,
+    };
+  }
 }

@@ -22,6 +22,8 @@ function buildMetaLocal(page: number, pageSize: number, total: number) {
   const totalPages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
   return { page, pageSize, total, totalPages };
 }
+
+
  @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, NotBlockedGuard) // 👈 tu mets ça seulement ici si tu le veux
 
@@ -69,17 +71,7 @@ export class UsersController {
     };
   }
 
-  /** GET /api/v1/users/:id — détail */
-  @ApiOperation({ summary:'api pour récupérer un utilisateur par ID' })
-  @Get(':id')
-  async getOne(@Param() params: UserIdParamDto) {
-    const user = await this.service.findOne(params.id);
-    return {
-      message: 'Utilisateur récupéré avec succès.',
-      messageE: 'User fetched successfully.',
-      data: user,
-    };
-  }
+  
 
   /** PATCH /api/v1/users/:id — mise à jour (upload base64 possible) */
   @ApiOperation({ summary:'api pour mettre à jour un utilisateur' })
@@ -121,6 +113,136 @@ export class UsersController {
       message: 'Tableau de bord utilisateur.',
       messageE: 'User dashboard.',
       data,
+    };
+  }
+
+   /* === ADMIN === */
+  @Get('admins')
+  @UseGuards(JwtAuthGuard, NotBlockedGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Lister les utilisateurs avec le rôle ADMIN (filtré sur la commune du user connecté si présente)' })
+  async listAdmins(@Query() q: ListUsersQueryDto, @Req() req: any) {
+    console.log("ed");
+    
+    const page = Math.max(1, Number(q.page ?? 1));
+    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
+    const sort = parseSortLocal(q.sort);
+
+    const { total, items } = await this.service.listByRole('ADMIN', {
+      page,
+      pageSize,
+      sort,
+      communeId: q.communeId,
+      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
+      is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
+      q: q.q,
+      req,
+    });
+
+    return {
+      message: 'Liste des ADMIN chargée avec succès.',
+      messageE: 'ADMIN users list loaded successfully.',
+      data: items,
+      meta: buildMetaLocal(page, pageSize, total),
+    };
+  }
+
+  /* === MINDEVEL === */
+  @Get('mindevel')
+  @UseGuards(JwtAuthGuard, NotBlockedGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Lister les utilisateurs avec le rôle MINDEVEL (filtré sur la commune du user connecté si présente)' })
+  async listMindevel(@Query() q: ListUsersQueryDto, @Req() req: any) {
+    const page = Math.max(1, Number(q.page ?? 1));
+    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
+    const sort = parseSortLocal(q.sort);
+
+    const { total, items } = await this.service.listByRole('MINDEVEL', {
+      page,
+      pageSize,
+      sort,
+      communeId: q.communeId,
+      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
+      is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
+      q: q.q,
+      req,
+    });
+
+    return {
+      message: 'Liste des MINDEVEL chargée avec succès.',
+      messageE: 'MINDEVEL users list loaded successfully.',
+      data: items,
+      meta: buildMetaLocal(page, pageSize, total),
+    };
+  }
+
+  /* === AGENT === */
+  @Get('agents')
+  @UseGuards(JwtAuthGuard, NotBlockedGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Lister les utilisateurs avec le rôle AGENT (filtré sur la commune du user connecté si présente)' })
+  async listAgents(@Query() q: ListUsersQueryDto, @Req() req: any) {
+    const page = Math.max(1, Number(q.page ?? 1));
+    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
+    const sort = parseSortLocal(q.sort);
+
+    const { total, items } = await this.service.listByRole('AGENT', {
+      page,
+      pageSize,
+      sort,
+      communeId: q.communeId,
+      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
+      is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
+      q: q.q,
+      req,
+    });
+
+    return {
+      message: 'Liste des AGENT chargée avec succès.',
+      messageE: 'AGENT users list loaded successfully.',
+      data: items,
+      meta: buildMetaLocal(page, pageSize, total),
+    };
+  }
+
+  /* === SUPER ADMIN === */
+  @Get('super-admins')
+  @UseGuards(JwtAuthGuard, NotBlockedGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Lister les utilisateurs avec le rôle SUPER_ADMIN (filtré sur la commune du user connecté si présente)' })
+  async listSuperAdmins(@Query() q: ListUsersQueryDto, @Req() req: any) {
+    const page = Math.max(1, Number(q.page ?? 1));
+    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
+    const sort = parseSortLocal(q.sort);
+
+    const { total, items } = await this.service.listByRole('SUPER ADMIN', {
+      page,
+      pageSize,
+      sort,
+      communeId: q.communeId,
+      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
+      is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
+      q: q.q,
+      req,
+    });
+
+    return {
+      message: 'Liste des SUPER_ADMIN chargée avec succès.',
+      messageE: 'SUPER_ADMIN users list loaded successfully.',
+      data: items,
+      meta: buildMetaLocal(page, pageSize, total),
+    };
+  }
+
+  /** GET /api/v1/users/:id — détail */
+  @ApiOperation({ summary:'api pour récupérer un utilisateur par ID' })
+  @Get(':id')
+  async getOne(@Param() params: UserIdParamDto) {
+    const user = await this.service.findOne(params.id);
+    return {
+      message: 'Utilisateur récupéré avec succès.',
+      messageE: 'User fetched successfully.',
+      data: user,
     };
   }
 }
