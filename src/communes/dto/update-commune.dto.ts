@@ -4,6 +4,9 @@ import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
 export class UpdateCommuneDto {
   @ApiPropertyOptional() @IsOptional() @IsString() nom?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() nom_en?: string;
+      @ApiPropertyOptional({ example: 'Mr Emmanuel' })
+  @IsOptional() @IsString()
+  nom_maire?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() longitude?: number;
   @ApiPropertyOptional() @IsOptional() @IsInt() latitude?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() code?: string;

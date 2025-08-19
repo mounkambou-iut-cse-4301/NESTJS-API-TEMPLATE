@@ -63,6 +63,7 @@ model Commune {
   regionId         Int
   nom              String
   nom_en           String?
+  nom_maire           String?
   longitude        Float?
   latitude         Float?
   code             String?         @unique

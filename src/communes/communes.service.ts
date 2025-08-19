@@ -8,61 +8,132 @@ import { UpdateCommuneDto } from './dto/update-commune.dto';
 export class CommunesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(params: {
-    page: number; pageSize: number; sort?: Record<string,'asc'|'desc'>;
-    q?: string; arrondissementId?: number; code?: string; is_verified?: boolean; is_block?: boolean; typeCommuneId?: number;
-    req?: any; // pour le logging
-  }) {
-    const { page, pageSize, sort, q, arrondissementId, code, is_verified, is_block, typeCommuneId, req } = params;
-    const currentUserId = req?.sub as number | undefined;
-    const userCommuneId = req?.user?.communeId as number | undefined;
+  // async list(params: {
+  //   page: number; pageSize: number; sort?: Record<string,'asc'|'desc'>;
+  //   q?: string; arrondissementId?: number; code?: string; is_verified?: boolean; is_block?: boolean; typeCommuneId?: number;
+  //   req?: any; // pour le logging
+  // }) {
+  //   const { page, pageSize, sort, q, arrondissementId, code, is_verified, is_block, typeCommuneId, req } = params;
+  //   const currentUserId = req?.sub as number | undefined;
+  //   const userCommuneId = req?.user?.communeId as number | undefined;
 
-    const where: any = {};
-    if (q) {
-      where.OR = [
-        { nom:    { contains: q, mode: 'insensitive' } },
-        { nom_en: { contains: q, mode: 'insensitive' } },
-        { code:   { contains: q, mode: 'insensitive' } },
-      ];
-    }
-    if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
-    if (typeof typeCommuneId === 'number') where.typeCommuneId = typeCommuneId; 
-    if (code) where.code = code;
-    if (typeof is_verified === 'boolean') where.is_verified = is_verified;
-    if (typeof is_block === 'boolean') where.is_block = is_block;
-    if (currentUserId && userCommuneId) {
-        console.log(userCommuneId);
+  //   const where: any = {};
+  //   if (q) {
+  //     where.OR = [
+  //       { nom:    { contains: q, mode: 'insensitive' } },
+  //       { nom_en: { contains: q, mode: 'insensitive' } },
+  //       { code:   { contains: q, mode: 'insensitive' } },
+  //     ];
+  //   }
+  //   if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
+  //   if (typeof typeCommuneId === 'number') where.typeCommuneId = typeCommuneId; 
+  //   if (code) where.code = code;
+  //   if (typeof is_verified === 'boolean') where.is_verified = is_verified;
+  //   if (typeof is_block === 'boolean') where.is_block = is_block;
+  //   if (currentUserId && userCommuneId) {
         
-      // Si l'utilisateur est connecté et a une commune associée, on filtre par cette commune
-      where.id = userCommuneId;
-    }
+  //     // Si l'utilisateur est connecté et a une commune associée, on filtre par cette commune
+  //     where.id = userCommuneId;
+  //   }
 
-    const [total, items] = await this.prisma.$transaction([
-      this.prisma.commune.count({ where }),
-      this.prisma.commune.findMany({
-        where,
-        orderBy: sort ?? { id: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          nom: true,
-          nom_en: true,
-          longitude: true,
-          latitude: true,
-          code: true,
-          arrondissementId: true,
-          departementId: true,   // ← présent dans ton schéma
-          regionId: true,        // ← présent dans ton schéma
-          is_verified: true,
-          is_block: true,
-          arrondissement: { select: { id: true, nom: true, departementId: true } },
-          typeCommune: true,
-        },
-      }),
-    ]);
-    return { total, items };
+  //   const [total, items] = await this.prisma.$transaction([
+  //     this.prisma.commune.count({ where }),
+  //     this.prisma.commune.findMany({
+  //       where,
+  //       orderBy: sort ?? { id: 'desc' },
+  //       skip: (page - 1) * pageSize,
+  //       take: pageSize,
+  //       select: {
+  //         id: true,
+  //         nom: true,
+  //         nom_en: true,
+  //         longitude: true,
+  //         latitude: true,
+  //         code: true,
+  //         arrondissementId: true,
+  //         departementId: true,   // ← présent dans ton schéma
+  //         regionId: true,        // ← présent dans ton schéma
+  //         is_verified: true,
+  //         is_block: true,
+  //         arrondissement: { select: { id: true, nom: true, departementId: true } },
+  //         typeCommune: true,
+  //       },
+  //     }),
+  //   ]);
+  //   return { total, items };
+  // }
+
+  async list(params: {
+  page: number; pageSize: number; sort?: Record<string,'asc'|'desc'>;
+  q?: string; arrondissementId?: number; code?: string; is_verified?: boolean; is_block?: boolean; typeCommuneId?: number;
+  req?: any; // pour le logging
+}) {
+  const { page, pageSize, sort, q, arrondissementId, code, is_verified, is_block, typeCommuneId, req } = params;
+  const currentUserId = req?.sub as number | undefined;
+  const userCommuneId = req?.user?.communeId as number | undefined;
+
+  const where: any = {};
+  if (q) {
+    where.OR = [
+      { nom:    { contains: q, mode: 'insensitive' } },
+      { nom_en: { contains: q, mode: 'insensitive' } },
+      { code:   { contains: q, mode: 'insensitive' } },
+    ];
   }
+  if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
+  if (typeof typeCommuneId === 'number') where.typeCommuneId = typeCommuneId;
+  if (code) where.code = code;
+  if (typeof is_verified === 'boolean') where.is_verified = is_verified;
+  if (typeof is_block === 'boolean') where.is_block = is_block;
+
+  // Si l'utilisateur connecté a une commune associée → on restreint à cette commune
+  if (currentUserId && userCommuneId) {
+    where.id = userCommuneId;
+  }
+
+  const [total, rows] = await this.prisma.$transaction([
+    this.prisma.commune.count({ where }),
+    this.prisma.commune.findMany({
+      where,
+      orderBy: sort ?? { id: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        nom: true,
+        nom_en: true,
+        longitude: true,
+        latitude: true,
+        code: true,
+        arrondissementId: true,
+        departementId: true,
+        regionId: true,
+        is_verified: true,
+        is_block: true,
+        arrondissement: { select: { id: true, nom: true, departementId: true } },
+        typeCommune: true, // ou { select: { id: true, name: true } }
+        // Comptages liés
+        _count: {
+          select: {
+            infrastructures: true,
+            utilisateurs: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  // Aplatis les compteurs dans des champs lisibles
+  const items = rows.map((r: any) => ({
+    ...r,
+    infrastructures_count: r?._count?.infrastructures ?? 0,
+    utilisateurs_count: r?._count?.utilisateurs ?? 0,
+    _count: undefined, // on peut l’omettre si tu préfères ne pas renvoyer _count brut
+  }));
+
+  return { total, items };
+}
+
 
   async create(dto: CreateCommuneDto) {
     // 1) Vérifier l’arrondissement et remonter departementId + regionId
@@ -87,6 +158,7 @@ export class CommunesService {
         data: {
           nom: dto.nom,
           nom_en: dto.nom_en,
+          nom_maire:dto.nom_maire,
             longitude: dto.longitude,
             latitude: dto.latitude,
 
@@ -102,6 +174,7 @@ export class CommunesService {
           id: true,
           nom: true,
           nom_en: true,
+          nom_maire:true,
           longitude: true,
           latitude: true,
           code: true,
@@ -132,6 +205,7 @@ export class CommunesService {
         id: true,
         nom: true,
         nom_en: true,
+        nom_maire:true,
         longitude: true,
         latitude: true,
         code: true,
@@ -158,6 +232,7 @@ export class CommunesService {
     const data: any = {
       nom: dto.nom,
       nom_en: dto.nom_en,
+      nom_maire:dto.nom_maire,
       typeCommuneId: dto.typeCommuneId,
       longitude: dto.longitude,
       latitude: dto.latitude,
@@ -208,6 +283,7 @@ export class CommunesService {
           id: true,
           nom: true,
           nom_en: true,
+          nom_maire:true,
           longitude: true,
           latitude: true,
           code: true,
