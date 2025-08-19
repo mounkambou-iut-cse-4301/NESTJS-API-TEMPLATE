@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min, MinLength } from 'class-validator';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'Jean Dupont' })
@@ -26,6 +27,11 @@ export class CreateUserDto {
   @ApiPropertyOptional({ example: 1 })
   @IsOptional() @IsInt()
   communeId?: number;
+
+ @ApiPropertyOptional({ example: 3, description: 'ID du rôle à associer au nouvel utilisateur' })
+  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @IsOptional() @IsInt() @Min(1)
+  roleId?: number;
 
     @ApiPropertyOptional({ example: "yaounde" })
   @IsOptional() @IsString()
