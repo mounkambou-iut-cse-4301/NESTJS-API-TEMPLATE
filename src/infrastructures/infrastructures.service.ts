@@ -14,6 +14,61 @@ function toStrId(id: bigint | number | string): string {
   if (typeof id === 'number') return String(id);
   return id;
 }
+type Scope = {
+  regionId?: number;
+  departementId?: number;
+  arrondissementId?: number;
+  communeId?: number;
+  type?: 'SIMPLE'|'COMPLEXE';
+  typeId?: number;        // id_type_infrastructure
+  domaineId?: number;
+  sousdomaineId?: number;
+  competenceId?: number;
+};
+
+const ALLOWED_ETATS = ['excellent','bon','passable','mauvais','tres mauvais'] as const;
+type Etat = typeof ALLOWED_ETATS[number];
+
+function buildWhere(q: Scope) {
+  const where: any = {};
+  if (q.regionId)        where.regionId = Number(q.regionId);
+  if (q.departementId)   where.departementId = Number(q.departementId);
+  if (q.arrondissementId)where.arrondissementId = Number(q.arrondissementId);
+  if (q.communeId)       where.communeId = Number(q.communeId);
+  if (q.type)            where.type = q.type;
+  if (q.typeId)          where.id_type_infrastructure = Number(q.typeId);
+  if (q.domaineId)       where.domaineId = Number(q.domaineId);
+  if (q.sousdomaineId)   where.sousdomaineId = Number(q.sousdomaineId);
+  if (q.competenceId)    where.competenceId = Number(q.competenceId);
+  return where;
+}
+
+/** Clause WHERE SQL uniquement pour colonnes numériques whitelistées. */
+function sqlWhereNumeric(where: Record<string, any>) {
+  const allowed = [
+    'regionId','departementId','arrondissementId','communeId',
+    'id_type_infrastructure','domaineId','sousdomaineId','competenceId',
+  ];
+  const parts: string[] = [];
+  for (const [k,v] of Object.entries(where)) {
+    if (v === undefined || v === null) continue;
+    if (allowed.includes(k)) parts.push(`${k}=${Number(v)}`);
+  }
+  return parts.length ? 'WHERE '+parts.join(' AND ') : '';
+}
+
+/** Restreint le périmètre à la commune du user connecté si définie. */
+function applyUserCommune(where: any, req: any) {
+  const userCommuneId = req?.user?.communeId as number | undefined;
+  if (userCommuneId) {
+    // On force la commune et on retire d’éventuels filtres territoriaux plus larges
+    where.regionId = undefined;
+    where.departementId = undefined;
+    where.arrondissementId = undefined;
+    where.communeId = userCommuneId;
+  }
+  return where;
+}
 
 @Injectable()
 export class InfrastructuresService {
@@ -414,5 +469,190 @@ if (typeof competenceId === 'number') where.competenceId = competenceId;
       }
     }
     return result;
+  }
+
+  /** 1) Résumé : total + par etat + par type */
+  async statsSummary(q: Scope, req: any) {
+    const where = applyUserCommune(buildWhere(q), req);
+
+    const [total, simple, complexe] = await this.prisma.$transaction([
+      this.prisma.infrastructure.count({ where }),
+      this.prisma.infrastructure.count({ where: { ...where, type: 'SIMPLE' } }),
+      this.prisma.infrastructure.count({ where: { ...where, type: 'COMPLEXE' } }),
+    ]);
+
+    // Par etat (attribus.etat) — normalisé en lower + filtré sur la liste
+    const base = sqlWhereNumeric(where);
+    const rows = await this.prisma.$queryRawUnsafe<Array<{ etat: string | null; c: any }>>(`
+      SELECT LOWER(JSON_UNQUOTE(JSON_EXTRACT(i.attribus, '$.etat'))) AS etat, COUNT(*) AS c
+      FROM Infrastructure i
+      ${base}
+      GROUP BY etat
+      ORDER BY c DESC;
+    `);
+
+    const byEtat = rows
+      .filter(r => r.etat && (ALLOWED_ETATS as readonly string[]).includes(r.etat))
+      .map(r => ({ etat: r.etat as Etat, count: Number(r.c) }))
+      .sort((a,b) => b.count - a.count);
+
+    return {
+      message: 'Résumé des infrastructures.',
+      messageE: 'Infrastructures summary.',
+      data: {
+        total,
+        byType: { SIMPLE: simple, COMPLEXE: complexe },
+        byEtat,
+      },
+    };
+  }
+
+  /** 2) Groupements (type|region|departement|commune) avec option etats */
+  async statsGroup(
+    q: Scope & { group: 'type'|'region'|'departement'|'commune'; include_etat?: boolean; limit?: number },
+    req: any,
+  ) {
+    const where = applyUserCommune(buildWhere(q), req);
+    const includeEtat = q.include_etat !== false;
+    const limit = Number(q.limit ?? 50);
+
+    const col =
+      q.group === 'type'        ? 'id_type_infrastructure' :
+      q.group === 'region'      ? 'regionId' :
+      q.group === 'departement' ? 'departementId' :
+                                  'communeId';
+
+    const base = sqlWhereNumeric(where);
+
+    const totals = await this.prisma.$queryRawUnsafe<Array<{ k: number | null; c: any }>>(`
+      SELECT ${col} AS k, COUNT(*) AS c
+      FROM Infrastructure i
+      ${base}
+      GROUP BY ${col}
+      ORDER BY c DESC;
+    `);
+
+    const ids = totals.map(t => t.k).filter((v): v is number => typeof v === 'number');
+
+    // Libellés
+    let names = new Map<number, string>();
+    if (q.group === 'type' && ids.length) {
+      const rows = await this.prisma.typeInfrastructure.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+      names = new Map(rows.map(r => [r.id, r.name]));
+    } else if (q.group === 'region' && ids.length) {
+      const rows = await this.prisma.region.findMany({ where: { id: { in: ids } }, select: { id: true, nom: true } });
+      names = new Map(rows.map(r => [r.id, r.nom]));
+    } else if (q.group === 'departement' && ids.length) {
+      const rows = await this.prisma.departement.findMany({ where: { id: { in: ids } }, select: { id: true, nom: true } });
+      names = new Map(rows.map(r => [r.id, r.nom]));
+    } else if (q.group === 'commune' && ids.length) {
+      const rows = await this.prisma.commune.findMany({ where: { id: { in: ids } }, select: { id: true, nom: true } });
+      names = new Map(rows.map(r => [r.id, r.nom]));
+    }
+
+    let etatRows: Array<{ k: number | null; etat: string | null; c: any }> = [];
+    if (includeEtat) {
+      etatRows = await this.prisma.$queryRawUnsafe(`
+        SELECT ${col} AS k,
+               LOWER(JSON_UNQUOTE(JSON_EXTRACT(i.attribus, '$.etat'))) AS etat,
+               COUNT(*) AS c
+        FROM Infrastructure i
+        ${base}
+        GROUP BY ${col}, etat;
+      `);
+    }
+
+    const items = totals
+      .filter(t => typeof t.k === 'number')
+      .map(t => {
+        const id = t.k as number;
+        const count = Number(t.c);
+        let etats: Array<{ etat: Etat; count: number }> | undefined;
+        if (includeEtat) {
+          etats = etatRows
+            .filter(r => r.k === id && r.etat && (ALLOWED_ETATS as readonly string[]).includes(r.etat))
+            .map(r => ({ etat: r.etat as Etat, count: Number(r.c) }))
+            .sort((a,b) => b.count - a.count);
+        }
+        return { id, name: names.get(id), count, ...(includeEtat ? { etats } : {}) };
+      })
+      .sort((a,b) => b.count - a.count)
+      .slice(0, limit);
+
+    return {
+      message: `Groupement par ${q.group}.`,
+      messageE: `Grouping by ${q.group}.`,
+      group: q.group,
+      items,
+    };
+  }
+
+  /** 3) Groupements par competenceId / domaineId (ordre décroissant) */
+  async statsByDimension(
+    dim: 'competence'|'domaine',
+    q: Scope & { include_etat?: boolean; limit?: number },
+    req: any,
+  ) {
+    const where = applyUserCommune(buildWhere(q), req);
+    const includeEtat = q.include_etat !== false;
+    const limit = Number(q.limit ?? 50);
+
+    const col = dim === 'competence' ? 'competenceId' : 'domaineId';
+    const base = sqlWhereNumeric(where);
+
+    const totals = await this.prisma.$queryRawUnsafe<Array<{ k: number | null; c: any }>>(`
+      SELECT ${col} AS k, COUNT(*) AS c
+      FROM Infrastructure i
+      ${base}
+      GROUP BY ${col}
+      ORDER BY c DESC;
+    `);
+
+    const ids = totals.map(t => t.k).filter((v): v is number => typeof v === 'number');
+
+    let names = new Map<number, string>();
+    if (dim === 'competence' && ids.length) {
+      const rows = await this.prisma.competence.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+      names = new Map(rows.map(r => [r.id, r.name]));
+    } else if (dim === 'domaine' && ids.length) {
+      const rows = await this.prisma.domaine.findMany({ where: { id: { in: ids } }, select: { id: true, nom: true } });
+      names = new Map(rows.map(r => [r.id, r.nom]));
+    }
+
+    let etatRows: Array<{ k: number | null; etat: string | null; c: any }> = [];
+    if (includeEtat) {
+      etatRows = await this.prisma.$queryRawUnsafe(`
+        SELECT ${col} AS k,
+               LOWER(JSON_UNQUOTE(JSON_EXTRACT(i.attribus, '$.etat'))) AS etat,
+               COUNT(*) AS c
+        FROM Infrastructure i
+        ${base}
+        GROUP BY ${col}, etat;
+      `);
+    }
+
+    const items = totals
+      .filter(t => typeof t.k === 'number')
+      .map(t => {
+        const id = t.k as number;
+        const count = Number(t.c);
+        let etats: Array<{ etat: Etat; count: number }> | undefined;
+        if (includeEtat) {
+          etats = etatRows
+            .filter(r => r.k === id && r.etat && (ALLOWED_ETATS as readonly string[]).includes(r.etat))
+            .map(r => ({ etat: r.etat as Etat, count: Number(r.c) }))
+            .sort((a,b) => b.count - a.count);
+        }
+        return { id, name: names.get(id), count, ...(includeEtat ? { etats } : {}) };
+      })
+      .sort((a,b) => b.count - a.count)
+      .slice(0, limit);
+
+    return {
+      message: `Groupement par ${dim}.`,
+      messageE: `Grouping by ${dim}.`,
+      group: dim,
+      items,
+    };
   }
 }

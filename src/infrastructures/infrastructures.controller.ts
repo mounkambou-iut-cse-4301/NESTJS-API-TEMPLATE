@@ -9,6 +9,7 @@ import { InfraIdParamDto } from './dto/infra-id.param.dto';
 import { BulkInfraDto } from './dto/bulk.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
+import { InfraGroupDto, InfraGroupSimpleDto, InfraSummaryDto } from './dto/infra-stats.dto';
 
 function meta(page:number, pageSize:number, total:number) {
   return { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total/Math.max(1,pageSize))) };
@@ -57,6 +58,42 @@ async create(@Body() dto: CreateInfrastructureDto, @Req() req: any) {
   const res = await this.service.create(dto, req.sub); // 👈 fallback créateur
   return { message: 'Infrastructure créée.', messageE: 'Infrastructure created.', data: res };
 }
+
+ @Get('stats/summary')
+  @ApiOperation({
+    summary: 'Résumé des infrastructures:Total, répartition par attribus.etat (si présent) et par type SIMPLE/COMPLEXE.',
+    description: 'Total, répartition par attribus.etat (si présent) et par type SIMPLE/COMPLEXE.',
+  })
+  async statsSummary(@Query() q: InfraSummaryDto, @Req() req: any) {
+    return await this.service.statsSummary(q, req);
+  }
+
+  @Get('stats/group')
+  @ApiOperation({
+    summary: 'Groupements (type|region|departement|commune:Retourne le nombre total par groupe (ordre décroissant) avec option etats.)',
+    description: 'Retourne le nombre total par groupe (ordre décroissant) avec option etats.',
+  })
+  async statsGroup(@Query() q: InfraGroupDto, @Req() req: any) {
+    return await this.service.statsGroup(q, req);
+  }
+
+  @Get('stats/by-competence')
+  @ApiOperation({
+    summary: 'Groupement par competenceId:Total par compétence, décroissant, avec option ventilation par etat.',
+    description: 'Total par compétence, décroissant, avec option ventilation par etat.',
+  })
+  async statsByCompetence(@Query() q: InfraGroupSimpleDto, @Req() req: any) {
+    return await this.service.statsByDimension('competence', q, req);
+  }
+
+  @Get('stats/by-domaine')
+  @ApiOperation({
+    summary: 'Groupement par domaineId:otal par domaine, décroissant, avec option ventilation par etat.',
+    description: 'Total par domaine, décroissant, avec option ventilation par etat.',
+  })
+  async statsByDomaine(@Query() q: InfraGroupSimpleDto, @Req() req: any) {
+    return await this.service.statsByDimension('domaine', q, req);
+  }
 
   @ApiOperation({
     summary: 'Détail',
