@@ -35,6 +35,7 @@ export class CreateCommuneDto {
   code?: string;
 
   @ApiProperty({ example: 100, description: 'FK Arrondissement.id' })
+  @IsOptional()
   @IsInt()
   arrondissementId: number;
 

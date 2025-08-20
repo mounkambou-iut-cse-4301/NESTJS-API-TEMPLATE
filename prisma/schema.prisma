@@ -58,7 +58,7 @@ model Arrondissement {
 
 model Commune {
   id               Int             @id @default(autoincrement())
-  arrondissementId Int
+  arrondissementId Int?
   departementId    Int
   regionId         Int
   nom              String
@@ -77,7 +77,7 @@ model Commune {
   created_at       DateTime        @default(now())
   updated_at       DateTime        @updatedAt
 
-  arrondissement   Arrondissement  @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  arrondissement   Arrondissement?  @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   departement      Departement     @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   region           Region          @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   typeCommune      TypeCommune?    @relation(fields: [typeCommuneId], references: [id], onUpdate: Cascade, onDelete: SetNull)
