@@ -7,6 +7,7 @@ import { UpdateCommuneDto } from './dto/update-commune.dto';
 import { CommuneIdParamDto } from './dto/commune-id.param.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
+import { LastMonthsQueryDto } from './dto/last-months.query.dto';
 
 function sanitizeSort(sort: string | undefined, allowed: string[]) {
   if (!sort) return undefined;
@@ -83,6 +84,23 @@ export class CommunesController {
       message: wasBlocked ? 'Commune désactivée (bloquée).' : 'Commune activée (débloquée).',
       messageE: wasBlocked ? 'Municipality deactivated (blocked).' : 'Municipality activated (unblocked).',
       data: updated,
+    };
+  }
+@ApiOperation({
+    summary: 'Infras par mois (12 derniers mois):Retourne le nombre d’infrastructures créées chaque mois pour la commune, sur N mois (défaut 12)',
+    description: 'Retourne le nombre d’infrastructures créées chaque mois pour la commune, sur N mois (défaut 12). Si l’utilisateur est rattaché à une commune, on force ce périmètre.',
+  })
+  @Get(':id/stats/last-12-months')
+  async last12Months(@Param() p: CommuneIdParamDto, @Query() q: LastMonthsQueryDto, @Req() req: any) {
+    // Si l'user est rattaché à une commune, on force ce périmètre
+    const userCommuneId = req?.user?.communeId as number | undefined;
+    const communeId = userCommuneId ?? p.id;
+
+    const data = await this.service.infrasLastMonths(communeId, q.months ?? 12);
+    return {
+      message: 'Séries mensuelles sur la période demandée.',
+      messageE: 'Monthly series for the requested period.',
+      data,
     };
   }
 }

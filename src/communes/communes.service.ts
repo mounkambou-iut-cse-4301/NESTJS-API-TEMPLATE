@@ -306,6 +306,57 @@ async findOne(id: number) {
       },
     };
   }
+
+  async infrasLastMonths(communeId: number, months = 12) {
+    const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+    months = clamp(Number(months || 12), 1, 24);
+
+    // Début = 1er jour du mois (UTC) il y a (months-1) mois
+    const now = new Date();
+    const start = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth() - (months - 1),
+      1, 0, 0, 0, 0,
+    ));
+
+    // Récupération des counts groupés par mois (format YYYY-MM)
+    // Utilise $queryRaw (paramétré) pour éviter toute injection
+    const rows = await this.prisma.$queryRaw<Array<{ ym: string; c: bigint | number }>>`
+      SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym, COUNT(*) AS c
+      FROM Infrastructure
+      WHERE communeId = ${communeId} AND created_at >= ${start}
+      GROUP BY ym
+      ORDER BY ym ASC
+    `;
+
+    // Map YYYY-MM -> count
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const key = String(r.ym);
+      const val = typeof r.c === 'bigint' ? Number(r.c) : Number(r.c ?? 0);
+      map.set(key, val);
+    }
+
+    // Génère la série complète (mois manquants = 0)
+    const out: Array<{ month: string; count: number }> = [];
+    let y = start.getUTCFullYear();
+    let m = start.getUTCMonth(); // 0..11
+    for (let i = 0; i < months; i++) {
+      const ym = `${y}-${String(m + 1).padStart(2, '0')}`;
+      out.push({ month: ym, count: map.get(ym) ?? 0 });
+      m++;
+      if (m > 11) { m = 0; y++; }
+    }
+
+    return {
+      communeId,
+      from: out[0]?.month,
+      to: out[out.length - 1]?.month,
+      items: out, // [{ month: '2025-01', count: 12 }, ...]
+      total_on_period: out.reduce((s, x) => s + x.count, 0),
+    };
+  }
+  
   async update(id: number, dto: UpdateCommuneDto) {
     await this.ensureExists(id);
 

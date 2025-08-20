@@ -105,6 +105,7 @@ async create(@Body() dto: CreateInfrastructureDto, @Req() req: any) {
     const row = await this.service.findOne(p.id, inc);
     return { message: 'Infrastructure récupérée.', messageE: 'Infrastructure fetched.', data: row };
   }
+  
 
   @ApiOperation({
     summary: 'Mettre à jour',
