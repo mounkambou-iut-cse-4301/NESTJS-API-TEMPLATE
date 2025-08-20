@@ -106,47 +106,109 @@ export class TypesService {
     return { total, items };
   }
 
-  async create(dto: CreateTypeDto) {
-    // vérif FK (si fournis)
-    if (typeof dto.domaineId === 'number') {
-      const exists = await this.prisma.domaine.count({ where: { id: dto.domaineId } });
-      if (!exists) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
-    }
-    if (typeof dto.sousdomaineId === 'number') {
-      const exists = await this.prisma.sousDomaine.count({ where: { id: dto.sousdomaineId } });
-      if (!exists) throw new BadRequestException({ message: 'Sous-domaine invalide.', messageE: 'Invalid subdomain.' });
-    }
+  // async create(dto: CreateTypeDto) {
+  //   // vérif FK (si fournis)
+  //   if (typeof dto.domaineId === 'number') {
+  //     const exists = await this.prisma.domaine.count({ where: { id: dto.domaineId } });
+  //     if (!exists) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
+  //   }
+  //   if (typeof dto.sousdomaineId === 'number') {
+  //     const exists = await this.prisma.sousDomaine.count({ where: { id: dto.sousdomaineId } });
+  //     if (!exists) throw new BadRequestException({ message: 'Sous-domaine invalide.', messageE: 'Invalid subdomain.' });
+  //   }
 
-    const normalized = normalizeTypePayload({
-      ...dto,
-      location: dto.location ?? {},
-      images: dto.images ?? [],
-      attribus: dto.attribus ?? [],
-      composant: dto.composant ?? [],
+  //   const normalized = normalizeTypePayload({
+  //     ...dto,
+  //     location: dto.location ?? {},
+  //     images: dto.images ?? [],
+  //     attribus: dto.attribus ?? [],
+  //     composant: dto.composant ?? [],
+  //   });
+
+  //   try {
+  //     const created = await this.prisma.typeInfrastructure.create({
+  //       data: {
+  //         name: normalized.name,
+  //         description: normalized.description ?? null,
+  //         type: normalized.type,
+  //         location: normalized.location,
+  //         images: normalized.images,
+  //         attribus: normalized.attribus,
+  //         composant: normalized.composant,
+  //         domaineId: dto.domaineId ?? null,
+  //         sousdomaineId: dto.sousdomaineId ?? null,
+  //         competenceId: dto.competenceId ?? null,
+  //       },
+  //       select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true, competenceId: true },
+  //     });
+  //     return created;
+  //   } catch (e: any) {
+  //     if (e.code === 'P2002') throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+  //     throw e;
+  //   }
+  // }
+async create(dto: CreateTypeDto) {
+  // 0) Injecte automatiquement l'attribut "etat" s'il est absent
+  const baseAttribus = Array.isArray(dto.attribus) ? [...dto.attribus] : [];
+  const hasEtat = baseAttribus.some(a => String(a?.key ?? '').toLowerCase() === 'etat');
+  if (!hasEtat) {
+    baseAttribus.push({
+      key: 'etat',
+      type: 'enum',
+      value: ['excellent', 'bon', 'passable', 'mauvais', 'tres mauvais'],
     });
-
-    try {
-      const created = await this.prisma.typeInfrastructure.create({
-        data: {
-          name: normalized.name,
-          description: normalized.description ?? null,
-          type: normalized.type,
-          location: normalized.location,
-          images: normalized.images,
-          attribus: normalized.attribus,
-          composant: normalized.composant,
-          domaineId: dto.domaineId ?? null,
-          sousdomaineId: dto.sousdomaineId ?? null,
-          competenceId: dto.competenceId ?? null,
-        },
-        select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true, competenceId: true },
-      });
-      return created;
-    } catch (e: any) {
-      if (e.code === 'P2002') throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
-      throw e;
-    }
   }
+  const dto2: CreateTypeDto = { ...dto, attribus: baseAttribus };
+
+  // 1) vérif FK (si fournies)
+  if (typeof dto2.domaineId === 'number') {
+    const exists = await this.prisma.domaine.count({ where: { id: dto2.domaineId } });
+    if (!exists) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
+  }
+  if (typeof dto2.sousdomaineId === 'number') {
+    const exists = await this.prisma.sousDomaine.count({ where: { id: dto2.sousdomaineId } });
+    if (!exists) throw new BadRequestException({ message: 'Sous-domaine invalide.', messageE: 'Invalid subdomain.' });
+  }
+  // (facultatif) si tu veux aussi vérifier competenceId, dé-commente :
+  // if (typeof dto2.competenceId === 'number') {
+  //   const exists = await this.prisma.competence.count({ where: { id: dto2.competenceId } });
+  //   if (!exists) throw new BadRequestException({ message: 'Compétence invalide.', messageE: 'Invalid competence.' });
+  // }
+
+  // 2) normalisation (j'utilise dto2 qui contient maintenant "etat")
+  const normalized = normalizeTypePayload({
+    ...dto2,
+    location: dto2.location ?? {},
+    images: dto2.images ?? [],
+    attribus: dto2.attribus ?? [],
+    composant: dto2.composant ?? [],
+  });
+
+  // 3) insertion
+  try {
+    const created = await this.prisma.typeInfrastructure.create({
+      data: {
+        name: normalized.name,
+        description: normalized.description ?? null,
+        type: normalized.type,
+        location: normalized.location,
+        images: normalized.images,
+        attribus: normalized.attribus,   // 👈 contient "etat"
+        composant: normalized.composant,
+        domaineId: dto2.domaineId ?? null,
+        sousdomaineId: dto2.sousdomaineId ?? null,
+        competenceId: dto2.competenceId ?? null,
+      },
+      select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true, competenceId: true },
+    });
+    return created;
+  } catch (e: any) {
+    if (e.code === 'P2002') {
+      throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+    }
+    throw e;
+  }
+}
 
   async findOne(id: number) {
     const row = await this.prisma.typeInfrastructure.findUnique({
