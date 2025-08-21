@@ -20,6 +20,7 @@ import { RolePermissionsModule } from './role-permissions/role-permissions.modul
 import { ParcoursModule } from './parcours/parcours.module';
 import { CompetencesModule } from './competences/competences.module';
 import { TypeCommunesModule } from './type-communes/type-communes.module';
+import { ExportsModule } from './exports/exports.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { TypeCommunesModule } from './type-communes/type-communes.module';
     ParcoursModule,
     CompetencesModule,
     TypeCommunesModule,
+    ExportsModule,
   ],
 })
 export class AppModule {}
