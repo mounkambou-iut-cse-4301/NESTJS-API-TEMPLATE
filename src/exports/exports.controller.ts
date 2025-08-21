@@ -1,7 +1,13 @@
-import { Controller, Get, Query, Res, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Query, Res, Req, BadRequestException, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { ExportsService, ExportFormat } from './exports.service';
-import { ApiOperation } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
+
+
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard) // 👈 tu mets ça seulement ici si tu le veux
 
 @Controller('exports')
 export class ExportsController {
