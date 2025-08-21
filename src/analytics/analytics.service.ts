@@ -267,7 +267,7 @@
 //   }
 // }
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 type Scope = {
@@ -321,10 +321,310 @@ function sqlWhere(where: Record<string, any>) {
   }
   return parts.length ? 'WHERE '+parts.join(' AND ') : '';
 }
-
+type TypeStatsGeoInput = {
+  typeId: number;
+  regionId?: number;
+  departementId?: number;
+  arrondissementId?: number;
+};
+type EtatRow = { etat: string | null; c: any };
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /* ---------- Helpers ---------- */
+
+  private whereParts(q: TypeStatsGeoInput): string[] {
+    const w: string[] = [`id_type_infrastructure=${Number(q.typeId)}`];
+    if (q.regionId) w.push(`regionId=${Number(q.regionId)}`);
+    if (q.departementId) w.push(`departementId=${Number(q.departementId)}`);
+    if (q.arrondissementId) w.push(`arrondissementId=${Number(q.arrondissementId)}`);
+    return w;
+  }
+  private whereSQL(q: TypeStatsGeoInput): string {
+    const parts = this.whereParts(q);
+    return parts.length ? `WHERE ${parts.join(' AND ')}` : '';
+  }
+  private andCond(base: string, cond: string): string {
+    return base && base.trim().length ? `${base} AND ${cond}` : `WHERE ${cond}`;
+  }
+  private escJsonKey(k: string) {
+    return k.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  private async getTypeMeta(typeId: number) {
+    const t = await this.prisma.typeInfrastructure.findUnique({
+      where: { id: typeId },
+      include: {
+        domaine: { select: { nom: true } },
+        sousdomaine: { select: { nom: true } },
+        competence: { select: { name: true } },
+      },
+    });
+    if (!t) return null;
+    return {
+      id: t.id,
+      nom: t.name,
+      nature: t.type,                 // SIMPLE | COMPLEXE (modèle)
+      domaine: t.domaine?.nom ?? null,
+      sousdomaine: t.sousdomaine?.nom ?? null,
+      competence: t.competence?.name ?? null,
+      // on ne renvoie pas attribus/composant ici pour rester léger
+    };
+  }
+
+  /* ---------- PUBLIC: stats par type + geo (fr) ---------- */
+  async typeStatsByGeo(q: TypeStatsGeoInput) {
+    // 0) Sanity + métadonnées
+    const meta = await this.getTypeMeta(Number(q.typeId));
+    if (!meta) {
+      throw new NotFoundException({ message: 'TypeInfrastructure invalide.', messageE: 'Invalid TypeInfrastructure.' });
+    }
+
+    const W = this.whereSQL(q);
+
+    // 1) Totaux & par nature (SIMPLE/COMPLEXE)
+    const totalRows: any[] = await this.prisma.$queryRawUnsafe(`
+      SELECT COUNT(*) AS c FROM Infrastructure ${W};
+    `);
+    const total = Number(totalRows?.[0]?.c ?? 0);
+
+    const natureRows: any[] = await this.prisma.$queryRawUnsafe(`
+      SELECT type, COUNT(*) AS c
+      FROM Infrastructure
+      ${W}
+      GROUP BY type;
+    `);
+    const parNature = { SIMPLE: 0, COMPLEXE: 0 };
+    for (const r of natureRows || []) {
+      const t = (r.type ?? '').toString().toUpperCase();
+      const c = Number(r.c ?? 0);
+      if (t === 'SIMPLE') parNature.SIMPLE = c;
+      else if (t === 'COMPLEXE') parNature.COMPLEXE = c;
+    }
+
+    // 2) Répartition par etat (attribus.etat)
+    const byEtatRows = await this.prisma.$queryRawUnsafe<EtatRow[]>(`
+      SELECT LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat, COUNT(*) AS c
+      FROM Infrastructure
+      ${W}
+      GROUP BY etat
+      ORDER BY c DESC;
+    `);
+    const repartition_etat = byEtatRows
+      .filter(r => r.etat && r.etat.trim() !== '')
+      .map(r => ({ etat: r.etat as string, compte: Number(r.c) }));
+
+    // 3) Liste des attributs top-level (hors "etat")
+    const attrRows: Array<{ attr: string }> = await this.prisma.$queryRawUnsafe(`
+      SELECT DISTINCT jt.attr AS attr
+      FROM Infrastructure i
+      JOIN JSON_TABLE(JSON_KEYS(i.attribus), '$[*]' COLUMNS (attr VARCHAR(191) PATH '$')) jt
+      ${W};
+    `);
+    const attributes = (attrRows || [])
+      .map(r => r.attr)
+      .filter(a => a && a !== 'etat');
+
+    // 4) Pour chaque attribut -> couverture + genre + stats dédiées
+    const attributs: any[] = [];
+    for (const rawKey of attributes) {
+      const key = this.escJsonKey(rawKey);
+
+      // 4.1) Couverture + type hints
+      const covSql = `
+        SELECT
+          COUNT(*) AS total,
+          SUM(
+            CASE
+              WHEN JSON_EXTRACT(attribus, '$."${key}"') IS NULL
+                   OR JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"'))='NULL'
+                   OR (
+                        JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"'))='STRING'
+                        AND JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"'))=''
+                      )
+              THEN 0 ELSE 1
+            END
+          ) AS renseignes,
+          SUM(JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) IN ('INTEGER','DOUBLE')) AS nb_num,
+          SUM(JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) = 'BOOLEAN') AS nb_bool,
+          SUM(JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) = 'STRING')  AS nb_str
+        FROM Infrastructure
+        ${W};
+      `;
+      const covRows: any[] = await this.prisma.$queryRawUnsafe(covSql);
+
+      const totalK = Number(covRows?.[0]?.total ?? 0);
+      const renseignes = Number(covRows?.[0]?.renseignes ?? 0);
+      const nb_num = Number(covRows?.[0]?.nb_num ?? 0);
+      const nb_bool = Number(covRows?.[0]?.nb_bool ?? 0);
+      const nb_str = Number(covRows?.[0]?.nb_str ?? 0);
+
+      let genre: 'nombre'|'booleen'|'enum'|'mixte' = 'mixte';
+      if (nb_bool > 0 && nb_num === 0 && nb_str === 0) genre = 'booleen';
+      else if (nb_num > 0 && nb_bool === 0 && nb_str === 0) genre = 'nombre';
+      else if (nb_str > 0 && nb_bool === 0 && nb_num === 0) genre = 'enum';
+
+      const bloc: any = {
+        nom: rawKey,
+        genre,
+        couverture: {
+          total: totalK,
+          renseignes,
+          pourcentage_renseignes: totalK ? +(renseignes * 100 / totalK).toFixed(2) : 0,
+        },
+      };
+
+      // Clauses supplémentaires selon genre
+      // NB: on ajoute proprement la condition JSON_TYPE avec andCond()
+      if (genre === 'nombre') {
+        const condNum = `JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) IN ('INTEGER','DOUBLE')`;
+
+        const numRows: any[] = await this.prisma.$queryRawUnsafe(`
+          SELECT
+            COUNT(*) AS n,
+            SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS somme,
+            AVG(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS moyenne,
+            MIN(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS min_v,
+            MAX(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS max_v
+          FROM Infrastructure
+          ${this.andCond(W, condNum)};
+        `);
+
+        const byEtatNum: any[] = await this.prisma.$queryRawUnsafe(`
+          SELECT
+            LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat,
+            COUNT(*) AS n,
+            SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS somme
+          FROM Infrastructure
+          ${this.andCond(W, condNum)}
+          GROUP BY etat
+          ORDER BY n DESC;
+        `);
+
+        bloc.numerique = {
+          n: Number(numRows?.[0]?.n ?? 0),
+          somme: Number(numRows?.[0]?.somme ?? 0),
+          moyenne: Number(numRows?.[0]?.moyenne ?? 0),
+          min: numRows?.[0]?.min_v !== null ? Number(numRows?.[0]?.min_v) : null,
+          max: numRows?.[0]?.max_v !== null ? Number(numRows?.[0]?.max_v) : null,
+        };
+        bloc.par_etat = (byEtatNum || [])
+          .filter(r => r.etat && r.etat !== '')
+          .map(r => ({ etat: r.etat as string, n: Number(r.n ?? 0), somme: Number(r.somme ?? 0) }));
+
+      } else if (genre === 'booleen') {
+        const condBool = `JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) = 'BOOLEAN'`;
+
+        const boolRows: any[] = await this.prisma.$queryRawUnsafe(`
+          SELECT
+            SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = true  THEN 1 ELSE 0 END) AS vrai,
+            SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = false THEN 1 ELSE 0 END) AS faux
+          FROM Infrastructure
+          ${this.andCond(W, condBool)};
+        `);
+
+        const boolEtat: any[] = await this.prisma.$queryRawUnsafe(`
+          SELECT
+            LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat,
+            SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = true  THEN 1 ELSE 0 END) AS vrai,
+            SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = false THEN 1 ELSE 0 END) AS faux
+          FROM Infrastructure
+          ${this.andCond(W, condBool)}
+          GROUP BY etat
+          ORDER BY (vrai+faux) DESC;
+        `);
+
+        bloc.booleen = {
+          vrai: Number(boolRows?.[0]?.vrai ?? 0),
+          faux: Number(boolRows?.[0]?.faux ?? 0),
+        };
+        bloc.par_etat = (boolEtat || [])
+          .filter(r => r.etat && r.etat !== '')
+          .map(r => ({ etat: r.etat as string, vrai: Number(r.vrai ?? 0), faux: Number(r.faux ?? 0) }));
+
+      } else {
+        // enum / mixte -> distribution des valeurs (stringifiées)
+        const condStr = `
+          JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) IS NOT NULL
+          AND JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) <> ''
+        `;
+
+        const valRows: any[] = await this.prisma.$queryRawUnsafe(`
+          SELECT JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS valeur, COUNT(*) AS c
+          FROM Infrastructure
+          ${this.andCond(W, condStr)}
+          GROUP BY valeur
+          ORDER BY c DESC;
+        `);
+
+        const valEtatRows: any[] = await this.prisma.$queryRawUnsafe(`
+          SELECT
+            LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat,
+            JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS valeur,
+            COUNT(*) AS c
+          FROM Infrastructure
+          ${this.andCond(W, condStr)}
+          GROUP BY etat, valeur
+          ORDER BY valeur ASC, c DESC;
+        `);
+
+        bloc.valeurs = (valRows || []).map(v => ({
+          valeur: v.valeur,
+          compte: Number(v.c ?? 0),
+          par_etat: (valEtatRows || [])
+            .filter(e => e.valeur === v.valeur && e.etat && e.etat !== '')
+            .map(e => ({ etat: e.etat as string, compte: Number(e.c ?? 0) })),
+        }));
+      }
+
+      attributs.push(bloc);
+    }
+
+    return {
+      message: 'Statistiques du type (fr).',
+      params: {
+        typeId: Number(q.typeId),
+        regionId: q.regionId ?? null,
+        departementId: q.departementId ?? null,
+        arrondissementId: q.arrondissementId ?? null,
+      },
+      type: meta,
+      resume: {
+        total,
+        repartition_etat,
+        par_nature: parNature, // SIMPLE/COMPLEXE
+      },
+      attributs,
+    };
+  }
+
+  /* ---------- PUBLIC: wrapper depuis infraId (fr) ---------- */
+  async typeStatsByGeoFromInfra(
+    infraId: string | number,
+    q: { regionId?: number; departementId?: number; arrondissementId?: number },
+  ) {
+    const id = BigInt(String(infraId));
+    const infra = await this.prisma.infrastructure.findUnique({
+      where: { id },
+      select: {
+        id_type_infrastructure: true,
+        regionId: true,
+        departementId: true,
+        arrondissementId: true,
+      },
+    });
+    if (!infra) {
+      throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
+    }
+
+    return this.typeStatsByGeo({
+      typeId: infra.id_type_infrastructure,
+      regionId: q.regionId ?? infra.regionId ?? undefined,
+      departementId: q.departementId ?? infra.departementId ?? undefined,
+      arrondissementId: q.arrondissementId ?? infra.arrondissementId ?? undefined,
+    });
+    }
 
   /** Vérifie que les IDs territoriaux fournis existent (et la commune scoping si présente). */
   private async territoryIdsExist(q: Scope, req?: any): Promise<boolean> {

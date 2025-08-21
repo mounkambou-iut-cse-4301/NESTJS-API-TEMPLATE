@@ -235,8 +235,8 @@
 // }
 
 
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Param, ParseIntPipe, Query, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
 import {
   OverviewDto, DistributionTypesDto, DistributionDomainesDto, TimeseriesDto,
@@ -246,12 +246,39 @@ import {
 } from './dto/specific';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
+import { TypeStatsGeoQueryDto } from './dto/type-stats-geo.query.dto';
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('Analytics')
 @Controller('api/v1/analytics')
 export class AnalyticsController {
   constructor(private readonly service: AnalyticsService) {}
+
+  @Get('types/:typeId/stats')
+  @ApiOperation({
+    summary: 'Statistiques pour un type d’infrastructure',
+    description: 'Totaux + répartition par etat + stats par attribut (number/boolean/enum). Filtres optionnels: regionId, departementId, arrondissementId.',
+  })
+  @ApiParam({ name: 'typeId', type: Number, required: true })
+  async typeStatsByGeo(
+    @Param('typeId', ParseIntPipe) typeId: number,
+    @Query() q: TypeStatsGeoQueryDto,
+  ) {
+    return this.service.typeStatsByGeo({ typeId, ...q });
+  }
+
+  @Get('infrastructures/:infraId/type-stats')
+  @ApiOperation({
+    summary: 'Statistiques du type à partir d’un infraId',
+    description: 'Récupère le typeId de l’infrastructure. Si les filtres géo ne sont pas fournis, on utilise la géo de l’infra.',
+  })
+  @ApiParam({ name: 'infraId', type: String, required: true })
+  async typeStatsFromInfra(
+    @Param('infraId') infraId: string,
+    @Query() q: TypeStatsGeoQueryDto,
+  ) {
+    return this.service.typeStatsByGeoFromInfra(infraId, q);
+  }
 
   /* A — Vue d’ensemble */
   @Get('overview')
