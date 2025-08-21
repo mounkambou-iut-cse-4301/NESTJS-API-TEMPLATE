@@ -279,6 +279,10 @@ model TypeInfrastructure {
 model Infrastructure {
   id                     BigInt   @id @default(autoincrement())
 
+   id_parent              BigInt?
+  parent                 Infrastructure?  @relation("InfrastructureParent", fields: [id_parent], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  children               Infrastructure[] @relation("InfrastructureParent")
+
   /// Référence du type (modèle) — correspond à id dans TypeInfrastructure
   id_type_infrastructure Int
   typeRef                TypeInfrastructure @relation(fields: [id_type_infrastructure], references: [id], onUpdate: Cascade, onDelete: Restrict)
