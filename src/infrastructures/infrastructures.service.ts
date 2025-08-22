@@ -1664,7 +1664,9 @@ export class InfrastructuresService {
     const currentUserId = req?.sub as number | undefined;
     const userCommuneId = req?.user?.communeId as number | undefined;
 
-    const where: any = {};
+    const where: any = {
+       id_parent: null, 
+    };
     if (typeof regionId === 'number') where.regionId = regionId;
     if (typeof departementId === 'number') where.departementId = departementId;
     if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
