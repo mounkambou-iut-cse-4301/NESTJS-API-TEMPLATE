@@ -257,27 +257,36 @@ export class AnalyticsController {
   @Get('types/:typeId/stats')
   @ApiOperation({
     summary: 'Statistiques pour un type d’infrastructure',
-    description: 'Totaux + répartition par etat + stats par attribut (number/boolean/enum). Filtres optionnels: regionId, departementId, arrondissementId.',
+    description:
+      "Totaux + répartition par etat + stats par attribut (number/boolean/enum). " +
+      "Filtres optionnels: regionId, departementId, arrondissementId. " +
+      "Si req.user.communeId est présent, on scope automatiquement à l’arrondissement de cette commune.",
   })
   @ApiParam({ name: 'typeId', type: Number, required: true })
   async typeStatsByGeo(
     @Param('typeId', ParseIntPipe) typeId: number,
     @Query() q: TypeStatsGeoQueryDto,
+    @Req() req: any, // 👈 on récupère le user ici
   ) {
-    return this.service.typeStatsByGeo({ typeId, ...q });
+    // 👇 on propage req au service pour qu’il applique le scope arrondissement depuis user.communeId si présent
+    return this.service.typeStatsByGeo({ typeId, ...q }, req);
   }
 
   @Get('infrastructures/:infraId/type-stats')
   @ApiOperation({
     summary: 'Statistiques du type à partir d’un infraId',
-    description: 'Récupère le typeId de l’infrastructure. Si les filtres géo ne sont pas fournis, on utilise la géo de l’infra.',
+    description:
+      "Récupère le typeId de l’infrastructure. " +
+      "Si les filtres géo ne sont pas fournis, on utilise la géo de l’infra. " +
+      "Si req.user.communeId est présent, on scope automatiquement à l’arrondissement de cette commune.",
   })
   @ApiParam({ name: 'infraId', type: String, required: true })
   async typeStatsFromInfra(
     @Param('infraId') infraId: string,
     @Query() q: TypeStatsGeoQueryDto,
+    @Req() req: any, // 👈 idem
   ) {
-    return this.service.typeStatsByGeoFromInfra(infraId, q);
+    return this.service.typeStatsByGeoFromInfra(infraId, q, req);
   }
 
   /* A — Vue d’ensemble */
