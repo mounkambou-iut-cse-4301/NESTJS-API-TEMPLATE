@@ -334,6 +334,7 @@ export class AnalyticsService {
 
   /* ---------- Helpers ---------- */
 
+  /* ---------------- Helpers WHERE / PATH ---------------- */
   private whereParts(q: TypeStatsGeoInput): string[] {
     const w: string[] = [`id_type_infrastructure=${Number(q.typeId)}`];
     if (q.regionId) w.push(`regionId=${Number(q.regionId)}`);
@@ -348,10 +349,15 @@ export class AnalyticsService {
   private andCond(base: string, cond: string): string {
     return base && base.trim().length ? `${base} AND ${cond}` : `WHERE ${cond}`;
   }
-  private escJsonKey(k: string) {
-    return k.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  }
+private escJsonKey(k: string) {
+  return k
+    .replace(/\\/g, '\\\\')   // échappe les backslashes
+    .replace(/"/g, '\\"')     // échappe les doubles quotes (pour $."...")
+    .replace(/'/g, "''");     // ⬅️ échappe les apostrophes pour les littéraux SQL (' devient '')
+}
 
+
+  /* ---------------- Métadonnées du type ---------------- */
   private async getTypeMeta(typeId: number) {
     const t = await this.prisma.typeInfrastructure.findUnique({
       where: { id: typeId },
@@ -369,18 +375,18 @@ export class AnalyticsService {
       domaine: t.domaine?.nom ?? null,
       sousdomaine: t.sousdomaine?.nom ?? null,
       competence: t.competence?.name ?? null,
-      // on ne renvoie pas attribus/composant ici pour rester léger
     };
   }
 
-  /* ---------- PUBLIC: stats par type + geo (fr) ---------- */
+  /* =====================================================
+     PUBLIC: Statistiques d’un type (par région/dép/arr)
+     ===================================================== */
   async typeStatsByGeo(q: TypeStatsGeoInput) {
-    // 0) Sanity + métadonnées
+    // 0) sanity + meta
     const meta = await this.getTypeMeta(Number(q.typeId));
     if (!meta) {
       throw new NotFoundException({ message: 'TypeInfrastructure invalide.', messageE: 'Invalid TypeInfrastructure.' });
     }
-
     const W = this.whereSQL(q);
 
     // 1) Totaux & par nature (SIMPLE/COMPLEXE)
@@ -403,52 +409,57 @@ export class AnalyticsService {
       else if (t === 'COMPLEXE') parNature.COMPLEXE = c;
     }
 
-    // 2) Répartition par etat (attribus.etat)
-    const byEtatRows = await this.prisma.$queryRawUnsafe<EtatRow[]>(`
+    // 2) Répartition par état (attribus.etat)
+    const byEtatRows: Array<{ etat: string | null; c: any }> = await this.prisma.$queryRawUnsafe(`
       SELECT LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat, COUNT(*) AS c
       FROM Infrastructure
       ${W}
       GROUP BY etat
       ORDER BY c DESC;
     `);
-    const repartition_etat = byEtatRows
+    const repartition_etat = (byEtatRows || [])
       .filter(r => r.etat && r.etat.trim() !== '')
       .map(r => ({ etat: r.etat as string, compte: Number(r.c) }));
 
-    // 3) Liste des attributs top-level (hors "etat")
-    const attrRows: Array<{ attr: string }> = await this.prisma.$queryRawUnsafe(`
-      SELECT DISTINCT jt.attr AS attr
-      FROM Infrastructure i
-      JOIN JSON_TABLE(JSON_KEYS(i.attribus), '$[*]' COLUMNS (attr VARCHAR(191) PATH '$')) jt
+    // 3) Clés top-level de attribus (⚠️ sans JSON_TABLE ; on agrège côté Node)
+    //    - On récupère JSON_KEYS(attribus) pour chaque ligne, puis union en TS.
+    const keysRows: Array<{ k: any }> = await this.prisma.$queryRawUnsafe(`
+      SELECT JSON_KEYS(attribus) AS k
+      FROM Infrastructure
       ${W};
     `);
-    const attributes = (attrRows || [])
-      .map(r => r.attr)
-      .filter(a => a && a !== 'etat');
+    const keySet = new Set<string>();
+    for (const r of keysRows || []) {
+      try {
+        const arr = JSON.parse(r.k || '[]'); // JSON_KEYS -> '["a","b"]'
+        if (Array.isArray(arr)) {
+          for (const k of arr) {
+            if (k && k !== 'etat') keySet.add(String(k));
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    const attributes = Array.from(keySet);
 
-    // 4) Pour chaque attribut -> couverture + genre + stats dédiées
+    // 4) Stats par attribut (sans descendre dans composant)
     const attributs: any[] = [];
     for (const rawKey of attributes) {
       const key = this.escJsonKey(rawKey);
+      const val = `JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"'))`;
+      const valLower = `LOWER(${val})`;
 
-      // 4.1) Couverture + type hints
+      const presentCond = `(JSON_EXTRACT(attribus, '$."${key}"') IS NOT NULL AND ${val} <> '')`;
+      const numericCond = `(${val} REGEXP '^-?[0-9]+(\\\\.[0-9]+)?$')`;
+      const booleanCond = `(${valLower} IN ('true','false'))`;
+
+      // 4.1 Couverture + "genre" (déductions robustes MariaDB)
       const covSql = `
         SELECT
           COUNT(*) AS total,
-          SUM(
-            CASE
-              WHEN JSON_EXTRACT(attribus, '$."${key}"') IS NULL
-                   OR JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"'))='NULL'
-                   OR (
-                        JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"'))='STRING'
-                        AND JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"'))=''
-                      )
-              THEN 0 ELSE 1
-            END
-          ) AS renseignes,
-          SUM(JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) IN ('INTEGER','DOUBLE')) AS nb_num,
-          SUM(JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) = 'BOOLEAN') AS nb_bool,
-          SUM(JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) = 'STRING')  AS nb_str
+          SUM(CASE WHEN ${presentCond} THEN 1 ELSE 0 END) AS renseignes,
+          SUM(CASE WHEN ${numericCond} THEN 1 ELSE 0 END) AS nb_num,
+          SUM(CASE WHEN ${booleanCond} THEN 1 ELSE 0 END) AS nb_bool,
+          SUM(CASE WHEN ${presentCond} AND NOT ${numericCond} AND NOT ${booleanCond} THEN 1 ELSE 0 END) AS nb_str
         FROM Infrastructure
         ${W};
       `;
@@ -475,29 +486,27 @@ export class AnalyticsService {
         },
       };
 
-      // Clauses supplémentaires selon genre
-      // NB: on ajoute proprement la condition JSON_TYPE avec andCond()
+      // 4.2 Spécifiques par genre
       if (genre === 'nombre') {
-        const condNum = `JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) IN ('INTEGER','DOUBLE')`;
-
+        const cond = `${presentCond} AND ${numericCond}`;
         const numRows: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
             COUNT(*) AS n,
-            SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS somme,
-            AVG(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS moyenne,
-            MIN(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS min_v,
-            MAX(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS max_v
+            SUM(CASE WHEN ${numericCond} THEN CAST(${val} AS DECIMAL(30,6)) END) AS somme,
+            AVG(CASE WHEN ${numericCond} THEN CAST(${val} AS DECIMAL(30,6)) END) AS moyenne,
+            MIN(CASE WHEN ${numericCond} THEN CAST(${val} AS DECIMAL(30,6)) END) AS min_v,
+            MAX(CASE WHEN ${numericCond} THEN CAST(${val} AS DECIMAL(30,6)) END) AS max_v
           FROM Infrastructure
-          ${this.andCond(W, condNum)};
+          ${this.andCond(W, cond)};
         `);
 
         const byEtatNum: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
             LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat,
             COUNT(*) AS n,
-            SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS somme
+            SUM(CASE WHEN ${numericCond} THEN CAST(${val} AS DECIMAL(30,6)) END) AS somme
           FROM Infrastructure
-          ${this.andCond(W, condNum)}
+          ${this.andCond(W, cond)}
           GROUP BY etat
           ORDER BY n DESC;
         `);
@@ -514,23 +523,22 @@ export class AnalyticsService {
           .map(r => ({ etat: r.etat as string, n: Number(r.n ?? 0), somme: Number(r.somme ?? 0) }));
 
       } else if (genre === 'booleen') {
-        const condBool = `JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) = 'BOOLEAN'`;
-
+        const cond = `${presentCond} AND ${booleanCond}`;
         const boolRows: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
-            SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = true  THEN 1 ELSE 0 END) AS vrai,
-            SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = false THEN 1 ELSE 0 END) AS faux
+            SUM(CASE WHEN ${valLower} = 'true'  THEN 1 ELSE 0 END) AS vrai,
+            SUM(CASE WHEN ${valLower} = 'false' THEN 1 ELSE 0 END) AS faux
           FROM Infrastructure
-          ${this.andCond(W, condBool)};
+          ${this.andCond(W, cond)};
         `);
 
         const boolEtat: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
             LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat,
-            SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = true  THEN 1 ELSE 0 END) AS vrai,
-            SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = false THEN 1 ELSE 0 END) AS faux
+            SUM(CASE WHEN ${valLower} = 'true'  THEN 1 ELSE 0 END) AS vrai,
+            SUM(CASE WHEN ${valLower} = 'false' THEN 1 ELSE 0 END) AS faux
           FROM Infrastructure
-          ${this.andCond(W, condBool)}
+          ${this.andCond(W, cond)}
           GROUP BY etat
           ORDER BY (vrai+faux) DESC;
         `);
@@ -544,16 +552,13 @@ export class AnalyticsService {
           .map(r => ({ etat: r.etat as string, vrai: Number(r.vrai ?? 0), faux: Number(r.faux ?? 0) }));
 
       } else {
-        // enum / mixte -> distribution des valeurs (stringifiées)
-        const condStr = `
-          JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) IS NOT NULL
-          AND JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) <> ''
-        `;
+        // enum / mixte -> valeurs textuelles
+        const cond = `${presentCond} AND NOT ${numericCond} AND NOT ${booleanCond}`;
 
         const valRows: any[] = await this.prisma.$queryRawUnsafe(`
-          SELECT JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS valeur, COUNT(*) AS c
+          SELECT ${val} AS valeur, COUNT(*) AS c
           FROM Infrastructure
-          ${this.andCond(W, condStr)}
+          ${this.andCond(W, cond)}
           GROUP BY valeur
           ORDER BY c DESC;
         `);
@@ -561,10 +566,10 @@ export class AnalyticsService {
         const valEtatRows: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
             LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat,
-            JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS valeur,
+            ${val} AS valeur,
             COUNT(*) AS c
           FROM Infrastructure
-          ${this.andCond(W, condStr)}
+          ${this.andCond(W, cond)}
           GROUP BY etat, valeur
           ORDER BY valeur ASC, c DESC;
         `);
@@ -624,7 +629,7 @@ export class AnalyticsService {
       departementId: q.departementId ?? infra.departementId ?? undefined,
       arrondissementId: q.arrondissementId ?? infra.arrondissementId ?? undefined,
     });
-    }
+  }
 
   /** Vérifie que les IDs territoriaux fournis existent (et la commune scoping si présente). */
   private async territoryIdsExist(q: Scope, req?: any): Promise<boolean> {
