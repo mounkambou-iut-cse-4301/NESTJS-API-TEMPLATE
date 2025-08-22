@@ -21,6 +21,7 @@ import { ParcoursModule } from './parcours/parcours.module';
 import { CompetencesModule } from './competences/competences.module';
 import { TypeCommunesModule } from './type-communes/type-communes.module';
 import { ExportsModule } from './exports/exports.module';
+import { PortailsModule } from './portails/portails.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ExportsModule } from './exports/exports.module';
     CompetencesModule,
     TypeCommunesModule,
     ExportsModule,
+    PortailsModule,
   ],
 })
 export class AppModule {}
