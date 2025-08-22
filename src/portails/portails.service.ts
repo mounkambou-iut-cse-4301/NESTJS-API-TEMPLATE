@@ -86,7 +86,9 @@ export class PortailsService {
     const page = Math.max(1, Number(q.page ?? 1));
     const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 200);
 
-    const where: any = {};
+    const where: any = {
+        id_parent:null
+    };
     if (q.typeId) where.id_type_infrastructure = Number(q.typeId);
     if (q.communeId) where.communeId = Number(q.communeId);
     if (q.q) {
