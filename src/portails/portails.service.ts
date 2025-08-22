@@ -257,6 +257,7 @@ export class PortailsService {
    *  - filtre optionnel par commune
    * ======================================================= */
   async summaryPublic(q: SummaryQuery) {
+    console.log('communeId:', q);
     const where: any = {};
     if (q.communeId) where.communeId = Number(q.communeId);
 
