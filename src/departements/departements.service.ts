@@ -24,7 +24,7 @@ export class DepartementsService {
       this.prisma.departement.count({ where }),
       this.prisma.departement.findMany({
         where,
-        orderBy: sort ?? { id: 'desc' },
+        orderBy: sort ?? { nom: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: {

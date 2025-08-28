@@ -23,7 +23,7 @@ export class RegionsService {
       this.prisma.region.count({ where }),
       this.prisma.region.findMany({
         where,
-        orderBy: sort ?? { id: 'desc' },
+        orderBy: sort ?? { nom: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: { id: true, nom: true, nom_en: true, code: true },

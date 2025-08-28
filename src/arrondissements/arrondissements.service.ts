@@ -24,7 +24,7 @@ export class ArrondissementsService {
       this.prisma.arrondissement.count({ where }),
       this.prisma.arrondissement.findMany({
         where,
-        orderBy: sort ?? { id: 'desc' },
+        orderBy: sort ?? { nom: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: {

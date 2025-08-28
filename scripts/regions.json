@@ -1,0 +1,1628 @@
+{
+    "regions": [
+        {
+            "nom": "Adamaoua",
+            "nom_en": "Adamawa",
+            "departements": [
+                {
+                    "nom": "Djérem",
+                    "nom_en": "Djerem",
+                    "arrondissements": [
+                        {
+                            "nom": "Tibati",
+                            "nom_en": "Tibati"
+                        },
+                        {
+                            "nom": "Ngaoundal",
+                            "nom_en": "Ngaoundal"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Faro-et-Déo",
+                    "nom_en": "Faro and Deo",
+                    "arrondissements": [
+                        {
+                            "nom": "Tignère",
+                            "nom_en": "Tignere"
+                        },
+                        {
+                            "nom": "Kontcha",
+                            "nom_en": "Kontcha"
+                        },
+                        {
+                            "nom": "Galim-Tignère",
+                            "nom_en": "Galim-Tignere"
+                        },
+                        {
+                            "nom": "Mayo-Baléo",
+                            "nom_en": "Mayo-Baleo"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mbéré",
+                    "nom_en": "Mbere",
+                    "arrondissements": [
+                        {
+                            "nom": "Meiganga",
+                            "nom_en": "Meiganga"
+                        },
+                        {
+                            "nom": "Ngaoui",
+                            "nom_en": "Ngaoui"
+                        },
+                        {
+                            "nom": "Dir",
+                            "nom_en": "Dir"
+                        },
+                        {
+                            "nom": "Djohong",
+                            "nom_en": "Djohong"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Vina",
+                    "nom_en": "Vina",
+                    "arrondissements": [
+                        {
+                            "nom": "Ngaoundéré I",
+                            "nom_en": "Ngaoundere I"
+                        },
+                        {
+                            "nom": "Ngaoundéré II",
+                            "nom_en": "Ngaoundere II"
+                        },
+                        {
+                            "nom": "Ngaoundéré III",
+                            "nom_en": "Ngaoundere III"
+                        },
+                        {
+                            "nom": "Belel",
+                            "nom_en": "Belel"
+                        },
+                        {
+                            "nom": "Nyambaka",
+                            "nom_en": "Nyambaka"
+                        },
+                        {
+                            "nom": "Martap",
+                            "nom_en": "Martap"
+                        },
+                        {
+                            "nom": "Mbe",
+                            "nom_en": "Mbe"
+                        },
+                        {
+                            "nom": "Nganha",
+                            "nom_en": "Nganha"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mayo-Banyo",
+                    "nom_en": "Mayo-Banyo",
+                    "arrondissements": [
+                        {
+                            "nom": "Banyo",
+                            "nom_en": "Banyo"
+                        },
+                        {
+                            "nom": "Bankim",
+                            "nom_en": "Bankim"
+                        },
+                        {
+                            "nom": "Mayo-Darlé",
+                            "nom_en": "Mayo-Darle"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "nom": "Centre",
+            "nom_en": "Centre",
+            "departements": [
+                {
+                    "nom": "Haute-Sanaga",
+                    "nom_en": "Haute-Sanaga",
+                    "arrondissements": [
+                        {
+                            "nom": "Nanga-Eboko",
+                            "nom_en": "Nanga-Eboko"
+                        },
+                        {
+                            "nom": "Minta",
+                            "nom_en": "Minta"
+                        },
+                        {
+                            "nom": "Ntui",
+                            "nom_en": "Ntui"
+                        },
+                        {
+                            "nom": "Ebebda",
+                            "nom_en": "Ebebda"
+                        },
+                        {
+                            "nom": "Biwong-Bane",
+                            "nom_en": "Biwong-Bane"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Lekié",
+                    "nom_en": "Lekie",
+                    "arrondissements": [
+                        {
+                            "nom": "Monatélé",
+                            "nom_en": "Monatele"
+                        },
+                        {
+                            "nom": "Obala",
+                            "nom_en": "Obala"
+                        },
+                        {
+                            "nom": "Okola",
+                            "nom_en": "Okola"
+                        },
+                        {
+                            "nom": "Elig-Mfomo",
+                            "nom_en": "Elig-Mfomo"
+                        },
+                        {
+                            "nom": "Batchenga",
+                            "nom_en": "Batchenga"
+                        },
+                        {
+                            "nom": "Ebebda",
+                            "nom_en": "Ebebda"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mbam-et-Inoubou",
+                    "nom_en": "Mbam and Inoubou",
+                    "arrondissements": [
+                        {
+                            "nom": "Bafia",
+                            "nom_en": "Bafia"
+                        },
+                        {
+                            "nom": "Kon-Yambetta",
+                            "nom_en": "Kon-Yambetta"
+                        },
+                        {
+                            "nom": "Ndikiniméki",
+                            "nom_en": "Ndikinimeki"
+                        },
+                        {
+                            "nom": "Kiiki",
+                            "nom_en": "Kiiki"
+                        },
+                        {
+                            "nom": "Nitoukou",
+                            "nom_en": "Nitoukou"
+                        },
+                        {
+                            "nom": "Ombessa",
+                            "nom_en": "Ombessa"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mbam-et-Kim",
+                    "nom_en": "Mbam and Kim",
+                    "arrondissements": [
+                        {
+                            "nom": "Ntui",
+                            "nom_en": "Ntui"
+                        },
+                        {
+                            "nom": "Ngoro",
+                            "nom_en": "Ngoro"
+                        },
+                        {
+                            "nom": "Yoko",
+                            "nom_en": "Yoko"
+                        },
+                        {
+                            "nom": "Mbangassina",
+                            "nom_en": "Mbangassina"
+                        },
+                        {
+                            "nom": "Ngambe-Tikar",
+                            "nom_en": "Ngambe-Tikar"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Méfou-et-Afamba",
+                    "nom_en": "Mefou and Afamba",
+                    "arrondissements": [
+                        {
+                            "nom": "Mfou",
+                            "nom_en": "Mfou"
+                        },
+                        {
+                            "nom": "Awae",
+                            "nom_en": "Awae"
+                        },
+                        {
+                            "nom": "Soa",
+                            "nom_en": "Soa"
+                        },
+                        {
+                            "nom": "Olanguina",
+                            "nom_en": "Olanguina"
+                        },
+                        {
+                            "nom": "Esse",
+                            "nom_en": "Esse"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Méfou-et-Akono",
+                    "nom_en": "Mefou and Akono",
+                    "arrondissements": [
+                        {
+                            "nom": "Ngoumou",
+                            "nom_en": "Ngoumou"
+                        },
+                        {
+                            "nom": "Mbankomo",
+                            "nom_en": "Mbankomo"
+                        },
+                        {
+                            "nom": "Bikok",
+                            "nom_en": "Bikok"
+                        },
+                        {
+                            "nom": "Akono",
+                            "nom_en": "Akono"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mfoundi",
+                    "nom_en": "Mfoundi",
+                    "arrondissements": [
+                        {
+                            "nom": "Yaoundé I",
+                            "nom_en": "Yaounde I"
+                        },
+                        {
+                            "nom": "Yaoundé II",
+                            "nom_en": "Yaounde II"
+                        },
+                        {
+                            "nom": "Yaoundé III",
+                            "nom_en": "Yaounde III"
+                        },
+                        {
+                            "nom": "Yaoundé IV",
+                            "nom_en": "Yaounde IV"
+                        },
+                        {
+                            "nom": "Yaoundé V",
+                            "nom_en": "Yaounde V"
+                        },
+                        {
+                            "nom": "Yaoundé VI",
+                            "nom_en": "Yaounde VI"
+                        },
+                        {
+                            "nom": "Yaoundé VII",
+                            "nom_en": "Yaounde VII"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Nyong-et-Kellé",
+                    "nom_en": "Nyong and Kelle",
+                    "arrondissements": [
+                        {
+                            "nom": "Eséka",
+                            "nom_en": "Eseka"
+                        },
+                        {
+                            "nom": "Makak",
+                            "nom_en": "Makak"
+                        },
+                        {
+                            "nom": "Mbandjock",
+                            "nom_en": "Mbandjock"
+                        },
+                        {
+                            "nom": "Bot-Makak",
+                            "nom_en": "Bot-Makak"
+                        },
+                        {
+                            "nom": "Ngog-Mapubi",
+                            "nom_en": "Ngog-Mapubi"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Nyong-et-Mfoumou",
+                    "nom_en": "Nyong and Mfoumou",
+                    "arrondissements": [
+                        {
+                            "nom": "Akonolinga",
+                            "nom_en": "Akonolinga"
+                        },
+                        {
+                            "nom": "Endom",
+                            "nom_en": "Endom"
+                        },
+                        {
+                            "nom": "Kobdombo",
+                            "nom_en": "Kobdombo"
+                        },
+                        {
+                            "nom": "Mengang",
+                            "nom_en": "Mengang"
+                        },
+                        {
+                            "nom": "Nguelemendouka",
+                            "nom_en": "Nguelemendouka"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Nyong-et-So'o",
+                    "nom_en": "Nyong and So'o",
+                    "arrondissements": [
+                        {
+                            "nom": "Mbalmayo",
+                            "nom_en": "Mbalmayo"
+                        },
+                        {
+                            "nom": "Mengueme",
+                            "nom_en": "Mengueme"
+                        },
+                        {
+                            "nom": "Mengueme I",
+                            "nom_en": "Mengueme I"
+                        },
+                        {
+                            "nom": "Dzeng",
+                            "nom_en": "Dzeng"
+                        },
+                        {
+                            "nom": "Ngomedzap",
+                            "nom_en": "Ngomedzap"
+                        },
+                        {
+                            "nom": "Akoeman",
+                            "nom_en": "Akoeman"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "nom": "Est",
+            "nom_en": "East",
+            "departements": [
+                {
+                    "nom": "Boumba-et-Ngoko",
+                    "nom_en": "Boumba and Ngoko",
+                    "arrondissements": [
+                        {
+                            "nom": "Yokadouma",
+                            "nom_en": "Yokadouma"
+                        },
+                        {
+                            "nom": "Moloundou",
+                            "nom_en": "Moloundou"
+                        },
+                        {
+                            "nom": "Salapoumbé",
+                            "nom_en": "Salapoumbe"
+                        },
+                        {
+                            "nom": "Gari-Gombo",
+                            "nom_en": "Gari-Gombo"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Haut-Nyong",
+                    "nom_en": "Haut-Nyong",
+                    "arrondissements": [
+                        {
+                            "nom": "Abong-Mbang",
+                            "nom_en": "Abong-Mbang"
+                        },
+                        {
+                            "nom": "Lomié",
+                            "nom_en": "Lomie"
+                        },
+                        {
+                            "nom": "Messamena",
+                            "nom_en": "Messamena"
+                        },
+                        {
+                            "nom": "Ngoyla",
+                            "nom_en": "Ngoyla"
+                        },
+                        {
+                            "nom": "Mindourou",
+                            "nom_en": "Mindourou"
+                        },
+                        {
+                            "nom": "Atok",
+                            "nom_en": "Atok"
+                        },
+                        {
+                            "nom": "Doumé",
+                            "nom_en": "Doume"
+                        },
+                        {
+                            "nom": "Dimako",
+                            "nom_en": "Dimako"
+                        },
+                        {
+                            "nom": "Angossas",
+                            "nom_en": "Angossas"
+                        },
+                        {
+                            "nom": "Messok",
+                            "nom_en": "Messok"
+                        },
+                        {
+                            "nom": "Somalomo",
+                            "nom_en": "Somalomo"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Kadey",
+                    "nom_en": "Kadey",
+                    "arrondissements": [
+                        {
+                            "nom": "Batouri",
+                            "nom_en": "Batouri"
+                        },
+                        {
+                            "nom": "Kette",
+                            "nom_en": "Kette"
+                        },
+                        {
+                            "nom": "Kentzou",
+                            "nom_en": "Kentzou"
+                        },
+                        {
+                            "nom": "Mbang",
+                            "nom_en": "Mbang"
+                        },
+                        {
+                            "nom": "Ndelele",
+                            "nom_en": "Ndelele"
+                        },
+                        {
+                            "nom": "Ouli",
+                            "nom_en": "Ouli"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Lom-et-Djérem",
+                    "nom_en": "Lom and Djerem",
+                    "arrondissements": [
+                        {
+                            "nom": "Bertoua I",
+                            "nom_en": "Bertoua I"
+                        },
+                        {
+                            "nom": "Bertoua II",
+                            "nom_en": "Bertoua II"
+                        },
+                        {
+                            "nom": "Belabo",
+                            "nom_en": "Belabo"
+                        },
+                        {
+                            "nom": "Garoua-Boulaï",
+                            "nom_en": "Garoua-Boulai"
+                        },
+                        {
+                            "nom": "Bétaré-Oya",
+                            "nom_en": "Betare-Oya"
+                        },
+                        {
+                            "nom": "Diang",
+                            "nom_en": "Diang"
+                        },
+                        {
+                            "nom": "Mandjou",
+                            "nom_en": "Mandjou"
+                        },
+                        {
+                            "nom": "Ngoura",
+                            "nom_en": "Ngoura"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "nom": "Extrême-Nord",
+            "nom_en": "Far North",
+            "departements": [
+                {
+                    "nom": "Diamaré",
+                    "nom_en": "Diamare",
+                    "arrondissements": [
+                        {
+                            "nom": "Maroua I",
+                            "nom_en": "Maroua I"
+                        },
+                        {
+                            "nom": "Maroua II",
+                            "nom_en": "Maroua II"
+                        },
+                        {
+                            "nom": "Maroua III",
+                            "nom_en": "Maroua III"
+                        },
+                        {
+                            "nom": "Bogo",
+                            "nom_en": "Bogo"
+                        },
+                        {
+                            "nom": "Dargala",
+                            "nom_en": "Dargala"
+                        },
+                        {
+                            "nom": "Ndoukoula",
+                            "nom_en": "Ndoukoula"
+                        },
+                        {
+                            "nom": "Petté",
+                            "nom_en": "Pette"
+                        },
+                        {
+                            "nom": "Meri",
+                            "nom_en": "Meri"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Logone-et-Chari",
+                    "nom_en": "Logone and Chari",
+                    "arrondissements": [
+                        {
+                            "nom": "Kousséri",
+                            "nom_en": "Kousseri"
+                        },
+                        {
+                            "nom": "Fotokol",
+                            "nom_en": "Fotokol"
+                        },
+                        {
+                            "nom": "Goulfey",
+                            "nom_en": "Goulfey"
+                        },
+                        {
+                            "nom": "Makary",
+                            "nom_en": "Makary"
+                        },
+                        {
+                            "nom": "Waza",
+                            "nom_en": "Waza"
+                        },
+                        {
+                            "nom": "Blangoua",
+                            "nom_en": "Blangoua"
+                        },
+                        {
+                            "nom": "Logone-Birni",
+                            "nom_en": "Logone-Birni"
+                        },
+                        {
+                            "nom": "Zina",
+                            "nom_en": "Zina"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mayo-Danay",
+                    "nom_en": "Mayo-Danay",
+                    "arrondissements": [
+                        {
+                            "nom": "Yagoua",
+                            "nom_en": "Yagoua"
+                        },
+                        {
+                            "nom": "Wina",
+                            "nom_en": "Wina"
+                        },
+                        {
+                            "nom": "Guéré",
+                            "nom_en": "Guere"
+                        },
+                        {
+                            "nom": "Gobo",
+                            "nom_en": "Gobo"
+                        },
+                        {
+                            "nom": "Guémé",
+                            "nom_en": "Gueme"
+                        },
+                        {
+                            "nom": "Kai-Kai",
+                            "nom_en": "Kai-Kai"
+                        },
+                        {
+                            "nom": "Magdémé",
+                            "nom_en": "Magdeme"
+                        },
+                        {
+                            "nom": "Maga",
+                            "nom_en": "Maga"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mayo-Kani",
+                    "nom_en": "Mayo-Kani",
+                    "arrondissements": [
+                        {
+                            "nom": "Kaélé",
+                            "nom_en": "Kaele"
+                        },
+                        {
+                            "nom": "Mindif",
+                            "nom_en": "Mindif"
+                        },
+                        {
+                            "nom": "Moutourwa",
+                            "nom_en": "Moutourwa"
+                        },
+                        {
+                            "nom": "Touloum",
+                            "nom_en": "Touloum"
+                        },
+                        {
+                            "nom": "Guidiguis",
+                            "nom_en": "Guidiguis"
+                        },
+                        {
+                            "nom": "Boboyo",
+                            "nom_en": "Boboyo"
+                        },
+                        {
+                            "nom": "Dziguilao",
+                            "nom_en": "Dziguilao"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mayo-Sava",
+                    "nom_en": "Mayo-Sava",
+                    "arrondissements": [
+                        {
+                            "nom": "Mora",
+                            "nom_en": "Mora"
+                        },
+                        {
+                            "nom": "Kolofata",
+                            "nom_en": "Kolofata"
+                        },
+                        {
+                            "nom": "Tokombéré",
+                            "nom_en": "Tokombere"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mayo-Tsanaga",
+                    "nom_en": "Mayo-Tsanaga",
+                    "arrondissements": [
+                        {
+                            "nom": "Mokolo",
+                            "nom_en": "Mokolo"
+                        },
+                        {
+                            "nom": "Bourrha",
+                            "nom_en": "Bourrha"
+                        },
+                        {
+                            "nom": "Hina",
+                            "nom_en": "Hina"
+                        },
+                        {
+                            "nom": "Mayo-Moskota",
+                            "nom_en": "Mayo-Moskota"
+                        },
+                        {
+                            "nom": "Soulede-Roua",
+                            "nom_en": "Soulede-Roua"
+                        },
+                        {
+                            "nom": "Zéléved",
+                            "nom_en": "Zeleved"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "nom": "Littoral",
+            "nom_en": "Littoral",
+            "departements": [
+                {
+                    "nom": "Moungo",
+                    "nom_en": "Moungo",
+                    "arrondissements": [
+                        {
+                            "nom": "Nkongsamba I",
+                            "nom_en": "Nkongsamba I"
+                        },
+                        {
+                            "nom": "Nkongsamba II",
+                            "nom_en": "Nkongsamba II"
+                        },
+                        {
+                            "nom": "Nkongsamba III",
+                            "nom_en": "Nkongsamba III"
+                        },
+                        {
+                            "nom": "Melong",
+                            "nom_en": "Melong"
+                        },
+                        {
+                            "nom": "Mbanga",
+                            "nom_en": "Mbanga"
+                        },
+                        {
+                            "nom": "Loum",
+                            "nom_en": "Loum"
+                        },
+                        {
+                            "nom": "Baré-Bakem",
+                            "nom_en": "Bare-Bakem"
+                        },
+                        {
+                            "nom": "Penja",
+                            "nom_en": "Penja"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Nkam",
+                    "nom_en": "Nkam",
+                    "arrondissements": [
+                        {
+                            "nom": "Yabassi",
+                            "nom_en": "Yabassi"
+                        },
+                        {
+                            "nom": "Nord-Makombe",
+                            "nom_en": "Nord-Makombe"
+                        },
+                        {
+                            "nom": "Nkondjock",
+                            "nom_en": "Nkondjock"
+                        },
+                        {
+                            "nom": "Yingui",
+                            "nom_en": "Yingui"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Sanaga-Maritime",
+                    "nom_en": "Sanaga-Maritime",
+                    "arrondissements": [
+                        {
+                            "nom": "Édéa I",
+                            "nom_en": "Edea I"
+                        },
+                        {
+                            "nom": "Édéa II",
+                            "nom_en": "Edea II"
+                        },
+                        {
+                            "nom": "Pouma",
+                            "nom_en": "Pouma"
+                        },
+                        {
+                            "nom": "Dizangué",
+                            "nom_en": "Dizangue"
+                        },
+                        {
+                            "nom": "Ndom",
+                            "nom_en": "Ndom"
+                        },
+                        {
+                            "nom": "Ngwei",
+                            "nom_en": "Ngwei"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Wouri",
+                    "nom_en": "Wouri",
+                    "arrondissements": [
+                        {
+                            "nom": "Douala I",
+                            "nom_en": "Douala I"
+                        },
+                        {
+                            "nom": "Douala II",
+                            "nom_en": "Douala II"
+                        },
+                        {
+                            "nom": "Douala III",
+                            "nom_en": "Douala III"
+                        },
+                        {
+                            "nom": "Douala IV",
+                            "nom_en": "Douala IV"
+                        },
+                        {
+                            "nom": "Douala V",
+                            "nom_en": "Douala V"
+                        },
+                        {
+                            "nom": "Douala VI",
+                            "nom_en": "Douala VI"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "nom": "Nord",
+            "nom_en": "North",
+            "departements": [
+                {
+                    "nom": "Bénoué",
+                    "nom_en": "Benoue",
+                    "arrondissements": [
+                        {
+                            "nom": "Garoua I",
+                            "nom_en": "Garoua I"
+                        },
+                        {
+                            "nom": "Garoua II",
+                            "nom_en": "Garoua II"
+                        },
+                        {
+                            "nom": "Garoua III",
+                            "nom_en": "Garoua III"
+                        },
+                        {
+                            "nom": "Lagdo",
+                            "nom_en": "Lagdo"
+                        },
+                        {
+                            "nom": "Demsa",
+                            "nom_en": "Demsa"
+                        },
+                        {
+                            "nom": "Baschéo",
+                            "nom_en": "Bascheo"
+                        },
+                        {
+                            "nom": "Tcheboa",
+                            "nom_en": "Tcheboa"
+                        },
+                        {
+                            "nom": "Pitoa",
+                            "nom_en": "Pitoa"
+                        },
+                        {
+                            "nom": "Bibemi",
+                            "nom_en": "Bibemi"
+                        },
+                        {
+                            "nom": "Ngong",
+                            "nom_en": "Ngong"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Faro",
+                    "nom_en": "Faro",
+                    "arrondissements": [
+                        {
+                            "nom": "Poli",
+                            "nom_en": "Poli"
+                        },
+                        {
+                            "nom": "Guider",
+                            "nom_en": "Guider"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mayo-Louti",
+                    "nom_en": "Mayo-Louti",
+                    "arrondissements": [
+                        {
+                            "nom": "Guider",
+                            "nom_en": "Guider"
+                        },
+                        {
+                            "nom": "Figuil",
+                            "nom_en": "Figuil"
+                        },
+                        {
+                            "nom": "Mayo-Oulo",
+                            "nom_en": "Mayo-Oulo"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mayo-Rey",
+                    "nom_en": "Mayo-Rey",
+                    "arrondissements": [
+                        {
+                            "nom": "Tcholliré",
+                            "nom_en": "Tchollire"
+                        },
+                        {
+                            "nom": "Touboro",
+                            "nom_en": "Touboro"
+                        },
+                        {
+                            "nom": "Madingring",
+                            "nom_en": "Madingring"
+                        },
+                        {
+                            "nom": "Rey-Bouba",
+                            "nom_en": "Rey-Bouba"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "nom": "Nord-Ouest",
+            "nom_en": "North West",
+            "departements": [
+                {
+                    "nom": "Boyo",
+                    "nom_en": "Boyo",
+                    "arrondissements": [
+                        {
+                            "nom": "Fundong",
+                            "nom_en": "Fundong"
+                        },
+                        {
+                            "nom": "Belo",
+                            "nom_en": "Belo"
+                        },
+                        {
+                            "nom": "Bum",
+                            "nom_en": "Bum"
+                        },
+                        {
+                            "nom": "Njinikom",
+                            "nom_en": "Njinikom"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Bui",
+                    "nom_en": "Bui",
+                    "arrondissements": [
+                        {
+                            "nom": "Kumbo",
+                            "nom_en": "Kumbo"
+                        },
+                        {
+                            "nom": "Jakiri",
+                            "nom_en": "Jakiri"
+                        },
+                        {
+                            "nom": "Oku",
+                            "nom_en": "Oku"
+                        },
+                        {
+                            "nom": "Mbiame",
+                            "nom_en": "Mbiame"
+                        },
+                        {
+                            "nom": "Nkum",
+                            "nom_en": "Nkum"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Donga-Mantung",
+                    "nom_en": "Donga-Mantung",
+                    "arrondissements": [
+                        {
+                            "nom": "Nkambe",
+                            "nom_en": "Nkambe"
+                        },
+                        {
+                            "nom": "Ako",
+                            "nom_en": "Ako"
+                        },
+                        {
+                            "nom": "Misaje",
+                            "nom_en": "Misaje"
+                        },
+                        {
+                            "nom": "Ndu",
+                            "nom_en": "Ndu"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Menchum",
+                    "nom_en": "Menchum",
+                    "arrondissements": [
+                        {
+                            "nom": "Wum",
+                            "nom_en": "Wum"
+                        },
+                        {
+                            "nom": "Furu-Awa",
+                            "nom_en": "Furu-Awa"
+                        },
+                        {
+                            "nom": "Zhoa",
+                            "nom_en": "Zhoa"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mezam",
+                    "nom_en": "Mezam",
+                    "arrondissements": [
+                        {
+                            "nom": "Bamenda I",
+                            "nom_en": "Bamenda I"
+                        },
+                        {
+                            "nom": "Bamenda II",
+                            "nom_en": "Bamenda II"
+                        },
+                        {
+                            "nom": "Bamenda III",
+                            "nom_en": "Bamenda III"
+                        },
+                        {
+                            "nom": "Bali",
+                            "nom_en": "Bali"
+                        },
+                        {
+                            "nom": "Bafut",
+                            "nom_en": "Bafut"
+                        },
+                        {
+                            "nom": "Santa",
+                            "nom_en": "Santa"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Momo",
+                    "nom_en": "Momo",
+                    "arrondissements": [
+                        {
+                            "nom": "Mbengwi",
+                            "nom_en": "Mbengwi"
+                        },
+                        {
+                            "nom": "Batibo",
+                            "nom_en": "Batibo"
+                        },
+                        {
+                            "nom": "Njikwa",
+                            "nom_en": "Njikwa"
+                        },
+                        {
+                            "nom": "Widikum-Boffe",
+                            "nom_en": "Widikum-Boffe"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Ngo-Ketunjia",
+                    "nom_en": "Ngo-Ketunjia",
+                    "arrondissements": [
+                        {
+                            "nom": "Ndop",
+                            "nom_en": "Ndop"
+                        },
+                        {
+                            "nom": "Balikumbat",
+                            "nom_en": "Balikumbat"
+                        },
+                        {
+                            "nom": "Babessi",
+                            "nom_en": "Babessi"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "nom": "Ouest",
+            "nom_en": "West",
+            "departements": [
+                {
+                    "nom": "Bamboutos",
+                    "nom_en": "Bamboutos",
+                    "arrondissements": [
+                        {
+                            "nom": "Mbouda",
+                            "nom_en": "Mbouda"
+                        },
+                        {
+                            "nom": "Batcham",
+                            "nom_en": "Batcham"
+                        },
+                        {
+                            "nom": "Galim",
+                            "nom_en": "Galim"
+                        },
+                        {
+                            "nom": "Babadjou",
+                            "nom_en": "Babadjou"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Haut-Nkam",
+                    "nom_en": "Haut-Nkam",
+                    "arrondissements": [
+                        {
+                            "nom": "Bafang",
+                            "nom_en": "Bafang"
+                        },
+                        {
+                            "nom": "Kékem",
+                            "nom_en": "Kekem"
+                        },
+                        {
+                            "nom": "Bana",
+                            "nom_en": "Bana"
+                        },
+                        {
+                            "nom": "Banka",
+                            "nom_en": "Banka"
+                        },
+                        {
+                            "nom": "Bakou",
+                            "nom_en": "Bakou"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Hauts-Plateaux",
+                    "nom_en": "Hauts-Plateaux",
+                    "arrondissements": [
+                        {
+                            "nom": "Baham",
+                            "nom_en": "Baham"
+                        },
+                        {
+                            "nom": "Bamendjou",
+                            "nom_en": "Bamendjou"
+                        },
+                        {
+                            "nom": "Batcha",
+                            "nom_en": "Batcha"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Koung-Khi",
+                    "nom_en": "Koung-Khi",
+                    "arrondissements": [
+                        {
+                            "nom": "Bandjoun",
+                            "nom_en": "Bandjoun"
+                        },
+                        {
+                            "nom": "Bayangam",
+                            "nom_en": "Bayangam"
+                        },
+                        {
+                            "nom": "Demdeng",
+                            "nom_en": "Demdeng"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Menoua",
+                    "nom_en": "Menoua",
+                    "arrondissements": [
+                        {
+                            "nom": "Dschang",
+                            "nom_en": "Dschang"
+                        },
+                        {
+                            "nom": "Fokoué",
+                            "nom_en": "Fokoue"
+                        },
+                        {
+                            "nom": "Nkong-Ni",
+                            "nom_en": "Nkong-Ni"
+                        },
+                        {
+                            "nom": "Penka-Michel",
+                            "nom_en": "Penka-Michel"
+                        },
+                        {
+                            "nom": "Santchou",
+                            "nom_en": "Santchou"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mifi",
+                    "nom_en": "Mifi",
+                    "arrondissements": [
+                        {
+                            "nom": "Bafoussam I",
+                            "nom_en": "Bafoussam I"
+                        },
+                        {
+                            "nom": "Bafoussam II",
+                            "nom_en": "Bafoussam II"
+                        },
+                        {
+                            "nom": "Bafoussam III",
+                            "nom_en": "Bafoussam III"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Ndé",
+                    "nom_en": "Nde",
+                    "arrondissements": [
+                        {
+                            "nom": "Bangangté",
+                            "nom_en": "Bangangte"
+                        },
+                        {
+                            "nom": "Bazou",
+                            "nom_en": "Bazou"
+                        },
+                        {
+                            "nom": "Tonga",
+                            "nom_en": "Tonga"
+                        },
+                        {
+                            "nom": "Banka",
+                            "nom_en": "Banka"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Noun",
+                    "nom_en": "Noun",
+                    "arrondissements": [
+                        {
+                            "nom": "Foumban",
+                            "nom_en": "Foumban"
+                        },
+                        {
+                            "nom": "Foumbot",
+                            "nom_en": "Foumbot"
+                        },
+                        {
+                            "nom": "Koutaba",
+                            "nom_en": "Koutaba"
+                        },
+                        {
+                            "nom": "Massangam",
+                            "nom_en": "Massangam"
+                        },
+                        {
+                            "nom": "Magba",
+                            "nom_en": "Magba"
+                        },
+                        {
+                            "nom": "Malantouen",
+                            "nom_en": "Malantouen"
+                        },
+                        {
+                            "nom": "Njimom",
+                            "nom_en": "Njimom"
+                        },
+                        {
+                            "nom": "Kouoptamo",
+                            "nom_en": "Kouoptamo"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "nom": "Sud",
+            "nom_en": "South",
+            "departements": [
+                {
+                    "nom": "Dja-et-Lobo",
+                    "nom_en": "Dja and Lobo",
+                    "arrondissements": [
+                        {
+                            "nom": "Sangmélima",
+                            "nom_en": "Sangmelima"
+                        },
+                        {
+                            "nom": "Djoum",
+                            "nom_en": "Djoum"
+                        },
+                        {
+                            "nom": "Meyomessala",
+                            "nom_en": "Meyomessala"
+                        },
+                        {
+                            "nom": "Meyomessi",
+                            "nom_en": "Meyomessi"
+                        },
+                        {
+                            "nom": "Mintom",
+                            "nom_en": "Mintom"
+                        },
+                        {
+                            "nom": "Bengbis",
+                            "nom_en": "Bengbis"
+                        },
+                        {
+                            "nom": "Zoétélé",
+                            "nom_en": "Zoetele"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Mvila",
+                    "nom_en": "Mvila",
+                    "arrondissements": [
+                        {
+                            "nom": "Ebolowa I",
+                            "nom_en": "Ebolowa I"
+                        },
+                        {
+                            "nom": "Ebolowa II",
+                            "nom_en": "Ebolowa II"
+                        },
+                        {
+                            "nom": "Mengong",
+                            "nom_en": "Mengong"
+                        },
+                        {
+                            "nom": "Biwong-Bane",
+                            "nom_en": "Biwong-Bane"
+                        },
+                        {
+                            "nom": "Biwong-Bulu",
+                            "nom_en": "Biwong-Bulu"
+                        },
+                        {
+                            "nom": "Mvangan",
+                            "nom_en": "Mvangan"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Océan",
+                    "nom_en": "Ocean",
+                    "arrondissements": [
+                        {
+                            "nom": "Kribi I",
+                            "nom_en": "Kribi I"
+                        },
+                        {
+                            "nom": "Kribi II",
+                            "nom_en": "Kribi II"
+                        },
+                        {
+                            "nom": "Akom II",
+                            "nom_en": "Akom II"
+                        },
+                        {
+                            "nom": "Bipindi",
+                            "nom_en": "Bipindi"
+                        },
+                        {
+                            "nom": "Campo",
+                            "nom_en": "Campo"
+                        },
+                        {
+                            "nom": "Lokoundjé",
+                            "nom_en": "Lokoundje"
+                        },
+                        {
+                            "nom": "Mvengue",
+                            "nom_en": "Mvengue"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Vallée-du-Ntem",
+                    "nom_en": "Vallee du Ntem",
+                    "arrondissements": [
+                        {
+                            "nom": "Ambam",
+                            "nom_en": "Ambam"
+                        },
+                        {
+                            "nom": "Kyé-Ossi",
+                            "nom_en": "Kye-Ossi"
+                        },
+                        {
+                            "nom": "Olamze",
+                            "nom_en": "Olamze"
+                        },
+                        {
+                            "nom": "Ma'an",
+                            "nom_en": "Ma'an"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "nom": "Sud-Ouest",
+            "nom_en": "South West",
+            "departements": [
+                {
+                    "nom": "Fako",
+                    "nom_en": "Fako",
+                    "arrondissements": [
+                        {
+                            "nom": "Limbe I",
+                            "nom_en": "Limbe I"
+                        },
+                        {
+                            "nom": "Limbe II",
+                            "nom_en": "Limbe II"
+                        },
+                        {
+                            "nom": "Limbe III",
+                            "nom_en": "Limbe III"
+                        },
+                        {
+                            "nom": "Tiko",
+                            "nom_en": "Tiko"
+                        },
+                        {
+                            "nom": "Buea",
+                            "nom_en": "Buea"
+                        },
+                        {
+                            "nom": "Muyuka",
+                            "nom_en": "Muyuka"
+                        },
+                        {
+                            "nom": "West Coast (Idenau)",
+                            "nom_en": "West Coast (Idenau)"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Koupé-Manengouba",
+                    "nom_en": "Koupe-Manengouba",
+                    "arrondissements": [
+                        {
+                            "nom": "Bangem",
+                            "nom_en": "Bangem"
+                        },
+                        {
+                            "nom": "Nguti",
+                            "nom_en": "Nguti"
+                        },
+                        {
+                            "nom": "Tombel",
+                            "nom_en": "Tombel"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Lebialem",
+                    "nom_en": "Lebialem",
+                    "arrondissements": [
+                        {
+                            "nom": "Menji (Fontem)",
+                            "nom_en": "Menji (Fontem)"
+                        },
+                        {
+                            "nom": "Alou",
+                            "nom_en": "Alou"
+                        },
+                        {
+                            "nom": "Wabane",
+                            "nom_en": "Wabane"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Manyu",
+                    "nom_en": "Manyu",
+                    "arrondissements": [
+                        {
+                            "nom": "Mamfe",
+                            "nom_en": "Mamfe"
+                        },
+                        {
+                            "nom": "Akwaya",
+                            "nom_en": "Akwaya"
+                        },
+                        {
+                            "nom": "Eyumojock",
+                            "nom_en": "Eyumojock"
+                        },
+                        {
+                            "nom": "Tinto",
+                            "nom_en": "Tinto"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Meme",
+                    "nom_en": "Meme",
+                    "arrondissements": [
+                        {
+                            "nom": "Kumba I",
+                            "nom_en": "Kumba I"
+                        },
+                        {
+                            "nom": "Kumba II",
+                            "nom_en": "Kumba II"
+                        },
+                        {
+                            "nom": "Kumba III",
+                            "nom_en": "Kumba III"
+                        },
+                        {
+                            "nom": "Mbonge",
+                            "nom_en": "Mbonge"
+                        },
+                        {
+                            "nom": "Konye",
+                            "nom_en": "Konye"
+                        }
+                    ]
+                },
+                {
+                    "nom": "Ndian",
+                    "nom_en": "Ndian",
+                    "arrondissements": [
+                        {
+                            "nom": "Mundemba",
+                            "nom_en": "Mundemba"
+                        },
+                        {
+                            "nom": "Ekondo-Titi",
+                            "nom_en": "Ekondo-Titi"
+                        },
+                        {
+                            "nom": "Isangele",
+                            "nom_en": "Isangele"
+                        },
+                        {
+                            "nom": "Bamusso",
+                            "nom_en": "Bamusso"
+                        },
+                        {
+                            "nom": "Kombo-Abedimo",
+                            "nom_en": "Kombo-Abedimo"
+                        },
+                        {
+                            "nom": "Kombo-Itindi",
+                            "nom_en": "Kombo-Itindi"
+                        },
+                        {
+                            "nom": "Idabato",
+                            "nom_en": "Idabato"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

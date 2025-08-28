@@ -97,7 +97,7 @@ export class CommunesService {
     this.prisma.commune.count({ where }),
     this.prisma.commune.findMany({
       where,
-      orderBy: sort ?? { id: 'desc' },
+      orderBy: sort ?? { nom: 'asc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
       select: {

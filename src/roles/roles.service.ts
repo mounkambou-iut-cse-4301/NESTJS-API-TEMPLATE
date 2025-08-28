@@ -28,7 +28,7 @@ export class RolesService {
       this.prisma.role.count({ where }),
       this.prisma.role.findMany({
         where,
-        orderBy: parseSort(q.sort) ?? [{ id: 'desc' }],
+        orderBy: parseSort(q.sort) ?? [{ nom: 'asc' }],
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
         select: {

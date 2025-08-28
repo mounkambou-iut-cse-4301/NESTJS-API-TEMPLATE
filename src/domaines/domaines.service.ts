@@ -21,7 +21,7 @@ export class DomainesService {
       this.prisma.domaine.count({ where }),
       this.prisma.domaine.findMany({
         where,
-        orderBy: sort ?? { id: 'desc' },
+        orderBy: sort ?? { nom: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: { id: true, nom: true, nom_en: true, code: true, created_at: true, updated_at: true },

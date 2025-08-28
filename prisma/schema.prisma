@@ -70,7 +70,7 @@ model Commune {
   typeCommuneId    Int?
 
   /// Commune vérifiée ?
-  is_verified      Boolean         @default(false)
+  is_verified      Boolean         @default(true)
   /// Commune bloquée ?
   is_block         Boolean         @default(false)
 
