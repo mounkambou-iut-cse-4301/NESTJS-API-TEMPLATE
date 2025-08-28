@@ -2,44 +2,62 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
+function toUpper(input: any) {
+  return typeof input === 'string' ? input.toUpperCase() : input;
+}
+
 export class ListTypesQueryDto {
-  @ApiPropertyOptional({ default: 1 })
-  @Transform(({ value }) => Number(value))
-  @IsOptional() @IsInt() @Min(1)
-  page?: number = 1;
+  @ApiPropertyOptional({ example: 1, minimum: 1 })
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  page?: number;
 
-  @ApiPropertyOptional({ default: 20 })
-  @Transform(({ value }) => Number(value))
-  @IsOptional() @IsInt() @Min(1)
-  pageSize?: number = 20;
+  @ApiPropertyOptional({ example: 20, minimum: 1 })
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  pageSize?: number;
 
-  @ApiPropertyOptional({ description: 'Tri: -id,name,type,created_at' })
-  @IsOptional() @IsString()
+  @ApiPropertyOptional({
+    description: 'Tri, ex: "id,-name" (id ASC, name DESC).',
+    example: 'id,-name',
+  })
+  @IsOptional()
+  @IsString()
   sort?: string;
 
-  @ApiPropertyOptional({ description: 'Recherche dans name ou description' })
-  @IsOptional() @IsString()
+  @ApiPropertyOptional({ description: 'Recherche plein texte (name/description).' })
+  @IsOptional()
+  @IsString()
   q?: string;
 
-  @ApiPropertyOptional({ enum: ['SIMPLE','COMPLEXE'] })
-  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
-  @IsOptional() @IsIn(['SIMPLE','COMPLEXE'])
-  type?: string;
+  @ApiPropertyOptional({ enum: ['SIMPLE', 'COMPLEXE'] })
+  @Transform(({ value }) => toUpper(value))
+  @IsOptional()
+  @IsIn(['SIMPLE', 'COMPLEXE'])
+  type?: 'SIMPLE' | 'COMPLEXE';
 
-  @ApiPropertyOptional({ description: 'Filtre par domaineId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
-  @IsOptional() @IsInt() @Min(1)
+  @ApiPropertyOptional({ example: 1 })
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
   domaineId?: number;
 
-    @ApiPropertyOptional({ description: 'Filtre par compentenceId', example: 1 })
-    @Transform(({ value }) => value === undefined ? undefined : Number(value))
-    @IsOptional()
-    @IsInt()
-    @Min(1)
-    competenceId?: number;
-
-  @ApiPropertyOptional({ description: 'Filtre par sousdomaineId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
-  @IsOptional() @IsInt() @Min(1)
+  @ApiPropertyOptional({ example: 3 })
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
   sousdomaineId?: number;
+
+  @ApiPropertyOptional({ example: 5 })
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  competenceId?: number;
 }

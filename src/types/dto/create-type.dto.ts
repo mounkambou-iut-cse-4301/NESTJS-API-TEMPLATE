@@ -1,11 +1,49 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type as T } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsArray,
+  IsIn,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { AttributeDto } from './attribute.dto';
-import { ComposantDto } from './composant.dto';
+
+function toUpper(input: any) {
+  return typeof input === 'string' ? input.toUpperCase() : input;
+}
+function upperNoAccents(input: string): string {
+  return (input ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim();
+}
+/** Accepte [1,"2",{id:3}] → [1,2,3] (dédoublonné) */
+function toIdArray(input: any): number[] {
+  const arr = Array.isArray(input) ? input : input == null ? [] : [input];
+  const ids = arr
+    .map((it) => {
+      if (typeof it === 'number') return it;
+      if (typeof it === 'string' && it.trim() !== '' && !Number.isNaN(Number(it))) return Number(it);
+      if (it && typeof it === 'object' && typeof (it as any).id !== 'undefined') {
+        const v = (it as any).id;
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) return Number(v);
+      }
+      return null;
+    })
+    .filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
+  return Array.from(new Set(ids));
+}
 
 export class CreateTypeDto {
-  @ApiProperty({ example: 'hopital_district' })
+  @ApiProperty({ example: 'HOPITAL_DISTRICT' })
+    @Transform(({ value }) => upperNoAccents(value))
+
   @IsString()
   name: string;
 
@@ -14,10 +52,10 @@ export class CreateTypeDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ example: 'COMPLEXE', enum: ['SIMPLE','COMPLEXE'] })
-  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
-  @IsIn(['SIMPLE','COMPLEXE'])
-  type: string;
+  @ApiProperty({ example: 'COMPLEXE', enum: ['SIMPLE', 'COMPLEXE'] })
+  @Transform(({ value }) => toUpper(value))
+  @IsIn(['SIMPLE', 'COMPLEXE'])
+  type: 'SIMPLE' | 'COMPLEXE';
 
   @ApiProperty({ example: { lat: 0, log: 0 } })
   @IsObject()
@@ -27,35 +65,39 @@ export class CreateTypeDto {
   @IsArray()
   images: any[];
 
-  @ApiProperty({ type: [AttributeDto], description: 'Toujours un tableau d’objets' })
+  @ApiProperty({ type: [AttributeDto], description: 'Toujours un tableau d’objets attribut.' })
   @IsArray()
   @ValidateNested({ each: true })
-  @T(() => AttributeDto)
+  @Type(() => AttributeDto)
   attribus: AttributeDto[];
 
-  @ApiPropertyOptional({ type: [ComposantDto] })
+  @ApiPropertyOptional({
+    description: 'Liste des IDs des types composant (ex: sous-types).',
+    type: [Number],
+    example: [2, 5, 9],
+  })
+  @Transform(({ value }) => toIdArray(value))
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @T(() => ComposantDto)
-  composant?: ComposantDto[];
+  @IsInt({ each: true })
+  composant?: number[];
 
   @ApiPropertyOptional({ description: 'FK Domaine', example: 1 })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional()
   @IsInt()
   @Min(1)
   domaineId?: number;
 
-   @ApiPropertyOptional({ description: 'FK Compentence', example: 1 })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @ApiPropertyOptional({ description: 'FK Compétence', example: 1 })
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional()
   @IsInt()
   @Min(1)
   competenceId?: number;
 
   @ApiPropertyOptional({ description: 'FK SousDomaine', example: 2 })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional()
   @IsInt()
   @Min(1)

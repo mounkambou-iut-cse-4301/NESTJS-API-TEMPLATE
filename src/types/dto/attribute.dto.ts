@@ -1,22 +1,47 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDefined, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsIn, IsOptional, IsString } from 'class-validator';
+
+function upperNoAccents(input: string): string {
+  return (input ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\s+/g, '_') // Replace spaces with underscores
+    .trim();
+}
+
+function toLower(input: any) {
+  return typeof input === 'string' ? input.trim().toLowerCase() : input;
+}
 
 export class AttributeDto {
-  @ApiProperty({ example: 'NombreChambre' })
-  @IsDefined()
+  @ApiProperty({ description: 'Clé de l’attribut (sera normalisée en MAJ SANS ACCENT).' })
+  @Transform(({ value }) => upperNoAccents(String(value)))
   @IsString()
   key: string;
 
-  @ApiProperty({ example: 'number', description: 'ex: number | string | enum' })
-  @IsDefined()
-  @IsString()
-  type: string;
+  @ApiPropertyOptional({
+    description: 'Type de la valeur (string | number | boolean | enum). "enm" accepté comme alias de "enum".',
+    enum: ['string', 'number', 'boolean', 'enum', 'enm'],
+    example: 'enum',
+  })
+  @Transform(({ value }) => toLower(value))
+  @IsOptional()
+  @IsIn(['string', 'number', 'boolean', 'enum', 'enm'])
+  type?: 'string' | 'number' | 'boolean' | 'enum' | 'enm';
 
   @ApiPropertyOptional({
-    description: 'Pour type=enum, peut être une string CSV ("a, b, c") ou un tableau. Sinon null/valeur.',
-    example: null,
+    description: 'Valeur. Pour enum: string CSV OU array de string. Pour number/boolean/string: valeur simple.',
+    oneOf: [
+      { type: 'string' },
+      { type: 'number' },
+      { type: 'boolean' },
+      { type: 'array', items: { type: 'string' } },
+      { type: 'null' },
+    ],
+    examples: ['A, B, C', ['A', 'B'], 12, true, null],
   })
   @IsOptional()
-  // volontairement non typé pour laisser passer array | string | null
   value?: any;
 }
