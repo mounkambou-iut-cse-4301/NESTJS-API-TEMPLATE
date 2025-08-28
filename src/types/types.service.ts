@@ -7,9 +7,9 @@ import { UpdateTypeDto } from './dto/update-type.dto';
 
 function isPlainObject(v: any) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 
-/** Uppercase + suppression des accents + trim */
-function upperNoAccents(input: string): string {
-  return (input ?? '')
+/** MAJ + suppression des accents (pour clés & valeurs enum) */
+function toUpperNoAccent(input: string): string {
+  return input
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
@@ -18,16 +18,16 @@ function upperNoAccents(input: string): string {
 
 /** Split sur , ; | et normalise (trim, filtre vides) */
 function csvToArray(input: string): string[] {
-  return (input ?? '')
+  return input
     .split(/[,\|;]+/g)
     .map(s => s.trim())
     .filter(Boolean);
 }
 
-/** Enum array normalisé (string, trim, unique, sans valeurs vides) */
+/** Normalise un tableau d’options enum (upper, no accent, unique) */
 function normalizeEnumArray(arr: any[]): string[] {
   const out = arr
-    .map(v => (v === null || v === undefined) ? '' : String(v).trim())
+    .map(v => (v === null || v === undefined) ? '' : toUpperNoAccent(String(v)))
     .filter(Boolean);
   const seen = new Set<string>();
   const uniq: string[] = [];
@@ -35,24 +35,42 @@ function normalizeEnumArray(arr: any[]): string[] {
   return uniq;
 }
 
+/** Convertit (id | string | {id} | array) -> array d’IDs numériques uniques */
+function toIdArray(input: any): number[] {
+  const arr = Array.isArray(input) ? input : (input == null ? [] : [input]);
+  const ids = arr
+    .map((it) => {
+      if (typeof it === 'number') return it;
+      if (typeof it === 'string' && it.trim() !== '' && !Number.isNaN(Number(it))) return Number(it);
+      if (it && typeof it === 'object' && typeof (it as any).id !== 'undefined') {
+        const v = (it as any).id;
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) return Number(v);
+      }
+      return null;
+    })
+    .filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
+  return Array.from(new Set(ids));
+}
+
 /**
- * Règles d’un attribut:
- *  - key → MAJ SANS ACCENT
- *  - si type === 'enm' => 'enum'
- *  - si type === 'string' ET value contient des séparateurs => forcer enum + value=array
- *  - si type === 'enum' ET value string => CSV → array
- *  - si type === 'enum' ET value scalaire => [value]
+ * Attributs :
+ *  - KEY toujours en MAJ SANS ACCENT
+ *  - 'enm' => 'enum'
+ *  - 'string' avec séparateurs => enum + value=array
+ *  - enum + string => split CSV
+ *  - enum + scalaire => array [val]
  */
 function normalizeOneAttribut(attr: any): any {
   const base = isPlainObject(attr) ? attr : {};
   const out: any = { ...base };
 
-  if (out.key !== undefined && out.key !== null) out.key = upperNoAccents(String(out.key));
+  if (out.key !== undefined && out.key !== null) out.key = toUpperNoAccent(String(out.key));
+  const rawType = typeof out.type === 'string' ? out.type.trim().toLowerCase() : out.type;
 
-  let t = typeof out.type === 'string' ? out.type.trim().toLowerCase() : out.type;
+  let t: string | undefined = rawType;
   if (t === 'enm') t = 'enum';
 
-  // string délimitée => enum
   const valueIsDelimitedString =
     (t === 'string' || t === undefined) &&
     typeof out.value === 'string' &&
@@ -77,59 +95,48 @@ function normalizeOneAttribut(attr: any): any {
     return out;
   }
 
-  if (t === 'string' && typeof out.value !== 'string' && out.value !== null && out.value !== undefined) {
+  if (t === 'string' && typeof out.value !== 'string' && out.value != null) {
     out.value = String(out.value);
   }
 
   out.type = t ?? out.type;
   return out;
 }
+
 function normalizeAttribus(input: any): any[] {
   const arr = Array.isArray(input) ? input : [];
   return arr.filter(it => it && typeof it === 'object').map(normalizeOneAttribut);
 }
 
-/** Injecte ETAT/LATITUDE/LONGITUDE si absents (clés MAJ sans accent) */
-function ensureBaseAttributes(attribus: any[]): any[] {
-  const keys = new Set(attribus.map(a => upperNoAccents(String(a?.key ?? ''))));
+/** Injecte ETAT (enum) + LONGITUDE + LATITUDE si absents */
+function ensureCoreAttributes(attribus: any[], location?: any): any[] {
+  const list = Array.isArray(attribus) ? [...attribus] : [];
 
-  // ETAT
-  if (!keys.has('ETAT')) {
-    attribus.push({
+  const has = (k: string) => list.some(a => toUpperNoAccent(String(a?.key ?? '')) === k);
+
+  if (!has('ETAT')) {
+    list.push({
       key: 'ETAT',
       type: 'enum',
       value: ['EXCELLENT', 'BON', 'PASSABLE', 'MAUVAIS', 'TRES MAUVAIS'],
     });
   }
 
-  // LATITUDE / LONGITUDE
-  if (!keys.has('LATITUDE')) attribus.push({ key: 'LATITUDE', type: 'number', value: null });
-  if (!keys.has('LONGITUDE')) attribus.push({ key: 'LONGITUDE', type: 'number', value: null });
-  if (!keys.has('DESCRIPTION')) attribus.push({ key: 'DESCRIPTION', type: 'string', value: null });
+  if (!has('LONGITUDE')) list.push({ key: 'LONGITUDE', type: 'number', value: location?.log ?? null });
+  if (!has('LATITUDE'))  list.push({ key: 'LATITUDE',  type: 'number', value: location?.lat ?? null });
 
-  // re-normaliser (au cas où)
-  return normalizeAttribus(attribus);
+    if (!has('DESCRIPTION'))  list.push({ key: 'DESCRIPTION',  type: 'string', value: location?.lat ?? null });
+
+  return normalizeAttribus(list);
 }
 
-/** composant entrée souple → number[] uniques */
-function toIdArray(input: any): number[] {
-  const arr = Array.isArray(input) ? input : input == null ? [] : [input];
-  const ids = arr
-    .map((it) => {
-      if (typeof it === 'number') return it;
-      if (typeof it === 'string' && it.trim() !== '' && !Number.isNaN(Number(it))) return Number(it);
-      if (it && typeof it === 'object' && typeof (it as any).id !== 'undefined') {
-        const v = (it as any).id;
-        if (typeof v === 'number') return v;
-        if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) return Number(v);
-      }
-      return null;
-    })
-    .filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
-  return Array.from(new Set(ids));
-}
-
-/** Normalisation globale du payload Type */
+/**
+ * Normalisation globale pour CREATE/UPDATE :
+ * - type (SIMPLE|COMPLEXE)
+ * - location objet, images array
+ * - attribus normalisés (+ injection ETAT/LON/LAT)
+ * - composant: stocké comme array d’IDs
+ */
 function normalizeTypePayload(input: Partial<CreateTypeDto | UpdateTypeDto>) {
   const out: any = { ...input };
 
@@ -143,60 +150,127 @@ function normalizeTypePayload(input: Partial<CreateTypeDto | UpdateTypeDto>) {
   if (out.location !== undefined) out.location = isPlainObject(out.location) ? out.location : {};
   if (out.images !== undefined)   out.images   = Array.isArray(out.images) ? out.images : [];
 
-  // ATTRIBUS : normalisation + base attributes
   if (out.attribus !== undefined) {
-    out.attribus = normalizeAttribus(out.attribus);
-    out.attribus = ensureBaseAttributes(out.attribus);
+    out.attribus = ensureCoreAttributes(normalizeAttribus(out.attribus), out.location);
   }
 
-  // COMPOSANT : stocké en DB comme number[]
   if (out.composant !== undefined) {
     out.composant = toIdArray(out.composant);
   }
 
-  // description string si fournie
   if (out.description !== undefined && out.description !== null && typeof out.description !== 'string') {
     out.description = String(out.description);
   }
+
   return out;
 }
 
 /* -------------------------------- Service ------------------------------- */
 
-type ComponentSummary = { id: number; name: string; type: 'SIMPLE'|'COMPLEXE'; description: string | null };
-
 @Injectable()
 export class TypesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /* ------------ utils composants (expansion des IDs -> objets) ------------ */
+  /* ===================== Expansion récursive — FULL OBJECTS ===================== */
 
-  private async expandComponentIdsToObjects(ids: number[]): Promise<Map<number, ComponentSummary>> {
-    if (!ids.length) return new Map();
-    const rows = await this.prisma.typeInfrastructure.findMany({
-      where: { id: { in: ids } },
-      select: { id: true, name: true, type: true, description: true },
-    });
-    return new Map(rows.map(r => [r.id, { id: r.id, name: r.name, type: r.type as any, description: r.description ?? null }]));
+  /** Sélecteur complet pour un type d’infrastructure (retour API) */
+  private get fullSelect() {
+    return {
+      id: true,
+      name: true,
+      description: true,
+      type: true,
+      location: true,
+      images: true,
+      attribus: true,
+      composant: true,               // <-- IDs en base
+      domaineId: true,
+      domaine: { select: { id: true, nom: true, code: true } },
+      sousdomaineId: true,
+      sousdomaine: { select: { id: true, nom: true, code: true } },
+      competenceId: true,
+      competence: true,
+      created_at: true,
+      updated_at: true,
+    } as const;
   }
 
-  private materializeComposants(composantIds: any, dict: Map<number, ComponentSummary>): ComponentSummary[] {
-    const ids = toIdArray(composantIds);
-    const out: ComponentSummary[] = [];
-    for (const id of ids) {
-      const found = dict.get(id);
-      if (found) out.push(found);
+  /** Matérialise un enregistrement DB en objet API (sanitization simple) */
+  private materialize(row: any) {
+    return {
+      ...row,
+      attribus: Array.isArray(row.attribus) ? row.attribus : [],
+      images: Array.isArray(row.images) ? row.images : [],
+      location: isPlainObject(row.location) ? row.location : {},
+      // composant sera remplacé ensuite par des objets
+    };
+  }
+
+  /**
+   * Expansion récursive des composants :
+   * - lit les IDs de composant,
+   * - charge les objets complets,
+   * - remonte récursivement jusqu’à maxDepth,
+   * - protège contre les cycles (visited),
+   * - cache les fetchs (cache Map).
+   */
+  private async expandFullTreeByIds(
+    ids: number[],
+    maxDepth = 10,
+    visited = new Set<number>(),
+    cache = new Map<number, any>(),
+  ): Promise<any[]> {
+    const order = ids ?? [];
+    if (!order.length || maxDepth <= 0) return [];
+
+    // IDs manquants en cache
+    const missing = order.filter((id) => !cache.has(id));
+    if (missing.length) {
+      const rows = await this.prisma.typeInfrastructure.findMany({
+        where: { id: { in: missing } },
+        select: this.fullSelect,
+      });
+      rows.forEach((r) => cache.set(r.id, this.materialize(r)));
     }
-    return out;
+
+    // Construire chaque node, en respectant l’ordre initial
+    const nodes: any[] = [];
+    for (const id of order) {
+      const base = cache.get(id);
+      if (!base) continue;
+
+      // anti-cycle
+      if (visited.has(id)) {
+        // si cycle, on renvoie le noeud sans ses enfants pour éviter boucle
+        nodes.push({ ...base, composant: [] });
+        continue;
+      }
+
+      visited.add(id);
+
+      const childIds = toIdArray(base.composant);
+      const children = await this.expandFullTreeByIds(childIds, maxDepth - 1, visited, cache);
+
+      nodes.push({
+        ...base,
+        composant: children, // objets complets des enfants
+      });
+
+      visited.delete(id);
+    }
+
+    return nodes;
   }
 
-  /* ----------------------------- LIST (GET ALL) ----------------------------- */
-
+  /* ===================== LIST ===================== */
   async list(params: {
     page: number; pageSize: number; sort?: Record<string,'asc'|'desc'>;
     q?: string; type?: string; domaineId?: number; sousdomaineId?: number; competenceId?: number;
+    depth?: number; // facultatif, par défaut 1 (enfants directs)
   }) {
     const { page, pageSize, sort, q, type, domaineId, sousdomaineId, competenceId } = params;
+    const depth = Math.max(1, Math.min(Number(params.depth ?? 1), 5));
+
     const where: any = {};
     if (q) {
       where.OR = [
@@ -216,39 +290,27 @@ export class TypesService {
         orderBy: sort ?? { id: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        select: {
-          id: true, name: true, description: true, type: true,
-          location: true, images: true, attribus: true, composant: true, // composant = number[]
-          domaineId: true, domaine: { select: { id: true, nom: true, code: true } },
-          sousdomaineId: true, sousdomaine: { select: { id: true, nom: true, code: true } },
-          competenceId: true, competence: true,
-          created_at: true, updated_at: true,
-        },
+        select: this.fullSelect,
       }),
     ]);
 
-    // Batch expand composants
-    const allIds = new Set<number>();
-    for (const it of itemsRaw) {
-      for (const id of toIdArray(it.composant)) allIds.add(id);
+    const cache = new Map<number, any>();
+    const items: any[] = [];
+    for (const raw of itemsRaw) {
+      const base = this.materialize(raw);
+      const compIds = toIdArray(base.composant);
+      const composant =
+        depth > 1
+          ? await this.expandFullTreeByIds(compIds, depth, new Set<number>(), cache)
+          : await this.expandFullTreeByIds(compIds, 1, new Set<number>(), cache);
+      items.push({ ...base, composant });
     }
-    const dict = await this.expandComponentIdsToObjects(Array.from(allIds));
-
-    const items = itemsRaw.map(it => ({
-      ...it,
-      attribus: Array.isArray(it.attribus) ? it.attribus : [],
-      location: isPlainObject(it.location) ? it.location : {},
-      images: Array.isArray(it.images) ? it.images : [],
-      composant: this.materializeComposants(it.composant, dict), // ← array d’objets
-    }));
 
     return { total, items };
   }
 
-  /* -------------------------------- CREATE -------------------------------- */
-
+  /* ===================== CREATE ===================== */
   async create(dto: CreateTypeDto) {
-    // FK minimales
     if (typeof dto.domaineId === 'number') {
       const exists = await this.prisma.domaine.count({ where: { id: dto.domaineId } });
       if (!exists) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
@@ -266,65 +328,57 @@ export class TypesService {
       composant: dto.composant ?? [],
     });
 
-    // (Optionnel) Filtrer aux IDs existants
-    const compIds = toIdArray(normalized.composant);
-    let keepIds = compIds;
-    if (compIds.length) {
-      const found = await this.prisma.typeInfrastructure.findMany({ where: { id: { in: compIds } }, select: { id: true } });
-      const set = new Set(found.map(f => f.id));
-      keepIds = compIds.filter(id => set.has(id));
+    try {
+      const created = await this.prisma.typeInfrastructure.create({
+        data: {
+          name: normalized.name,
+          description: normalized.description ?? null,
+          type: normalized.type,
+          location: normalized.location,
+          images: normalized.images,
+          attribus: normalized.attribus,
+          composant: normalized.composant, // IDs
+          domaineId: dto.domaineId ?? null,
+          sousdomaineId: dto.sousdomaineId ?? null,
+          competenceId: dto.competenceId ?? null,
+        },
+        select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true, competenceId: true },
+      });
+      return created;
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+      }
+      throw e;
     }
-
-    const created = await this.prisma.typeInfrastructure.create({
-      data: {
-        name: normalized.name,
-        description: normalized.description ?? null,
-        type: normalized.type,
-        location: normalized.location,
-        images: normalized.images,
-        attribus: normalized.attribus,
-        // en DB: on stocke les IDs
-        composant: keepIds,
-        domaineId: dto.domaineId ?? null,
-        sousdomaineId: dto.sousdomaineId ?? null,
-        competenceId: dto.competenceId ?? null,
-      },
-      select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true, competenceId: true },
-    });
-
-    return created;
   }
 
-  /* -------------------------------- FIND ONE ------------------------------ */
-
-  async findOne(id: number) {
+  /* ===================== FIND ONE — FULL COMPONENT OBJECTS ===================== */
+  async findOne(id: number, depth = 10) {
     const row = await this.prisma.typeInfrastructure.findUnique({
       where: { id },
-      select: {
-        id: true, name: true, description: true, type: true,
-        location: true, images: true, attribus: true, composant: true, // number[]
-        domaineId: true, sousdomaineId: true, competenceId: true,
-        created_at: true, updated_at: true,
-      },
+      select: this.fullSelect,
     });
     if (!row) throw new NotFoundException({ message: 'Type introuvable.', messageE: 'Type not found.' });
 
-    const dict = await this.expandComponentIdsToObjects(toIdArray(row.composant));
+    const base = this.materialize(row);
+    const compIds = toIdArray(base.composant);
 
-    return {
-      ...row,
-      attribus: Array.isArray(row.attribus) ? row.attribus : [],
-      location: isPlainObject(row.location) ? row.location : {},
-      images: Array.isArray(row.images) ? row.images : [],
-      composant: this.materializeComposants(row.composant, dict), // ← objets
-    };
+    // Par défaut : on va profond (10 niveaux) et on renvoie TOUT sur les composants
+    const cache = new Map<number, any>([[base.id, base]]);
+    const composant = await this.expandFullTreeByIds(
+      compIds,
+      Math.max(1, Math.min(Number(depth ?? 10), 10)),
+      new Set<number>([base.id]),
+      cache,
+    );
+
+    return { ...base, composant };
   }
 
-  /* -------------------------------- UPDATE -------------------------------- */
-
+  /* ===================== UPDATE ===================== */
   async update(id: number, dto: UpdateTypeDto) {
     await this.ensureExists(id);
-
     if (typeof dto.domaineId === 'number') {
       const exists = await this.prisma.domaine.count({ where: { id: dto.domaineId } });
       if (!exists) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
@@ -336,74 +390,49 @@ export class TypesService {
 
     const normalized = normalizeTypePayload(dto);
 
-    // Optionnel: valider composant IDs
-    let keepIds: number[] | undefined = undefined;
-    if (normalized.composant !== undefined) {
-      const compIds = toIdArray(normalized.composant);
-      if (compIds.length) {
-        const found = await this.prisma.typeInfrastructure.findMany({ where: { id: { in: compIds } }, select: { id: true } });
-        const set = new Set(found.map(f => f.id));
-        keepIds = compIds.filter(x => set.has(x));
-      } else {
-        keepIds = [];
-      }
+    try {
+      const updated = await this.prisma.typeInfrastructure.update({
+        where: { id },
+        data: {
+          name: normalized.name,
+          description: normalized.description,
+          type: normalized.type,
+          location: normalized.location,
+          images: normalized.images,
+          attribus: normalized.attribus,
+          composant: normalized.composant, // IDs
+          domaineId: dto.domaineId,
+          competenceId: dto.competenceId,
+          sousdomaineId: dto.sousdomaineId,
+        },
+        select: this.fullSelect,
+      });
+
+      const base = this.materialize(updated);
+      const comp = await this.expandFullTreeByIds(toIdArray(base.composant), 1, new Set<number>([base.id]));
+      return { ...base, composant: comp };
+    } catch (e: any) {
+      if (e.code === 'P2002') throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+      throw e;
     }
-
-    const updated = await this.prisma.typeInfrastructure.update({
-      where: { id },
-      data: {
-        name: normalized.name,
-        description: normalized.description,
-        type: normalized.type,
-        location: normalized.location,
-        images: normalized.images,
-        attribus: normalized.attribus,
-        // stock en DB = IDs
-        ...(keepIds !== undefined ? { composant: keepIds } : {}),
-        domaineId: dto.domaineId,
-        competenceId: dto.competenceId,
-        sousdomaineId: dto.sousdomaineId,
-      },
-      select: {
-        id: true, name: true, description: true, type: true,
-        location: true, images: true, attribus: true, composant: true,
-        domaineId: true, sousdomaineId: true,
-        updated_at: true,
-      },
-    });
-
-    const dict = await this.expandComponentIdsToObjects(toIdArray(updated.composant));
-
-    return {
-      ...updated,
-      attribus: Array.isArray(updated.attribus) ? updated.attribus : [],
-      location: isPlainObject(updated.location) ? updated.location : {},
-      images: Array.isArray(updated.images) ? updated.images : [],
-      composant: this.materializeComposants(updated.composant, dict), // ← objets
-    };
   }
 
-  /* -------------------------------- FORM ---------------------------------- */
-
+  /* ===================== FORM ===================== */
   async form(id: number) {
-    const row = await this.findOne(id);
+    const row = await this.findOne(id, 1); // enfants directs pour édition
     return {
       id: row.id,
       name: row.name,
       description: row.description,
       type: row.type,
-      domaineId: (row as any).domaineId,
-      sousdomaineId: (row as any).sousdomaineId,
-      form: {
-        attribus: row.attribus,
-        composant: row.composant, // déjà objets
-      },
-      note: 'ATTRIBUTS normalisés: key en MAJ SANS ACCENT; enum/enm et CSV → array. ETAT/LATITUDE/LONGITUDE injectés si absents.',
+      domaineId: row.domaineId,
+      sousdomaineId: row.sousdomaineId,
+      form: { attribus: row.attribus, composant: row.composant },
+      note: 'ATTRIBUTS : clés en MAJ SANS ACCENT. ENUM: CSV → array. Composant stocké en IDs mais retourné en objets complets (1 niveau ici).',
     };
   }
 
-  /* -------------------------------- USAGE --------------------------------- */
-
+  /* ===================== USAGE ===================== */
   async usage(id: number) {
     const where: any = { id_type_infrastructure: id };
     type GB = { _count: { _all: number } };
@@ -429,8 +458,7 @@ export class TypesService {
     };
   }
 
-  /* -------------------------------- REMOVE -------------------------------- */
-
+  /* ===================== REMOVE ===================== */
   async remove(id: number) {
     const used = await this.prisma.infrastructure.count({ where: { id_type_infrastructure: id } });
     if (used > 0) {
@@ -442,6 +470,7 @@ export class TypesService {
     await this.prisma.typeInfrastructure.delete({ where: { id } });
   }
 
+  /* ===================== Guard ===================== */
   private async ensureExists(id: number) {
     const ok = await this.prisma.typeInfrastructure.count({ where: { id } });
     if (!ok) throw new NotFoundException({ message: 'Type introuvable.', messageE: 'Type not found.' });
