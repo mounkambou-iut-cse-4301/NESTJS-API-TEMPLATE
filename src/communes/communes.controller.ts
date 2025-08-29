@@ -41,6 +41,8 @@ export class CommunesController {
       page, pageSize, sort,
       q: q.q,
       arrondissementId: q.arrondissementId,
+      departementId:q.departmentId,
+      regionId:q.regionId,
       code: q.code,
       typeCommuneId: q.typeCommuneId,
       is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',

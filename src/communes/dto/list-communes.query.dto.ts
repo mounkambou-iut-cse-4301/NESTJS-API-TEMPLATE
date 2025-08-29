@@ -21,6 +21,16 @@ export class ListCommunesQueryDto {
   @IsOptional() @IsString()
   q?: string;
 
+  @ApiPropertyOptional({ description: 'Filtre par region.id' })
+  @Transform(({ value }) => Number(value))
+  @IsOptional() @IsInt()
+  regionId?: number;
+
+  @ApiPropertyOptional({ description: 'Filtre par department.id' })
+  @Transform(({ value }) => Number(value))
+  @IsOptional() @IsInt()
+  departmentId?: number;
+
   @ApiPropertyOptional({ description: 'Filtre par Arrondissement.id' })
   @Transform(({ value }) => Number(value))
   @IsOptional() @IsInt()

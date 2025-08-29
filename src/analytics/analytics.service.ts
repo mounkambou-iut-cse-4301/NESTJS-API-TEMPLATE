@@ -44,7 +44,7 @@ function buildWhere(q: Scope, req?: any) {
   if (q.domaineId)        where.domaineId = Number(q.domaineId);
   if (q.sousdomaineId)    where.sousdomaineId = Number(q.sousdomaineId);
 
-  // 🔒 Scoping utilisateur
+  // 🔒 Scoping utilisateur : si l’utilisateur a une commune, on force le filtre communeId
   const userCommuneId = req?.user?.communeId as number | undefined;
   if (userCommuneId) {
     where.communeId = Number(userCommuneId);
@@ -64,23 +64,25 @@ function sqlWhere(where: Record<string, any>) {
   return parts.length ? 'WHERE '+parts.join(' AND ') : '';
 }
 
-/** États autorisés (toujours MAJ) */
-const ALLOWED_ETATS = ['EXCELLENT','BON','PASSABLE','MAUVAIS','TRES MAUVAIS'] as const;
+/* ----------------- Constantes & helpers ETAT ----------------- */
 
-/** Expression SQL robuste pour lire ETAT depuis attribus (etat|ETAT, string|array) */
-function etatExprSQL(): string {
-  return `
-    UPPER(
-      JSON_UNQUOTE(
-        CASE
-          WHEN JSON_TYPE(COALESCE(JSON_EXTRACT(attribus, '$.etat'), JSON_EXTRACT(attribus, '$."ETAT"'))) = 'ARRAY'
-            THEN JSON_EXTRACT(COALESCE(JSON_EXTRACT(attribus, '$.etat'), JSON_EXTRACT(attribus, '$."ETAT"')), '$[0]')
-          ELSE COALESCE(JSON_EXTRACT(attribus, '$.etat'), JSON_EXTRACT(attribus, '$."ETAT"'))
-        END
-      )
-    )
-  `;
+/** Valeurs autorisées (majuscules) */
+const ALLOWED_ETATS = ['EXCELLENT','BON','PASSABLE','MAUVAIS','TRES MAUVAIS'] as const;
+type Etat = typeof ALLOWED_ETATS[number];
+
+/** Expression SQL : ETAT coalescé entre $.ETAT et $.etat, string upper */
+const JSON_ETAT_EXPR =
+  `UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(attribus, '$.ETAT'), JSON_EXTRACT(attribus, '$.etat'))))`;
+
+/** Normalise une valeur sql d’état en sortie (filtre dans le set autorisé) */
+function normalizeSqlEtat(v: any): Etat | null {
+  if (!v) return null;
+  const up = String(v).trim().toUpperCase();
+  return (ALLOWED_ETATS as readonly string[]).includes(up) ? (up as Etat) : null;
 }
+
+/** Clés d’attributs à exclure de toutes les analyses attributaires */
+const EXCLUDED_ATTR_KEYS = new Set(['ETAT','DESCRIPTION']);
 
 /* ------------------------- Service ------------------------- */
 
@@ -105,6 +107,7 @@ export class AnalyticsService {
     if (q.regionId) w.push(`regionId=${Number(q.regionId)}`);
     if (q.departementId) w.push(`departementId=${Number(q.departementId)}`);
     if (q.arrondissementId) w.push(`arrondissementId=${Number(q.arrondissementId)}`);
+    // scope utilisateur (arrondissement de sa commune)
     if (userArrId) w.push(`arrondissementId=${Number(userArrId)}`);
     return w;
   }
@@ -114,6 +117,11 @@ export class AnalyticsService {
   }
   private andCond(base: string, cond: string): string {
     return base && base.trim().length ? `${base} AND ${cond}` : `WHERE ${cond}`;
+  }
+
+  /** Échappe une clé d’attribut JSON pour un chemin '$."...key..."'. */
+  private escJsonKey(k: string) {
+    return k.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/'/g, "''");
   }
 
   /** WHERE Prisma équivalent (priorité au scope utilisateur si présent). */
@@ -173,26 +181,20 @@ export class AnalyticsService {
       else if (t === 'COMPLEXE') parNature.COMPLEXE = c;
     }
 
-    // Répartition par ETAT (attribus uniquement)
-    const etatExpr = etatExprSQL();
+    // Répartition par ETAT (coalescé ETAT/etat)
     const byEtatRows = await this.prisma.$queryRawUnsafe<EtatRow[]>(`
-      SELECT ${etatExpr} AS etat, COUNT(*) AS c
+      SELECT ${JSON_ETAT_EXPR} AS etat, COUNT(*) AS c
       FROM Infrastructure
       ${W}
       GROUP BY etat
       ORDER BY c DESC;
     `);
 
-    // Always return the 5 buckets in MAJ (for your front TypeStat)
-    const bucket = new Map<string, number>();
-    for (const r of byEtatRows || []) {
-      const k = (r.etat || '').toString().trim().toUpperCase();
-      if (!k) continue;
-      bucket.set(k, (bucket.get(k) ?? 0) + Number(r.c ?? 0));
-    }
-    const repartition_etat = (ALLOWED_ETATS as readonly string[]).map(k => ({ etat: k, compte: bucket.get(k) ?? 0 }));
+    const repartition_etat = (byEtatRows || [])
+      .map(r => ({ etat: normalizeSqlEtat(r.etat), compte: Number(r.c) }))
+      .filter(x => !!x.etat) as Array<{ etat: Etat; compte: number }>;
 
-    // Recensement des clés d’attribut (hors 'etat'/'ETAT') via Prisma
+    // Recensement des clés d’attribut (hors ETAT & DESCRIPTION) via Prisma
     const rowsAttribus = await this.prisma.infrastructure.findMany({
       where: this.prismaWhere(q, userArrId),
       select: { attribus: true },
@@ -204,7 +206,7 @@ export class AnalyticsService {
         for (const k of Object.keys(obj)) {
           if (!k) continue;
           const kU = k.toUpperCase();
-          if (kU === 'ETAT') continue;
+          if (EXCLUDED_ATTR_KEYS.has(kU)) continue; // ignore 'ETAT' & 'DESCRIPTION'
           keysSet.add(k);
         }
       }
@@ -214,7 +216,7 @@ export class AnalyticsService {
     // Détails par attribut
     const attributs: any[] = [];
     for (const rawKey of attributes) {
-      const key = rawKey.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/'/g, "''");
+      const key = this.escJsonKey(rawKey);
 
       const covSql = `
         SELECT
@@ -273,7 +275,7 @@ export class AnalyticsService {
         `);
         const byEtatNum: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
-            ${etatExpr} AS etat,
+            ${JSON_ETAT_EXPR} AS etat,
             COUNT(*) AS n,
             SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS somme
           FROM Infrastructure
@@ -288,18 +290,9 @@ export class AnalyticsService {
           min: numRows?.[0]?.min_v !== null ? Number(numRows?.[0]?.min_v) : null,
           max: numRows?.[0]?.max_v !== null ? Number(numRows?.[0]?.max_v) : null,
         };
-        // garde l’ordre des 5 états
-        const b = new Map<string, { n:number; somme:number }>();
-        for (const r of byEtatNum || []) {
-          const k = (r.etat || '').toString().toUpperCase();
-          if (!k) continue;
-          b.set(k, { n: Number(r.n ?? 0), somme: Number(r.somme ?? 0) });
-        }
-        bloc.par_etat = (ALLOWED_ETATS as readonly string[]).map(k => ({
-          etat: k,
-          n: b.get(k)?.n ?? 0,
-          somme: b.get(k)?.somme ?? 0,
-        }));
+        bloc.par_etat = (byEtatNum || [])
+          .map(r => ({ etat: normalizeSqlEtat(r.etat), n: Number(r.n ?? 0), somme: Number(r.somme ?? 0) }))
+          .filter(x => !!x.etat);
 
       } else if (genre === 'booleen') {
         const condBool = `JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) = 'BOOLEAN'`;
@@ -312,7 +305,7 @@ export class AnalyticsService {
         `);
         const boolEtat: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
-            ${etatExpr} AS etat,
+            ${JSON_ETAT_EXPR} AS etat,
             SUM(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) = 'true'  THEN 1 ELSE 0 END) AS vrai,
             SUM(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) = 'false' THEN 1 ELSE 0 END) AS faux
           FROM Infrastructure
@@ -324,17 +317,9 @@ export class AnalyticsService {
           vrai: Number(boolRows?.[0]?.vrai ?? 0),
           faux: Number(boolRows?.[0]?.faux ?? 0),
         };
-        const b = new Map<string, { vrai:number; faux:number }>();
-        for (const r of boolEtat || []) {
-          const k = (r.etat || '').toString().toUpperCase();
-          if (!k) continue;
-          b.set(k, { vrai: Number(r.vrai ?? 0), faux: Number(r.faux ?? 0) });
-        }
-        bloc.par_etat = (ALLOWED_ETATS as readonly string[]).map(k => ({
-          etat: k,
-          vrai: b.get(k)?.vrai ?? 0,
-          faux: b.get(k)?.faux ?? 0,
-        }));
+        bloc.par_etat = (boolEtat || [])
+          .map(r => ({ etat: normalizeSqlEtat(r.etat), vrai: Number(r.vrai ?? 0), faux: Number(r.faux ?? 0) }))
+          .filter(x => !!x.etat);
 
       } else {
         const condStr = `
@@ -350,7 +335,7 @@ export class AnalyticsService {
         `);
         const valEtatRows: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
-            ${etatExpr} AS etat,
+            ${JSON_ETAT_EXPR} AS etat,
             JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS valeur,
             COUNT(*) AS c
           FROM Infrastructure
@@ -358,29 +343,14 @@ export class AnalyticsService {
           GROUP BY etat, valeur
           ORDER BY valeur ASC, c DESC;
         `);
-        // structure: valeurs[] avec sous-agrégat par état ordonné
-        const byVal = new Map<string, number>();
-        for (const v of valRows || []) {
-          byVal.set(v.valeur, Number(v.c ?? 0));
-        }
-        const byValEtat = new Map<string, Map<string, number>>();
-        for (const e of valEtatRows || []) {
-          const k = (e.etat || '').toString().toUpperCase();
-          const val = e.valeur;
-          if (!k || !val) continue;
-          if (!byValEtat.has(val)) byValEtat.set(val, new Map<string, number>());
-          const m = byValEtat.get(val)!;
-          m.set(k, (m.get(k) ?? 0) + Number(e.c ?? 0));
-        }
-        const valeurs = Array.from(byVal.entries()).map(([valeur, c]) => ({
-          valeur,
-          compte: c,
-          par_etat: (ALLOWED_ETATS as readonly string[]).map(k => ({
-            etat: k,
-            compte: byValEtat.get(valeur)?.get(k) ?? 0,
-          })),
+        bloc.valeurs = (valRows || []).map(v => ({
+          valeur: v.valeur,
+          compte: Number(v.c ?? 0),
+          par_etat: (valEtatRows || [])
+            .filter(e => e.valeur === v.valeur)
+            .map(e => ({ etat: normalizeSqlEtat(e.etat), compte: Number(e.c ?? 0) }))
+            .filter(x => !!x.etat),
         }));
-        bloc.valeurs = valeurs.sort((a,b)=>b.compte-a.compte);
       }
 
       attributs.push(bloc);
@@ -698,6 +668,13 @@ export class AnalyticsService {
       return { message:'Complétude calculée.', messageE:'Completeness computed.', data: { total: 0, filled: 0, percent: 0 } };
     }
 
+    // on refuse ETAT / DESCRIPTION
+    const keyU = q.attr?.trim()?.toUpperCase?.() ?? '';
+    if (EXCLUDED_ATTR_KEYS.has(keyU)) {
+      const total = await this.prisma.infrastructure.count({ where });
+      return { message:'Complétude calculée.', messageE:'Completeness computed.', data: { total, filled: 0, percent: 0 } };
+    }
+
     const total = await this.prisma.infrastructure.count({ where });
     if (!total) return { message:'Complétude calculée.', messageE:'Completeness computed.', data: { total: 0, filled: 0, percent: 0 } };
 
@@ -740,6 +717,10 @@ export class AnalyticsService {
     if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Distribution attribut.', messageE:'Attribute distribution.', items: [] };
     }
+    const keyU = q.attr?.trim()?.toUpperCase?.() ?? '';
+    if (EXCLUDED_ATTR_KEYS.has(keyU)) {
+      return { message:'Distribution attribut.', messageE:'Attribute distribution.', items: [] };
+    }
     const key = q.attr.replace(/"/g,'\\"');
     const rows: any[] = await this.prisma.$queryRawUnsafe(`
       SELECT JSON_UNQUOTE(JSON_EXTRACT(i.attribus, '$."${key}"')) AS value, COUNT(*) AS c
@@ -755,6 +736,11 @@ export class AnalyticsService {
   async attrCrosstab(q: Scope & { attrA: string; attrB: string }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
+      return { message:'Crosstab attributs.', messageE:'Attributes crosstab.', items: [] };
+    }
+    const Aup = q.attrA?.trim()?.toUpperCase?.() ?? '';
+    const Bup = q.attrB?.trim()?.toUpperCase?.() ?? '';
+    if (EXCLUDED_ATTR_KEYS.has(Aup) || EXCLUDED_ATTR_KEYS.has(Bup)) {
       return { message:'Crosstab attributs.', messageE:'Attributes crosstab.', items: [] };
     }
     const A = q.attrA.replace(/"/g,'\\"');
