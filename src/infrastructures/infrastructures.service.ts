@@ -14,70 +14,6 @@ function toStrId(id: bigint | number | string): string {
   if (typeof id === 'number') return String(id);
   return id;
 }
-
-/** Uppercase + suppression des accents (pour comparaison, pas pour stockage) */
-function upperNoAccent(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .trim();
-}
-
-/**
- * Normalise/valide `attribus`:
- *  - accepte objet {k:v} OU tableau [{key, value}]
- *  - rejette les doublons de clé (comparaison insensible aux accents et à la casse)
- *  - renvoie un objet plat { k: v } (noms de clés d’origine conservés)
- */
-function normalizeInfraAttribus(input: any): Record<string, any> {
-  if (input == null) return {};
-  const dup: string[] = [];
-  const seen = new Map<string, string>(); // canon -> originalKey
-  const out: Record<string, any> = {};
-
-  // parcours sous forme (key,value) uniformisée
-  const pairs: Array<{ key: string; value: any }> = [];
-
-  if (Array.isArray(input)) {
-    for (const it of input) {
-      if (!it || typeof it !== 'object') continue;
-      const k = String((it as any).key ?? '').trim();
-      if (!k) continue;
-      pairs.push({ key: k, value: (it as any).value });
-    }
-  } else if (typeof input === 'object') {
-    for (const raw of Object.keys(input)) {
-      pairs.push({ key: raw, value: (input as any)[raw] });
-    }
-  } else {
-    throw new BadRequestException({
-      message: 'attribus doit être un objet ou un tableau {key,value}.',
-      messageE: 'attribus must be an object or an array of {key,value}.',
-    });
-  }
-
-  for (const { key, value } of pairs) {
-    const canon = upperNoAccent(key);
-    if (seen.has(canon)) {
-      // on signale le conflit sur la clé canonique
-      if (!dup.includes(canon)) dup.push(canon);
-    } else {
-      seen.set(canon, key);     // mémorise la première clé d’origine rencontrée
-      out[key] = value;         // on conserve le nom d’origine dans le JSON stocké
-    }
-  }
-
-  if (dup.length) {
-    throw new BadRequestException({
-      message: `Doublon(s) d'attribut détecté(s): ${dup.join(', ')}.`,
-      messageE: `Duplicate attribute key(s): ${dup.join(', ')}.`,
-    });
-  }
-
-  return out;
-}
-
 type Scope = {
   regionId?: number;
   departementId?: number;
@@ -90,8 +26,24 @@ type Scope = {
   competenceId?: number;
 };
 
-const ALLOWED_ETATS = ['excellent','bon','passable','mauvais','tres mauvais'] as const;
+/** États autorisés (toujours MAJ) */
+const ALLOWED_ETATS = ['EXCELLENT','BON','PASSABLE','MAUVAIS','TRES MAUVAIS'] as const;
 type Etat = typeof ALLOWED_ETATS[number];
+
+/** Expression SQL robuste pour lire ETAT depuis attribus (etat|ETAT, string|array) */
+function etatExprSQL(): string {
+  return `
+    UPPER(
+      JSON_UNQUOTE(
+        CASE
+          WHEN JSON_TYPE(COALESCE(JSON_EXTRACT(attribus, '$.etat'), JSON_EXTRACT(attribus, '$."ETAT"'))) = 'ARRAY'
+            THEN JSON_EXTRACT(COALESCE(JSON_EXTRACT(attribus, '$.etat'), JSON_EXTRACT(attribus, '$."ETAT"')), '$[0]')
+          ELSE COALESCE(JSON_EXTRACT(attribus, '$.etat'), JSON_EXTRACT(attribus, '$."ETAT"'))
+        END
+      )
+    )
+  `;
+}
 
 function buildWhere(q: Scope) {
   const where: any = {};
@@ -207,7 +159,7 @@ export class InfrastructuresService {
       type: typeof c.type === 'string' ? c.type.toUpperCase() : (c.type ?? 'SIMPLE'),
       location: ensureObject(c.location),
       images: await this.toCloudinaryUrls(ensureArray(c.images), folder),
-      attribus: normalizeInfraAttribus(c.attribus), // ✅ pas de doublons
+      attribus: ensureObject(c.attribus),
       composant: [],
     };
     for (const sub of ensureArray(c.composant)) {
@@ -247,7 +199,7 @@ export class InfrastructuresService {
     // 1) crée la ligne enfant avec lien parent
     const child = await tx.infrastructure.create({
       data: {
-        id_parent: parentId,
+        id_parent: parentId, // 👈 lien hiérarchique
         id_type_infrastructure: ctx.typeId,
         name,
         description: comp?.description ?? null,
@@ -263,7 +215,7 @@ export class InfrastructuresService {
         utilisateurId: ctx.creatorId,
         location: ensureObject(comp?.location),
         images: ensureArray(comp?.images),
-        attribus: normalizeInfraAttribus(comp?.attribus), // ✅
+        attribus: ensureObject(comp?.attribus),
         composant: [],
       },
       select: { id: true },
@@ -293,7 +245,7 @@ export class InfrastructuresService {
     };
   }
 
-  /* ---------- LIST (uniquement racines: id_parent = null) ---------- */
+  /* ---------- LIST ---------- */
   async list(params: {
     page: number; pageSize: number; sort?: Order;
     regionId?: number; departementId?: number; arrondissementId?: number; communeId?: number;
@@ -309,9 +261,9 @@ export class InfrastructuresService {
     const currentUserId = req?.sub as number | undefined;
     const userCommuneId = req?.user?.communeId as number | undefined;
 
-    // ⚠️ FORCÉ: uniquement les racines
-    const where: any = { id_parent: null };
-
+    const where: any = {
+       id_parent: null, 
+    };
     if (typeof regionId === 'number') where.regionId = regionId;
     if (typeof departementId === 'number') where.departementId = departementId;
     if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
@@ -320,7 +272,7 @@ export class InfrastructuresService {
     if (typeof competenceId === 'number') where.competenceId = competenceId;
 
     if (currentUserId && userCommuneId) {
-      where.communeId = userCommuneId; // limite aux racines de la commune utilisateur
+      where.communeId = userCommuneId; // Limite aux infrastructures de la commune de l'utilisateur
     }
 
     if (typeof typeId === 'number') where.id_type_infrastructure = typeId;
@@ -348,7 +300,7 @@ export class InfrastructuresService {
         take: pageSize,
         select: {
           id: true,
-          id_parent: true, // toujours null ici
+          id_parent: true, // 👈
           id_type_infrastructure: true,
           typeRef: { select: { id: true, name: true, type: true, domaineId: true, sousdomaineId: true } },
           name: true,
@@ -361,7 +313,7 @@ export class InfrastructuresService {
           communeId: true, commune: true,
           domaineId: true, domaine: { select: { id: true, nom: true, code: true } },
           sousdomaineId: true, sousdomaine: { select: { id: true, nom: true, code: true } },
-          competenceId: true, competence: { select: { id: true, name: true} },
+          competenceId: true, competence: { select: { id: true, name: true } },
           location: true, images: true, attribus: true, composant: true,
           created_at: true, updated_at: true,
         },
@@ -371,7 +323,7 @@ export class InfrastructuresService {
     const items = rows.map(r => ({
       ...r,
       id: toStrId(r.id),
-      id_parent: r.id_parent ? toStrId(r.id_parent as any) : null, // ⇒ null
+      id_parent: r.id_parent ? toStrId(r.id_parent as any) : null,
       name_type_infrastructure: r.typeRef.name,
     }));
     return { total, items };
@@ -397,12 +349,12 @@ export class InfrastructuresService {
 
     // 2) payload parent (id_parent: null)
     const dataParent: any = {
-      id_parent: null,                    // racine
+      id_parent: null,                    // 👈 parent racine
       id_type_infrastructure: dto.typeId,
       name: dto.name,
       description: dto.description ?? null,
       existing_infrastructure: dto.existing_infrastructure ?? true,
-      type: (dto.type ?? 'SIMPLE'),
+      type: (dto.type ?? 'SIMPLE'),       // assume DTO valide déjà
       regionId: dto.regionId,
       departementId: dto.departementId,
       arrondissementId: dto.arrondissementId,
@@ -413,8 +365,8 @@ export class InfrastructuresService {
       utilisateurId: creatorId,
       location: ensureObject(dto.location),
       images: await this.toCloudinaryUrls(ensureArray(dto.images), parentFolder),
-      attribus: normalizeInfraAttribus(dto.attribus),  // ✅ pas de doublons
-      composant: [],
+      attribus: ensureObject(dto.attribus),
+      composant: [],                      // injecté après avec ids enfants
     };
 
     // 3) transaction : parent -> enfants récursifs -> update parent
@@ -466,7 +418,7 @@ export class InfrastructuresService {
       where: { id },
       select: {
         id: true,
-        id_parent: true,
+        id_parent: true, // 👈
         id_type_infrastructure: true,
         name: true,
         description: true,
@@ -526,7 +478,7 @@ export class InfrastructuresService {
 
     const folder = `infrastructures/${effCom}`;
 
-    // Remplacement optionnel du JSON composant : re-normalise + re-upload images
+    // Remplacement optionnel du JSON composant (indépendant) avec re-upload (pas de création de lignes)
     let newComposant: any[] | undefined = undefined;
     if (Array.isArray(dto.composant)) {
       newComposant = [];
@@ -537,7 +489,7 @@ export class InfrastructuresService {
           type: (c.type ?? 'SIMPLE').toUpperCase(),
           location: ensureObject(c.location),
           images: imgs,
-          attribus: normalizeInfraAttribus(c.attribus), // ✅ pas de doublons
+          attribus: ensureObject(c.attribus),
         });
       }
     }
@@ -558,7 +510,7 @@ export class InfrastructuresService {
       competenceId: dto.competenceId ?? null,
       location: dto.location ? ensureObject(dto.location) : undefined,
       images: dto.images ? await this.toCloudinaryUrls(ensureArray(dto.images), folder) : undefined,
-      attribus: dto.attribus ? normalizeInfraAttribus(dto.attribus) : undefined, // ✅ pas de doublons
+      attribus: dto.attribus ? ensureObject(dto.attribus) : undefined,
       composant: newComposant,
     };
 
@@ -588,7 +540,7 @@ export class InfrastructuresService {
     await this.prisma.infrastructure.delete({ where: { id } });
   }
 
-  /* ---------- EXPORT CSV (sur la liste ⇒ racines uniquement) ---------- */
+  /* ---------- EXPORT CSV ---------- */
   async exportCsv(params: Parameters<InfrastructuresService['list']>[0]) {
     const full = await this.list({ ...params, page: 1, pageSize: 100000, sort: params.sort });
     const headers = [
@@ -628,8 +580,7 @@ export class InfrastructuresService {
         if (!it.name) throw new Error('name requis');
         if (!it.type) throw new Error('type requis');
         if (!it.location) throw new Error('location requis');
-        // Validation forte des doublons d’attributs au niveau bulk
-        normalizeInfraAttribus(it.attribus);
+        if (!it.attribus) throw new Error('attribus requis');
       } catch (e: any) {
         errors.push({ index: i, message: `Ligne invalide: ${e.message ?? e}`, messageE: `Invalid row: ${e.message ?? e}` });
       }
@@ -661,18 +612,23 @@ export class InfrastructuresService {
     ]);
 
     const base = sqlWhereNumeric(where);
+    const etatExpr = etatExprSQL();
     const rows = await this.prisma.$queryRawUnsafe<Array<{ etat: string | null; c: any }>>(`
-      SELECT LOWER(JSON_UNQUOTE(JSON_EXTRACT(i.attribus, '$.etat'))) AS etat, COUNT(*) AS c
+      SELECT ${etatExpr} AS etat, COUNT(*) AS c
       FROM Infrastructure i
       ${base}
       GROUP BY etat
       ORDER BY c DESC;
     `);
 
-    const byEtat = rows
-      .filter(r => r.etat && (ALLOWED_ETATS as readonly string[]).includes(r.etat))
-      .map(r => ({ etat: r.etat as Etat, count: Number(r.c) }))
-      .sort((a,b) => b.count - a.count);
+    // Bucketize & impose l’ordre des 5 états
+    const map = new Map<string, number>();
+    for (const r of rows || []) {
+      const k = (r.etat || '').toString().trim().toUpperCase();
+      if (!k) continue;
+      map.set(k, (map.get(k) ?? 0) + Number(r.c ?? 0));
+    }
+    const byEtat = (ALLOWED_ETATS as readonly string[]).map(e => ({ etat: e as Etat, count: map.get(e) ?? 0 }));
 
     return {
       message: 'Résumé des infrastructures.',
@@ -730,9 +686,10 @@ export class InfrastructuresService {
 
     let etatRows: Array<{ k: number | null; etat: string | null; c: any }> = [];
     if (includeEtat) {
+      const etatExpr = etatExprSQL();
       etatRows = await this.prisma.$queryRawUnsafe(`
         SELECT ${col} AS k,
-               LOWER(JSON_UNQUOTE(JSON_EXTRACT(i.attribus, '$.etat'))) AS etat,
+               ${etatExpr} AS etat,
                COUNT(*) AS c
         FROM Infrastructure i
         ${base}
@@ -747,10 +704,14 @@ export class InfrastructuresService {
         const count = Number(t.c);
         let etats: Array<{ etat: Etat; count: number }> | undefined;
         if (includeEtat) {
-          etats = etatRows
-            .filter(r => r.k === id && r.etat && (ALLOWED_ETATS as readonly string[]).includes(r.etat))
-            .map(r => ({ etat: r.etat as Etat, count: Number(r.c) }))
-            .sort((a,b) => b.count - a.count);
+          const bucket = new Map<string, number>();
+          for (const r of etatRows || []) {
+            if (r.k !== id) continue;
+            const k = (r.etat || '').toString().toUpperCase();
+            if (!k) continue;
+            bucket.set(k, (bucket.get(k) ?? 0) + Number(r.c ?? 0));
+          }
+          etats = (ALLOWED_ETATS as readonly string[]).map(e => ({ etat: e as Etat, count: bucket.get(e) ?? 0 }));
         }
         return { id, name: names.get(id), count, ...(includeEtat ? { etats } : {}) };
       })
@@ -799,9 +760,10 @@ export class InfrastructuresService {
 
     let etatRows: Array<{ k: number | null; etat: string | null; c: any }> = [];
     if (includeEtat) {
+      const etatExpr = etatExprSQL();
       etatRows = await this.prisma.$queryRawUnsafe(`
         SELECT ${col} AS k,
-               LOWER(JSON_UNQUOTE(JSON_EXTRACT(i.attribus, '$.etat'))) AS etat,
+               ${etatExpr} AS etat,
                COUNT(*) AS c
         FROM Infrastructure i
         ${base}
@@ -816,10 +778,14 @@ export class InfrastructuresService {
         const count = Number(t.c);
         let etats: Array<{ etat: Etat; count: number }> | undefined;
         if (includeEtat) {
-          etats = etatRows
-            .filter(r => r.k === id && r.etat && (ALLOWED_ETATS as readonly string[]).includes(r.etat))
-            .map(r => ({ etat: r.etat as Etat, count: Number(r.c) }))
-            .sort((a,b) => b.count - a.count);
+          const bucket = new Map<string, number>();
+          for (const r of etatRows || []) {
+            if (r.k !== id) continue;
+            const k = (r.etat || '').toString().toUpperCase();
+            if (!k) continue;
+            bucket.set(k, (bucket.get(k) ?? 0) + Number(r.c ?? 0));
+          }
+          etats = (ALLOWED_ETATS as readonly string[]).map(e => ({ etat: e as Etat, count: bucket.get(e) ?? 0 }));
         }
         return { id, name: names.get(id), count, ...(includeEtat ? { etats } : {}) };
       })
