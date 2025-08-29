@@ -1,6 +1,7 @@
-
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+
+/* ---------------- Types & helpers communs ---------------- */
 
 type Scope = {
   level?: 'country'|'region'|'departement'|'arrondissement'|'commune';
@@ -21,9 +22,21 @@ type Scope = {
   attrB?: string;
 };
 
+type TypeStatsGeoInput = {
+  typeId: number;
+  regionId?: number;
+  departementId?: number;
+  arrondissementId?: number;
+};
+
+type EtatRow = { etat: string | null; c: any };
+
+type Etat = 'EXCELLENT'|'BON'|'PASSABLE'|'MAUVAIS'|'TRES MAUVAIS';
+const ALLOWED_ETATS: Etat[] = ['EXCELLENT','BON','PASSABLE','MAUVAIS','TRES MAUVAIS'];
+
 function toStrId(id:any){ return typeof id === 'bigint' ? id.toString() : String(id); }
 
-/** Construit un where strict + scoping automatique par commune utilisateur si présent. */
+/** WHERE (Prisma) + scoping automatique par commune utilisateur si présent. */
 function buildWhere(q: Scope, req?: any) {
   const where: any = {};
   if (q.regionId)         where.regionId = Number(q.regionId);
@@ -34,7 +47,7 @@ function buildWhere(q: Scope, req?: any) {
   if (q.domaineId)        where.domaineId = Number(q.domaineId);
   if (q.sousdomaineId)    where.sousdomaineId = Number(q.sousdomaineId);
 
-  // 🔒 Scoping automatique : si l’utilisateur a une commune, on force le filtre communeId
+  // 🔒 Scoping utilisateur : si l’utilisateur a une commune, on force le filtre communeId
   const userCommuneId = req?.user?.communeId as number | undefined;
   if (userCommuneId) {
     where.communeId = Number(userCommuneId);
@@ -42,7 +55,7 @@ function buildWhere(q: Scope, req?: any) {
   return where;
 }
 
-/** Construit une clause SQL (unsafe) simple pour les where numériques. */
+/** WHERE (SQL-unsafe) limité aux colonnes numériques whitelistées. */
 function sqlWhere(where: Record<string, any>) {
   const parts: string[] = [];
   for (const [k,v] of Object.entries(where)) {
@@ -53,18 +66,14 @@ function sqlWhere(where: Record<string, any>) {
   }
   return parts.length ? 'WHERE '+parts.join(' AND ') : '';
 }
-type TypeStatsGeoInput = {
-  typeId: number;
-  regionId?: number;
-  departementId?: number;
-  arrondissementId?: number;
-};
-type EtatRow = { etat: string | null; c: any };
+
+/* ------------------------- Service ------------------------- */
+
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-/** Si req.user.communeId est défini, on récupère l’arrondissementId de la commune. */
+  /** Si req.user.communeId est défini, on récupère l’arrondissementId de la commune (pour les stats type). */
   private async getArrondissementFromUser(req?: any): Promise<number | null> {
     const communeId = req?.user?.communeId ? Number(req.user.communeId) : null;
     if (!communeId) return null;
@@ -75,13 +84,13 @@ export class AnalyticsService {
     return c?.arrondissementId ?? null;
   }
 
-  /** Pour les requêtes SQL brutes. */
+  /** where parts SANS id_parent (on n’y touche pas). */
   private whereParts(q: TypeStatsGeoInput, userArrId?: number | null): string[] {
     const w: string[] = [`id_type_infrastructure=${Number(q.typeId)}`];
     if (q.regionId) w.push(`regionId=${Number(q.regionId)}`);
     if (q.departementId) w.push(`departementId=${Number(q.departementId)}`);
     if (q.arrondissementId) w.push(`arrondissementId=${Number(q.arrondissementId)}`);
-    // scope utilisateur -> on ajoute (sans retirer les autres filtres)
+    // scope utilisateur (arrondissement de sa commune)
     if (userArrId) w.push(`arrondissementId=${Number(userArrId)}`);
     return w;
   }
@@ -89,28 +98,26 @@ export class AnalyticsService {
     const parts = this.whereParts(q, userArrId);
     return parts.length ? `WHERE ${parts.join(' AND ')}` : '';
   }
-  /** Ajoute une condition à une clause WHERE (ou crée la WHERE si vide). */
   private andCond(base: string, cond: string): string {
     return base && base.trim().length ? `${base} AND ${cond}` : `WHERE ${cond}`;
   }
 
-  /** Échappe une clé d’attribut JSON pour l’insérer dans le chemin '$."...key..."' dans une string SQL. */
+  /** Échappe une clé d’attribut JSON pour un chemin '$."...key..."'. */
   private escJsonKey(k: string) {
-    // ordre important: backslashes, puis doubles quotes, puis apostrophes (doublées pour SQL)
     return k.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/'/g, "''");
   }
 
-  /** Version Prisma du WHERE (utile pour lire les `attribus` avec le client). */
+  /** WHERE Prisma équivalent (priorité au scope utilisateur si présent). */
   private prismaWhere(q: TypeStatsGeoInput, userArrId?: number | null) {
     const where: any = { id_type_infrastructure: Number(q.typeId) };
     if (q.regionId) where.regionId = Number(q.regionId);
     if (q.departementId) where.departementId = Number(q.departementId);
     if (q.arrondissementId) where.arrondissementId = Number(q.arrondissementId);
-    if (userArrId) where.arrondissementId = Number(userArrId); // priorité au scope utilisateur
+    if (userArrId) where.arrondissementId = Number(userArrId);
     return where;
   }
 
-  /* ----------------- Métadonnées du type ----------------- */
+  /* -------- Métadonnées du type -------- */
   private async getTypeMeta(typeId: number) {
     const t = await this.prisma.typeInfrastructure.findUnique({
       where: { id: typeId },
@@ -124,34 +131,50 @@ export class AnalyticsService {
     return {
       id: t.id,
       nom: t.name,
-      nature: t.type, // SIMPLE | COMPLEXE (modèle)
+      nature: t.type, // SIMPLE | COMPLEXE
       domaine: t.domaine?.nom ?? null,
       sousdomaine: t.sousdomaine?.nom ?? null,
       competence: t.competence?.name ?? null,
     };
   }
 
-  /* =========================================================
-   * PUBLIC 1) Stats par TYPE + filtres géo (+ scope user)
-   * ========================================================= */
-  async typeStatsByGeo(q: TypeStatsGeoInput, req?: any) {
-    // 0) Sanity + métadonnées
-    const meta = await this.getTypeMeta(Number(q.typeId));
-    if (!meta) {
-      throw new NotFoundException({
-        message: 'TypeInfrastructure invalide.',
-        messageE: 'Invalid TypeInfrastructure.',
-      });
-    }
+  /** Expression SQL qui lit ETAT depuis attribus: $.etat ou $."ETAT", gère ARRAY -> 1er, et met en MAJ */
+  private etatExprSQL(): string {
+    return `
+      UPPER(
+        JSON_UNQUOTE(
+          CASE
+            WHEN JSON_TYPE(COALESCE(JSON_EXTRACT(attribus, '$.etat'), JSON_EXTRACT(attribus, '$."ETAT"'))) = 'ARRAY'
+              THEN JSON_EXTRACT(COALESCE(JSON_EXTRACT(attribus, '$.etat'), JSON_EXTRACT(attribus, '$."ETAT"')), '$[0]')
+            ELSE COALESCE(JSON_EXTRACT(attribus, '$.etat'), JSON_EXTRACT(attribus, '$."ETAT"'))
+          END
+        )
+      )
+    `;
+  }
 
-    // Scope utilisateur -> arrondissement de sa commune
+  /** Formate une liste de lignes {etat, c} en tableau complet selon ALLOWED_ETATS */
+  private buildFullEtatBuckets(rows: { etat: string | null; c: any }[]): { etat: Etat; compte: number }[] {
+    const map = new Map<string, number>();
+    for (const r of rows || []) {
+      const key = (r.etat || '').toString().trim().toUpperCase();
+      if (!key) continue;
+      map.set(key, (map.get(key) ?? 0) + Number(r.c ?? 0));
+    }
+    return ALLOWED_ETATS.map(e => ({ etat: e, compte: map.get(e) ?? 0 }));
+  }
+
+  /* ========================= 1) Stats par TYPE (attribus only) ========================= */
+  async typeStatsByGeo(q: TypeStatsGeoInput, req?: any) {
+    const meta = await this.getTypeMeta(Number(q.typeId));
+    if (!meta) throw new NotFoundException({ message: 'TypeInfrastructure invalide.', messageE: 'Invalid TypeInfrastructure.' });
+
     const userArrId = await this.getArrondissementFromUser(req);
     const W = this.whereSQL(q, userArrId);
+    const ETAT = this.etatExprSQL();
 
-    // 1) Totaux & par nature (SIMPLE/COMPLEXE)
-    const totalRows: any[] = await this.prisma.$queryRawUnsafe(`
-      SELECT COUNT(*) AS c FROM Infrastructure ${W};
-    `);
+    // Totaux & par nature
+    const totalRows: any[] = await this.prisma.$queryRawUnsafe(`SELECT COUNT(*) AS c FROM Infrastructure ${W};`);
     const total = Number(totalRows?.[0]?.c ?? 0);
 
     const natureRows: any[] = await this.prisma.$queryRawUnsafe(`
@@ -168,19 +191,17 @@ export class AnalyticsService {
       else if (t === 'COMPLEXE') parNature.COMPLEXE = c;
     }
 
-    // 2) Répartition par etat (attribus.etat)
+    // Répartition par ETAT (attribus): clé 'etat' OU 'ETAT', string OU array -> MAJ
     const byEtatRows = await this.prisma.$queryRawUnsafe<EtatRow[]>(`
-      SELECT LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat, COUNT(*) AS c
+      SELECT ${ETAT} AS etat, COUNT(*) AS c
       FROM Infrastructure
       ${W}
       GROUP BY etat
       ORDER BY c DESC;
     `);
-    const repartition_etat = (byEtatRows || [])
-      .filter(r => r.etat && r.etat.trim() !== '')
-      .map(r => ({ etat: r.etat as string, compte: Number(r.c) }));
+    const repartition_etat = this.buildFullEtatBuckets(byEtatRows);
 
-    // 3) Liste des attributs top-level (hors "etat") — côté Node (compat MariaDB)
+    // Recensement des clés d’attribut (hors 'etat'/'ETAT') via Prisma
     const rowsAttribus = await this.prisma.infrastructure.findMany({
       where: this.prismaWhere(q, userArrId),
       select: { attribus: true },
@@ -189,17 +210,18 @@ export class AnalyticsService {
     for (const r of rowsAttribus) {
       const obj = r?.attribus as any;
       if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-        for (const k of Object.keys(obj)) if (k && k !== 'etat') keysSet.add(k);
+        for (const k of Object.keys(obj)) {
+          if (k && k.toLowerCase() !== 'etat') keysSet.add(k);
+        }
       }
     }
     const attributes = Array.from(keysSet).sort();
 
-    // 4) Pour chaque attribut -> couverture + genre + stats dédiées
+    // Détails par attribut
     const attributs: any[] = [];
     for (const rawKey of attributes) {
       const key = this.escJsonKey(rawKey);
 
-      // 4.1) Couverture + type hints
       const covSql = `
         SELECT
           COUNT(*) AS total,
@@ -228,7 +250,7 @@ export class AnalyticsService {
       const nb_bool = Number(covRows?.[0]?.nb_bool ?? 0);
       const nb_str = Number(covRows?.[0]?.nb_str ?? 0);
 
-      let genre: 'nombre' | 'booleen' | 'enum' | 'mixte' = 'mixte';
+      let genre: 'nombre'|'booleen'|'enum'|'mixte' = 'mixte';
       if (nb_bool > 0 && nb_num === 0 && nb_str === 0) genre = 'booleen';
       else if (nb_num > 0 && nb_bool === 0 && nb_str === 0) genre = 'nombre';
       else if (nb_str > 0 && nb_bool === 0 && nb_num === 0) genre = 'enum';
@@ -245,7 +267,6 @@ export class AnalyticsService {
 
       if (genre === 'nombre') {
         const condNum = `JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) IN ('INTEGER','DOUBLE')`;
-
         const numRows: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
             COUNT(*) AS n,
@@ -256,10 +277,9 @@ export class AnalyticsService {
           FROM Infrastructure
           ${this.andCond(W, condNum)};
         `);
-
         const byEtatNum: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
-            LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat,
+            ${ETAT} AS etat,
             COUNT(*) AS n,
             SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS DECIMAL(30,6))) AS somme
           FROM Infrastructure
@@ -267,7 +287,12 @@ export class AnalyticsService {
           GROUP BY etat
           ORDER BY n DESC;
         `);
-
+        const map = new Map<string, { n: number; somme: number }>();
+        for (const r of byEtatNum || []) {
+          const k = (r.etat || '').toString().toUpperCase();
+          if (!k) continue;
+          map.set(k, { n: Number(r.n ?? 0), somme: Number(r.somme ?? 0) });
+        }
         bloc.numerique = {
           n: Number(numRows?.[0]?.n ?? 0),
           somme: Number(numRows?.[0]?.somme ?? 0),
@@ -275,13 +300,10 @@ export class AnalyticsService {
           min: numRows?.[0]?.min_v !== null ? Number(numRows?.[0]?.min_v) : null,
           max: numRows?.[0]?.max_v !== null ? Number(numRows?.[0]?.max_v) : null,
         };
-        bloc.par_etat = (byEtatNum || [])
-          .filter(r => r.etat && r.etat !== '')
-          .map(r => ({ etat: r.etat as string, n: Number(r.n ?? 0), somme: Number(r.somme ?? 0) }));
+        bloc.par_etat = ALLOWED_ETATS.map(e => ({ etat: e, n: map.get(e)?.n ?? 0, somme: map.get(e)?.somme ?? 0 }));
 
       } else if (genre === 'booleen') {
         const condBool = `JSON_TYPE(JSON_EXTRACT(attribus, '$."${key}"')) = 'BOOLEAN'`;
-
         const boolRows: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
             SUM(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) = 'true'  THEN 1 ELSE 0 END) AS vrai,
@@ -289,10 +311,9 @@ export class AnalyticsService {
           FROM Infrastructure
           ${this.andCond(W, condBool)};
         `);
-
         const boolEtat: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
-            LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat,
+            ${ETAT} AS etat,
             SUM(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) = 'true'  THEN 1 ELSE 0 END) AS vrai,
             SUM(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) = 'false' THEN 1 ELSE 0 END) AS faux
           FROM Infrastructure
@@ -300,14 +321,17 @@ export class AnalyticsService {
           GROUP BY etat
           ORDER BY (vrai+faux) DESC;
         `);
-
+        const map = new Map<string, { vrai: number; faux: number }>();
+        for (const r of boolEtat || []) {
+          const k = (r.etat || '').toString().toUpperCase();
+          if (!k) continue;
+          map.set(k, { vrai: Number(r.vrai ?? 0), faux: Number(r.faux ?? 0) });
+        }
         bloc.booleen = {
           vrai: Number(boolRows?.[0]?.vrai ?? 0),
           faux: Number(boolRows?.[0]?.faux ?? 0),
         };
-        bloc.par_etat = (boolEtat || [])
-          .filter(r => r.etat && r.etat !== '')
-          .map(r => ({ etat: r.etat as string, vrai: Number(r.vrai ?? 0), faux: Number(r.faux ?? 0) }));
+        bloc.par_etat = ALLOWED_ETATS.map(e => ({ etat: e, vrai: map.get(e)?.vrai ?? 0, faux: map.get(e)?.faux ?? 0 }));
 
       } else {
         // enum / mixte -> distribution des valeurs (string non vide)
@@ -315,7 +339,6 @@ export class AnalyticsService {
           JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) IS NOT NULL
           AND JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) <> ''
         `;
-
         const valRows: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS valeur, COUNT(*) AS c
           FROM Infrastructure
@@ -323,10 +346,9 @@ export class AnalyticsService {
           GROUP BY valeur
           ORDER BY c DESC;
         `);
-
         const valEtatRows: any[] = await this.prisma.$queryRawUnsafe(`
           SELECT
-            LOWER(JSON_UNQUOTE(JSON_EXTRACT(attribus, '$.etat'))) AS etat,
+            ${ETAT} AS etat,
             JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) AS valeur,
             COUNT(*) AS c
           FROM Infrastructure
@@ -334,21 +356,27 @@ export class AnalyticsService {
           GROUP BY etat, valeur
           ORDER BY valeur ASC, c DESC;
         `);
-
-        bloc.valeurs = (valRows || []).map(v => ({
-          valeur: v.valeur,
-          compte: Number(v.c ?? 0),
-          par_etat: (valEtatRows || [])
-            .filter(e => e.valeur === v.valeur && e.etat && e.etat !== '')
-            .map(e => ({ etat: e.etat as string, compte: Number(e.c ?? 0) })),
-        }));
+        bloc.valeurs = (valRows || []).map(v => {
+          const map = new Map<string, number>();
+          for (const e of valEtatRows || []) {
+            if (e.valeur !== v.valeur) continue;
+            const k = (e.etat || '').toString().toUpperCase();
+            if (!k) continue;
+            map.set(k, (map.get(k) ?? 0) + Number(e.c ?? 0));
+          }
+          return {
+            valeur: v.valeur,
+            compte: Number(v.c ?? 0),
+            par_etat: ALLOWED_ETATS.map(e => ({ etat: e, compte: map.get(e) ?? 0 })),
+          };
+        });
       }
 
       attributs.push(bloc);
     }
 
     return {
-      message: 'Statistiques du type.',
+      message: 'Statistiques du type (attribus uniquement).',
       params: {
         typeId: Number(q.typeId),
         regionId: q.regionId ?? null,
@@ -358,16 +386,14 @@ export class AnalyticsService {
       type: meta,
       resume: {
         total,
-        repartition_etat,
-        par_nature: parNature, // SIMPLE/COMPLEXE
+        repartition_etat,   // 👈 toujours 5 états, en MAJ
+        par_nature: parNature,
       },
       attributs,
     };
   }
 
-  /* =================================================================
-   * PUBLIC 2) Stats du type à partir d’un infraId (+ scope user)
-   * ================================================================= */
+  /* ========================= 2) Stats par infraId (attribus only) ========================= */
   async typeStatsByGeoFromInfra(
     infraId: string | number,
     q: { regionId?: number; departementId?: number; arrondissementId?: number },
@@ -376,16 +402,9 @@ export class AnalyticsService {
     const id = BigInt(String(infraId));
     const infra = await this.prisma.infrastructure.findUnique({
       where: { id },
-      select: {
-        id_type_infrastructure: true,
-        regionId: true,
-        departementId: true,
-        arrondissementId: true,
-      },
+      select: { id_type_infrastructure: true, regionId: true, departementId: true, arrondissementId: true },
     });
-    if (!infra) {
-      throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
-    }
+    if (!infra) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
 
     return this.typeStatsByGeo(
       {
@@ -398,6 +417,8 @@ export class AnalyticsService {
     );
   }
 
+  /* ========================= 3) Autres endpoints attendus par le contrôleur ========================= */
+
   /** Vérifie que les IDs territoriaux fournis existent (et la commune scoping si présente). */
   private async territoryIdsExist(q: Scope, req?: any): Promise<boolean> {
     const checks: Promise<number>[] = [];
@@ -405,25 +426,18 @@ export class AnalyticsService {
     if (q.departementId)    checks.push(this.prisma.departement.count({ where: { id: Number(q.departementId) } }));
     if (q.arrondissementId) checks.push(this.prisma.arrondissement.count({ where: { id: Number(q.arrondissementId) } }));
     if (q.communeId)        checks.push(this.prisma.commune.count({ where: { id: Number(q.communeId) } }));
-    // 👇 Ajout : si scoping utilisateur -> on valide que sa commune existe
     const userCommuneId = req?.user?.communeId as number | undefined;
     if (userCommuneId)      checks.push(this.prisma.commune.count({ where: { id: Number(userCommuneId) } }));
-
-    if (!checks.length) return true; // pas de filtre territorial => OK
+    if (!checks.length) return true;
     const results = await Promise.all(checks);
     return results.every(c => c > 0);
   }
 
-  /* ========== A. Overview ========== */
+  /* ---- A. Overview ---- */
   async overview(q: Scope, req?: any) {
     const where = buildWhere(q, req);
-
     if (!(await this.territoryIdsExist(q, req))) {
-      return {
-        message: 'Vue d’ensemble.',
-        messageE: 'Overview.',
-        data: { total_infrastructures: 0, communes_actives: 0, repartition: { SIMPLE: 0, COMPLEXE: 0 } },
-      };
+      return { message: 'Vue d’ensemble.', messageE: 'Overview.', data: { total_infrastructures: 0, communes_actives: 0, repartition: { SIMPLE: 0, COMPLEXE: 0 } } };
     }
 
     const [total, simple, complexe, communesActive] = await this.prisma.$transaction([
@@ -444,7 +458,7 @@ export class AnalyticsService {
     };
   }
 
-  /* ========== B. Distribution par type ========== */
+  /* ---- B. Distribution par type ---- */
   async distributionTypes(q: Scope, req?: any) {
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -475,7 +489,7 @@ export class AnalyticsService {
     return { message: 'Répartition par type.', messageE: 'Distribution by type.', items };
   }
 
-  /* ========== B. Distribution par domaine ========== */
+  /* ---- C. Distribution par domaine ---- */
   async distributionDomaines(q: Scope, req?: any) {
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -489,9 +503,7 @@ export class AnalyticsService {
       _count: { _all: true },
     });
 
-    if (!grouped.length) {
-      return { message: 'Répartition par domaine.', messageE: 'Distribution by domain.', items: [] };
-    }
+    if (!grouped.length) return { message: 'Répartition par domaine.', messageE: 'Distribution by domain.', items: [] };
 
     const ids = grouped.map(g => g.domaineId!).filter(Boolean);
     const doms = await this.prisma.domaine.findMany({ where: { id: { in: ids } }, select: { id:true, nom:true } });
@@ -500,8 +512,8 @@ export class AnalyticsService {
     return { message: 'Répartition par domaine.', messageE: 'Distribution by domain.', items };
   }
 
-  /* ========== C. Séries temporelles ========== */
-  private fmt(group_by:'mois'|'trimestre'|'annee'){ return group_by==='annee' ? '%Y' : group_by==='trimestre' ? 'T' : '%Y-%m'; }
+  /* ---- D. Séries temporelles (créations) ---- */
+  private fmt(group_by:'mois'|'trimestre'|'annee'){ return group_by==='annee' ? '%Y' : group_by==='trimestre' ? null : '%Y-%m'; }
 
   async timeseriesCreated(q: Scope, req?: any){
     const where = buildWhere(q, req);
@@ -512,7 +524,7 @@ export class AnalyticsService {
     const from = q.from ? new Date(q.from+'T00:00:00Z') : undefined;
     const to   = q.to   ? new Date(q.to  +'T23:59:59Z') : undefined;
 
-    const fmt = q.group_by==='annee' ? '%Y' : q.group_by==='trimestre' ? null : '%Y-%m';
+    const fmt = this.fmt(q.group_by ?? 'mois');
     const baseWhere = sqlWhere(where);
     const dateCond  = from || to
       ? (baseWhere ? baseWhere+' AND ' : 'WHERE ') +
@@ -541,6 +553,7 @@ export class AnalyticsService {
     }
   }
 
+  /* ---- E. Séries temporelles (mises à jour) ---- */
   async timeseriesUpdates(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -550,7 +563,7 @@ export class AnalyticsService {
     const from = q.from ? new Date(q.from+'T00:00:00Z') : undefined;
     const to   = q.to   ? new Date(q.to  +'T23:59:59Z') : undefined;
 
-    const fmt = q.group_by==='annee' ? '%Y' : q.group_by==='trimestre' ? null : '%Y-%m';
+    const fmt = this.fmt(q.group_by ?? 'mois');
     const baseWhere = sqlWhere(where);
     const dateCond  = from || to
       ? (baseWhere ? baseWhere+' AND ' : 'WHERE ') +
@@ -579,7 +592,7 @@ export class AnalyticsService {
     }
   }
 
-  /* ========== D. Top-N (tri côté Node) ========== */
+  /* ---- F. Top communes ---- */
   async topCommunes(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -607,6 +620,7 @@ export class AnalyticsService {
     return { message:'Top communes.', messageE:'Top communes.', items };
   }
 
+  /* ---- G. Top types ---- */
   async topTypes(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -630,11 +644,11 @@ export class AnalyticsService {
       select: { id:true, name:true }
     });
     const map = new Map(types.map(t=>[t.id,t.name]));
-    const items = sorted.map((r:any) => ({ typeId: r.id_type_infrastructure, name: map.get(r.id_type_infrastructure), count: r._count._all ?? 0 }));
+    const items = sorted.map((r:any) => ({ typeId: r.id_type_infrastructure, name: map.get(r.id_type_infrastructure), count: r._count?._all ?? 0 }));
     return { message:'Top types.', messageE:'Top types.', items };
   }
 
-  /* ========== E. Choropleth ========== */
+  /* ---- H. Choropleth ---- */
   async mapChoropleth(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -647,7 +661,7 @@ export class AnalyticsService {
     return { message:'Choropleth prêt.', messageE:'Choropleth ready.', items };
   }
 
-  /* ========== Heatmap points ========== */
+  /* ---- I. Heatmap points ---- */
   async mapHeatmap(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -666,7 +680,7 @@ export class AnalyticsService {
     return { message:'Heatmap prête.', messageE:'Heatmap ready.', items: points };
   }
 
-  /* ========== F. Complétude ========== */
+  /* ---- J. Complétude d’un attribut (attribus only) ---- */
   async completeness(q: Scope & { attr: string }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -690,7 +704,7 @@ export class AnalyticsService {
     return { message:'Complétude calculée.', messageE:'Completeness computed.', data: { total, filled, percent } };
   }
 
-  /* ========== Coverage ========== */
+  /* ---- K. Coverage ---- */
   async coverage(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -699,7 +713,6 @@ export class AnalyticsService {
 
     const active = await this.prisma.infrastructure.groupBy({ by: ['communeId'], where, orderBy: { communeId: 'asc' }, _count: { _all: true } });
 
-    // total communes dans le scope (attention : si scoping par commune utilisateur, ce total est global au périmètre défini)
     const communeScope: any = {};
     if (q.regionId)         communeScope.regionId = Number(q.regionId);
     if (q.departementId)    communeScope.departementId = Number(q.departementId);
@@ -710,7 +723,7 @@ export class AnalyticsService {
     return { message:'Couverture calculée.', messageE:'Coverage computed.', data: { communes_total: totalCommunes, communes_couvertes: active.length, percent } };
   }
 
-  /* ========== G. Attributs spécifiques ========== */
+  /* ---- L. Distribution d’un attribut (attribus only) ---- */
   async attrDistribution(q: Scope & { attr: string }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -727,6 +740,7 @@ export class AnalyticsService {
     return { message:'Distribution attribut.', messageE:'Attribute distribution.', items: rows.map(r=>({ value: r.value, count: Number(r.c) })) };
   }
 
+  /* ---- M. Crosstab de 2 attributs (attribus only) ---- */
   async attrCrosstab(q: Scope & { attrA: string; attrB: string }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -747,7 +761,7 @@ export class AnalyticsService {
     return { message:'Crosstab attributs.', messageE:'Attributes crosstab.', items: rows.map(r=>({ a: r.a, b: r.b, count: Number(r.c) })) };
   }
 
-  /* ========== H. Fraîcheur & Activité ========== */
+  /* ---- N. Fraîcheur ---- */
   async freshness(q: Scope & { max_age_days?: number }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -762,6 +776,7 @@ export class AnalyticsService {
     return { message:'Fraîcheur calculée.', messageE:'Freshness computed.', data: { total, recent, percent_recent: percent } };
   }
 
+  /* ---- O. Activité ---- */
   async activity(q: Scope & { from?: string; to?: string }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {

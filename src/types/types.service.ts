@@ -121,12 +121,6 @@ function ensureCoreAttributes(attribus: any[], location?: any): any[] {
       value: ['EXCELLENT', 'BON', 'PASSABLE', 'MAUVAIS', 'TRES MAUVAIS'],
     });
   }
-
-  if (!has('LONGITUDE')) list.push({ key: 'LONGITUDE', type: 'number', value: location?.log ?? null });
-  if (!has('LATITUDE'))  list.push({ key: 'LATITUDE',  type: 'number', value: location?.lat ?? null });
-
-    if (!has('DESCRIPTION'))  list.push({ key: 'DESCRIPTION',  type: 'string', value: location?.lat ?? null });
-
   return normalizeAttribus(list);
 }
 
