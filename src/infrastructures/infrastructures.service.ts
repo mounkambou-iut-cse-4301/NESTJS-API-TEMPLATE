@@ -1,7 +1,11 @@
 import { uploadImageToCloudinary } from './../utils/cloudinary';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateInfrastructureDto } from './dto/create-infra.dto';
+import { CreateInfrastructureDto, ComponentInput } from './dto/create-infra.dto';
 import { UpdateInfrastructureDto } from './dto/update-infra.dto';
 
 type Order = Record<string, 'asc' | 'desc'>;
@@ -9,18 +13,32 @@ type Order = Record<string, 'asc' | 'desc'>;
 /* ---------- helpers ---------- */
 function ensureObject(v: any) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
 function ensureArray<T = any>(v: any): T[] { return Array.isArray(v) ? v : []; }
-function toStrId(id: bigint | number | string): string {
-  if (typeof id === 'bigint') return id.toString();
-  if (typeof id === 'number') return String(id);
-  return id;
+function toStrId(id: bigint | number | string): string { return typeof id === 'bigint' ? id.toString() : String(id); }
+
+/** Deep-merge (objets) – les arrays sont REMPLACÉS, jamais fusionnés */
+function deepMerge(a: any, b: any): any {
+  if (b === undefined) return a;
+  if (a === undefined) return b;
+  if (Array.isArray(a) && Array.isArray(b)) return b.slice();
+  const aObj = a && typeof a === 'object' && !Array.isArray(a);
+  const bObj = b && typeof b === 'object' && !Array.isArray(b);
+  if (aObj && bObj) {
+    const out: any = { ...a };
+    for (const k of Object.keys(b as Record<string, any>)) {
+      out[k] = deepMerge(a[k], b[k]);
+    }
+    return out;
+  }
+  return b;
 }
+
 type Scope = {
   regionId?: number;
   departementId?: number;
   arrondissementId?: number;
   communeId?: number;
   type?: 'SIMPLE'|'COMPLEXE';
-  typeId?: number;        // id_type_infrastructure
+  typeId?: number;
   domaineId?: number;
   sousdomaineId?: number;
   competenceId?: number;
@@ -59,12 +77,9 @@ function buildWhere(q: Scope) {
   return where;
 }
 
-/** Clause WHERE SQL uniquement pour colonnes numériques whitelistées. */
+/** WHERE SQL limité aux colonnes numériques whitelistées */
 function sqlWhereNumeric(where: Record<string, any>) {
-  const allowed = [
-    'regionId','departementId','arrondissementId','communeId',
-    'id_type_infrastructure','domaineId','sousdomaineId','competenceId',
-  ];
+  const allowed = ['regionId','departementId','arrondissementId','communeId','id_type_infrastructure','domaineId','sousdomaineId','competenceId'];
   const parts: string[] = [];
   for (const [k,v] of Object.entries(where)) {
     if (v === undefined || v === null) continue;
@@ -87,6 +102,8 @@ function applyUserCommune(where: any, req: any) {
 
 @Injectable()
 export class InfrastructuresService {
+  private static readonly MAX_COMPONENT_DEPTH = 50;
+
   constructor(private readonly prisma: PrismaService) {}
 
   /** Upload un tableau d’images : base64 -> Cloudinary, http -> conservé, autres -> ignoré */
@@ -102,10 +119,7 @@ export class InfrastructuresService {
           out.push(x);
         }
       } catch {
-        throw new BadRequestException({
-          message: `Image invalide ou upload échoué.`,
-          messageE: `Invalid image or upload failed.`,
-        });
+        throw new BadRequestException({ message: `Image invalide ou upload échoué.`, messageE: `Invalid image or upload failed.` });
       }
     }
     return out;
@@ -116,7 +130,6 @@ export class InfrastructuresService {
     const ok = await this.prisma.typeInfrastructure.count({ where: { id } });
     if (!ok) throw new BadRequestException({ message: 'TypeInfrastructure invalide.', messageE: 'Invalid TypeInfrastructure.' });
   }
-
   private async ensureTerritoryExists(regionId: number, departementId: number, arrondissementId: number, communeId: number) {
     const [r, d, a, c] = await this.prisma.$transaction([
       this.prisma.region.count({ where: { id: regionId } }),
@@ -125,14 +138,10 @@ export class InfrastructuresService {
       this.prisma.commune.count({ where: { id: communeId } }),
     ]);
     if (!r || !d || !a || !c) {
-      throw new BadRequestException({
-        message: 'Territoire invalide (region/departement/arrondissement/commune).',
-        messageE: 'Invalid territory IDs.',
-      });
+      throw new BadRequestException({ message: 'Territoire invalide (region/departement/arrondissement/commune).', messageE: 'Invalid territory IDs.' });
     }
   }
-
-  private async ensureClassification(domaineId?: number, sousdomaineId?: number, effComp?: number | null) {
+  private async ensureClassification(domaineId?: number, sousdomaineId?: number) {
     if (typeof domaineId === 'number') {
       const cnt = await this.prisma.domaine.count({ where: { id: domaineId } });
       if (!cnt) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
@@ -142,33 +151,37 @@ export class InfrastructuresService {
       if (!cnt) throw new BadRequestException({ message: 'Sous-domaine invalide.', messageE: 'Invalid subdomain.' });
     }
   }
-
   private async ensureUserExists(utilisateurId?: number) {
     if (typeof utilisateurId !== 'number') return;
     const cnt = await this.prisma.utilisateur.count({ where: { id: utilisateurId } });
     if (!cnt) throw new BadRequestException({ message: 'Utilisateur (créateur) invalide.', messageE: 'Invalid user (creator).' });
   }
 
-  /* ======================== Helpers récursifs pour CREATE ======================== */
-
-  /** Normalise récursivement un composant et uploade ses images une seule fois. */
-  private async normalizeComponentTree(component: any, folder: string): Promise<any> {
+  /* ======================== Normalisation composants ======================== */
+  private async normalizeComponentTree(component: ComponentInput, folder: string, depth = 1): Promise<any> {
+    if (depth > InfrastructuresService.MAX_COMPONENT_DEPTH) {
+      throw new BadRequestException({ message: `Profondeur de composants excessive.`, messageE: `Component depth too large.` });
+    }
     const c = ensureObject(component);
+    const rawName = typeof (c as any).name === 'string' ? (c as any).name.trim() : '';
+    if (!rawName) throw new BadRequestException({ message: `Chaque composant doit avoir un "name".`, messageE: `Each component must have a "name".` });
+
+    const t = typeof (c as any).type === 'string' ? (c as any).type.toUpperCase() : 'SIMPLE';
     const out: any = {
-      ...c,
-      type: typeof c.type === 'string' ? c.type.toUpperCase() : (c.type ?? 'SIMPLE'),
-      location: ensureObject(c.location),
-      images: await this.toCloudinaryUrls(ensureArray(c.images), folder),
-      attribus: ensureObject(c.attribus),
+      name: rawName,
+      type: t === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+      description: typeof (c as any).description === 'string' ? (c as any).description : null,
+      location: ensureObject((c as any).location),
+      images: await this.toCloudinaryUrls(ensureArray((c as any).images), folder),
+      attribus: ensureObject((c as any).attribus), // accepte objets imbriqués
       composant: [],
     };
-    for (const sub of ensureArray(c.composant)) {
-      out.composant.push(await this.normalizeComponentTree(sub, folder));
+    for (const sub of ensureArray((c as any).composant)) {
+      out.composant.push(await this.normalizeComponentTree(sub, folder, depth + 1));
     }
     return out;
   }
 
-  /** Renvoie un booléen pour existing flag (existingInfrastructure | existing_infrastructure) */
   private getExistingFlag(c: any): boolean {
     const v = c?.existingInfrastructure ?? c?.existing_infrastructure;
     return typeof v === 'boolean' ? v : true;
@@ -176,7 +189,8 @@ export class InfrastructuresService {
 
   /**
    * Crée un composant (et sous-composants) comme lignes `Infrastructure`, relie via `id_parent`,
-   * et renvoie le JSON du composant enrichi avec l’`id` créé et ses enfants enrichis.
+   * et renvoie le JSON du composant enrichi avec l’`id` et ses enfants enrichis.
+   * Tous les descendants héritent du contexte (territoire / classification / competence / user) du parent racine.
    */
   private async createComponentRecursive(
     tx: any,
@@ -193,18 +207,22 @@ export class InfrastructuresService {
     },
     comp: any,
     parentId: bigint,
+    depth = 1,
   ): Promise<any> {
-    const name = comp?.name ?? 'Composant';
+    if (depth > InfrastructuresService.MAX_COMPONENT_DEPTH) {
+      throw new BadRequestException({ message: `Profondeur de composants excessive.`, messageE: `Component depth too large.` });
+    }
 
-    // 1) crée la ligne enfant avec lien parent
     const child = await tx.infrastructure.create({
       data: {
-        id_parent: parentId, // 👈 lien hiérarchique
+        id_parent: parentId,
         id_type_infrastructure: ctx.typeId,
-        name,
+        name: comp?.name,
         description: comp?.description ?? null,
         existing_infrastructure: this.getExistingFlag(comp),
-        type: (comp?.type ?? 'SIMPLE'),
+        type: comp?.type === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+
+        // héritage du parent racine à TOUS les niveaux
         regionId: ctx.regionId,
         departementId: ctx.departementId,
         arrondissementId: ctx.arrondissementId,
@@ -213,6 +231,7 @@ export class InfrastructuresService {
         sousdomaineId: ctx.sousdomaineId,
         competenceId: ctx.competenceId,
         utilisateurId: ctx.creatorId,
+
         location: ensureObject(comp?.location),
         images: ensureArray(comp?.images),
         attribus: ensureObject(comp?.attribus),
@@ -221,28 +240,17 @@ export class InfrastructuresService {
       select: { id: true },
     });
 
-    // 2) sous-composants récursifs
     const enrichedChildren: any[] = [];
     for (const sub of ensureArray(comp?.composant)) {
-      const enriched = await this.createComponentRecursive(tx, ctx, sub, child.id);
+      const enriched = await this.createComponentRecursive(tx, ctx, sub, child.id, depth + 1);
       enrichedChildren.push(enriched);
     }
 
-    // 3) met à jour la ligne enfant avec ses sous-composants enrichis
     if (enrichedChildren.length) {
-      await tx.infrastructure.update({
-        where: { id: child.id },
-        data: { composant: enrichedChildren },
-        select: { id: true },
-      });
+      await tx.infrastructure.update({ where: { id: child.id }, data: { composant: enrichedChildren }, select: { id: true } });
     }
 
-    // 4) JSON retourné
-    return {
-      ...comp,
-      id: toStrId(child.id),
-      composant: enrichedChildren,
-    };
+    return { ...comp, id: toStrId(child.id), composant: enrichedChildren };
   }
 
   /* ---------- LIST ---------- */
@@ -250,8 +258,7 @@ export class InfrastructuresService {
     page: number; pageSize: number; sort?: Order;
     regionId?: number; departementId?: number; arrondissementId?: number; communeId?: number;
     typeId?: number; type?: string; q?: string; domaineId?: number; sousdomaineId?: number; utilisateurId?: number;
-    created_from?: string; created_to?: string; competenceId?: number;
-    req?: any;
+    created_from?: string; created_to?: string; competenceId?: number; req?: any;
   }) {
     const {
       page, pageSize, sort,
@@ -261,9 +268,7 @@ export class InfrastructuresService {
     const currentUserId = req?.sub as number | undefined;
     const userCommuneId = req?.user?.communeId as number | undefined;
 
-    const where: any = {
-       id_parent: null, 
-    };
+    const where: any = { id_parent: null };
     if (typeof regionId === 'number') where.regionId = regionId;
     if (typeof departementId === 'number') where.departementId = departementId;
     if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
@@ -271,9 +276,7 @@ export class InfrastructuresService {
     if (typeof utilisateurId === 'number') where.utilisateurId = utilisateurId;
     if (typeof competenceId === 'number') where.competenceId = competenceId;
 
-    if (currentUserId && userCommuneId) {
-      where.communeId = userCommuneId; // Limite aux infrastructures de la commune de l'utilisateur
-    }
+    if (currentUserId && userCommuneId) where.communeId = userCommuneId;
 
     if (typeof typeId === 'number') where.id_type_infrastructure = typeId;
     if (typeof domaineId === 'number') where.domaineId = domaineId;
@@ -299,14 +302,9 @@ export class InfrastructuresService {
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: {
-          id: true,
-          id_parent: true, // 👈
-          id_type_infrastructure: true,
+          id: true, id_parent: true, id_type_infrastructure: true,
           typeRef: { select: { id: true, name: true, type: true, domaineId: true, sousdomaineId: true } },
-          name: true,
-          description: true,
-          existing_infrastructure: true,
-          type: true,
+          name: true, description: true, existing_infrastructure: true, type: true,
           regionId: true, region: true,
           departementId: true, departement: true,
           arrondissementId: true, arrondissement: true,
@@ -329,32 +327,29 @@ export class InfrastructuresService {
     return { total, items };
   }
 
-  /* ---------- CREATE (récursif avec id_parent) ---------- */
+  /* ---------- CREATE (récursif avec héritage racine) ---------- */
   async create(dto: CreateInfrastructureDto, currentUserId?: number) {
     await this.ensureTypeExists(dto.typeId);
     await this.ensureTerritoryExists(dto.regionId, dto.departementId, dto.arrondissementId, dto.communeId);
     await this.ensureClassification(dto.domaineId, dto.sousdomaineId);
 
-    // Choix du créateur: dto.utilisateurId > currentUserId > null
     const creatorId = dto.utilisateurId ?? currentUserId ?? null;
     await this.ensureUserExists(creatorId ?? undefined);
 
     const parentFolder = `infrastructures/${dto.communeId}`;
 
-    // 1) normalise les composants (toutes profondeurs) + upload images
     const normalizedComponents: any[] = [];
     for (const c of ensureArray(dto.composant)) {
       normalizedComponents.push(await this.normalizeComponentTree(c, `${parentFolder}/components`));
     }
 
-    // 2) payload parent (id_parent: null)
     const dataParent: any = {
-      id_parent: null,                    // 👈 parent racine
+      id_parent: null,
       id_type_infrastructure: dto.typeId,
       name: dto.name,
       description: dto.description ?? null,
       existing_infrastructure: dto.existing_infrastructure ?? true,
-      type: (dto.type ?? 'SIMPLE'),       // assume DTO valide déjà
+      type: dto.type ?? 'SIMPLE',
       regionId: dto.regionId,
       departementId: dto.departementId,
       arrondissementId: dto.arrondissementId,
@@ -366,16 +361,11 @@ export class InfrastructuresService {
       location: ensureObject(dto.location),
       images: await this.toCloudinaryUrls(ensureArray(dto.images), parentFolder),
       attribus: ensureObject(dto.attribus),
-      composant: [],                      // injecté après avec ids enfants
+      composant: [],
     };
 
-    // 3) transaction : parent -> enfants récursifs -> update parent
     const result = await this.prisma.$transaction(async (tx) => {
-      // 3.1) crée le parent
-      const parent = await tx.infrastructure.create({
-        data: dataParent,
-        select: { id: true },
-      });
+      const parent = await tx.infrastructure.create({ data: dataParent, select: { id: true } });
 
       const ctx = {
         creatorId,
@@ -389,71 +379,155 @@ export class InfrastructuresService {
         competenceId: dto.competenceId ?? null,
       };
 
-      // 3.2) crée tous les composants (et sous-composants) récursivement
-      const enrichedComponents: any[] = [];
+      const enrichedChildren: any[] = [];
       for (const comp of normalizedComponents) {
-        const enriched = await this.createComponentRecursive(tx, ctx, comp, parent.id);
-        enrichedComponents.push(enriched);
+        enrichedChildren.push(await this.createComponentRecursive(tx, ctx, comp, parent.id));
       }
 
-      // 3.3) update du parent : injecter la version enrichie des composants (avec ids)
-      if (enrichedComponents.length) {
-        await tx.infrastructure.update({
-          where: { id: parent.id },
-          data: { composant: enrichedComponents },
-          select: { id: true },
-        });
+      if (enrichedChildren.length) {
+        await tx.infrastructure.update({ where: { id: parent.id }, data: { composant: enrichedChildren }, select: { id: true } });
       }
 
-      return { id: toStrId(parent.id), composants: enrichedComponents };
+      return { id: toStrId(parent.id), composants: enrichedChildren };
     });
 
     return result;
   }
 
-  /* ---------- GET ONE ---------- */
-  async findOne(idStr: string, include?: string[]) {
-    const id = BigInt(idStr);
-    const row = await this.prisma.infrastructure.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        id_parent: true, // 👈
-        id_type_infrastructure: true,
-        name: true,
-        description: true,
-        existing_infrastructure: true,
-        type: true,
-        regionId: true, departementId: true, arrondissementId: true, communeId: true,
-        domaineId: true, sousdomaineId: true,
-        utilisateurId: true, competenceId: true,
-        location: true, images: true, attribus: true, composant: true,
-        created_at: true, updated_at: true,
-        ...(include?.includes('type') ? { typeRef: { select: { id: true, name: true, type: true, domaineId: true, sousdomaineId: true } } } : {}),
-        ...(include?.includes('territory') ? {
-          region:        { select: { id: true, nom: true } },
-          departement:   { select: { id: true, nom: true } },
-          arrondissement:{ select: { id: true, nom: true } },
-          commune:       { select: { id: true, nom: true } },
-          competence:    { select: { id: true, name: true } },
-        } : {}),
-      },
-    });
-    if (!row) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
+  /* ===================== UPDATE (pro & synchronisation des composants) ===================== */
 
-    return { ...row, id: toStrId(row.id), id_parent: row.id_parent ? toStrId(row.id_parent as any) : null };
+  private async deleteSubtree(tx: any, id: bigint): Promise<void> {
+    const children = await tx.infrastructure.findMany({ where: { id_parent: id }, select: { id: true } });
+    for (const ch of children) await this.deleteSubtree(tx, ch.id);
+    await tx.infrastructure.delete({ where: { id } });
   }
 
-  /* ---------- UPDATE ---------- */
+  private async syncChildren(
+    tx: any,
+    ctx: {
+      creatorId: number | null; typeId: number;
+      regionId: number; departementId: number; arrondissementId: number; communeId: number;
+      domaineId: number | null; sousdomaineId: number | null; competenceId: number | null;
+      folder: string;
+    },
+    parentId: bigint,
+    inputs: ComponentInput[],
+    mode: 'merge'|'replace' = 'merge',
+    depth = 1,
+  ): Promise<any[]> {
+    if (depth > InfrastructuresService.MAX_COMPONENT_DEPTH) {
+      throw new BadRequestException({ message: `Profondeur de composants excessive.`, messageE: `Component depth too large.` });
+    }
+
+    const existing = await tx.infrastructure.findMany({
+      where: { id_parent: parentId },
+      select: {
+        id: true, name: true, type: true, description: true,
+        location: true, images: true, attribus: true,
+      },
+    }) as Array<{
+      id: bigint; name: string; type: string; description: string | null;
+      location: any; images: any; attribus: any;
+    }>;
+    const byId = new Map<string, typeof existing[number]>(existing.map(e => [toStrId(e.id), e]));
+    const used = new Set<string>();
+    const enriched: any[] = [];
+
+    for (const raw of ensureArray(inputs)) {
+      const cid = typeof raw.id === 'string' && raw.id.trim() ? raw.id.trim() : undefined;
+
+      if (cid && byId.has(cid)) {
+        // UPDATE existant
+        used.add(cid);
+        const row = byId.get(cid)!;
+
+        const nextImages = raw.images !== undefined
+          ? await this.toCloudinaryUrls(ensureArray(raw.images), `${ctx.folder}/components`)
+          : undefined;
+
+        let nextAttribus: any | undefined = undefined;
+        if (raw.attribus !== undefined) {
+          nextAttribus = deepMerge(row.attribus, raw.attribus);
+        }
+
+        let nextLocation: any | undefined = undefined;
+        if (raw.location !== undefined) {
+          nextLocation = deepMerge(row.location, raw.location);
+        }
+
+        await tx.infrastructure.update({
+          where: { id: BigInt(cid) },
+          data: {
+            // héritage racine (garantie de cohérence)
+            id_type_infrastructure: ctx.typeId,
+            regionId: ctx.regionId, departementId: ctx.departementId,
+            arrondissementId: ctx.arrondissementId, communeId: ctx.communeId,
+            domaineId: ctx.domaineId, sousdomaineId: ctx.sousdomaineId, competenceId: ctx.competenceId,
+            utilisateurId: ctx.creatorId,
+
+            name: raw.name ?? row.name,
+            description: raw.description === undefined ? row.description : (raw.description ?? null),
+            type: (raw.type ?? row.type) === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+            images: (nextImages as any) ?? (row.images as any),
+            location: nextLocation ?? row.location,
+            attribus: nextAttribus ?? row.attribus,
+          },
+          select: { id: true },
+        });
+
+        // recurse
+        let childrenJson: any[] = [];
+        if (raw.composant !== undefined) {
+          childrenJson = await this.syncChildren(tx, ctx, BigInt(cid), raw.composant!, mode, depth + 1);
+          await tx.infrastructure.update({ where: { id: BigInt(cid) }, data: { composant: childrenJson } });
+        } else {
+          const existed = await tx.infrastructure.findUnique({ where: { id: BigInt(cid) }, select: { composant: true } });
+          childrenJson = ensureArray(existed?.composant);
+        }
+
+        enriched.push({
+          id: cid,
+          name: raw.name ?? row.name,
+          type: (raw.type ?? row.type) === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+          description: raw.description === undefined ? row.description : (raw.description ?? null),
+          location: nextLocation ?? row.location,
+          images: (nextImages as any) ?? (row.images as any),
+          attribus: nextAttribus ?? row.attribus,
+          composant: childrenJson,
+        });
+
+      } else {
+        // CREATE nouveau
+        const norm = await this.normalizeComponentTree(raw, `${ctx.folder}/components`);
+        const created = await this.createComponentRecursive(tx, ctx, norm, parentId, depth);
+        enriched.push(created);
+      }
+    }
+
+    // DELETE manquants si mode replace
+    if (mode === 'replace') {
+      for (const e of existing) {
+        const key = toStrId(e.id);
+        if (!used.has(key)) {
+          await this.deleteSubtree(tx, e.id);
+        }
+      }
+    }
+
+    return enriched;
+  }
+
   async update(idStr: string, dto: UpdateInfrastructureDto) {
     const id = BigInt(idStr);
     const current = await this.prisma.infrastructure.findUnique({
       where: { id },
       select: {
         id: true, id_parent: true,
-        id_type_infrastructure: true, name: true,
+        id_type_infrastructure: true, name: true, description: true, type: true,
+        existing_infrastructure: true,
         regionId: true, departementId: true, arrondissementId: true, communeId: true,
         domaineId: true, sousdomaineId: true, utilisateurId: true, competenceId: true,
+        location: true, images: true, attribus: true,
       },
     });
     if (!current) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
@@ -467,69 +541,118 @@ export class InfrastructuresService {
     const effCom    = dto.communeId ?? current.communeId;
     await this.ensureTerritoryExists(effRegion, effDep, effArr, effCom);
 
-    const effDom  = dto.domaineId ?? current.domaineId ?? undefined;
-    const effSdom = dto.sousdomaineId ?? current.sousdomaineId ?? undefined;
-    const effComp = dto.competenceId ?? current.competenceId;
-    await this.ensureClassification(effDom, effSdom, effComp);
-
-    if (typeof dto.utilisateurId === 'number') {
-      await this.ensureUserExists(dto.utilisateurId);
-    }
+    await this.ensureClassification(dto.domaineId ?? current.domaineId ?? undefined, dto.sousdomaineId ?? current.sousdomaineId ?? undefined);
+    if (typeof dto.utilisateurId === 'number') await this.ensureUserExists(dto.utilisateurId);
 
     const folder = `infrastructures/${effCom}`;
 
-    // Remplacement optionnel du JSON composant (indépendant) avec re-upload (pas de création de lignes)
-    let newComposant: any[] | undefined = undefined;
-    if (Array.isArray(dto.composant)) {
-      newComposant = [];
-      for (const c of dto.composant) {
-        const imgs = await this.toCloudinaryUrls(ensureArray(c.images), `${folder}/components`);
-        newComposant.push({
-          ...c,
-          type: (c.type ?? 'SIMPLE').toUpperCase(),
-          location: ensureObject(c.location),
-          images: imgs,
-          attribus: ensureObject(c.attribus),
-        });
+    const nextImages = dto.images !== undefined
+      ? await this.toCloudinaryUrls(ensureArray(dto.images), folder)
+      : undefined;
+
+    const attribusMode = dto.attribus_mode ?? 'merge';
+    const nextAttribus =
+      dto.attribus === undefined
+        ? undefined
+        : (attribusMode === 'replace' ? ensureObject(dto.attribus) : deepMerge(current.attribus, dto.attribus));
+
+    const nextLocation =
+      dto.location === undefined
+        ? undefined
+        : deepMerge(current.location, dto.location);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1) Update du parent
+      await tx.infrastructure.update({
+        where: { id },
+        data: {
+          id_type_infrastructure: effTypeId,
+          name: dto.name ?? current.name,
+          description: dto.description === undefined ? current.description : (dto.description ?? null),
+          existing_infrastructure: dto.existing_infrastructure ?? current.existing_infrastructure,
+          type: (dto.type ?? current.type) === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+
+          regionId: effRegion, departementId: effDep, arrondissementId: effArr, communeId: effCom,
+          domaineId: dto.domaineId ?? current.domaineId,
+          sousdomaineId: dto.sousdomaineId ?? current.sousdomaineId,
+          competenceId: dto.competenceId ?? current.competenceId,
+          utilisateurId: dto.utilisateurId ?? current.utilisateurId,
+
+          images: (nextImages as any) ?? (current.images as any),
+          location: nextLocation ?? current.location,
+          attribus: nextAttribus ?? current.attribus,
+        },
+        select: { id: true },
+      });
+
+      // 2) Enfants si fournis
+      if (dto.composant !== undefined) {
+        const ctx = {
+          creatorId: dto.utilisateurId ?? current.utilisateurId ?? null,
+          typeId: effTypeId,
+          regionId: effRegion, departementId: effDep, arrondissementId: effArr, communeId: effCom,
+          domaineId: dto.domaineId ?? current.domaineId ?? null,
+          sousdomaineId: dto.sousdomaineId ?? current.sousdomaineId ?? null,
+          competenceId: dto.competenceId ?? current.competenceId ?? null,
+          folder,
+        };
+        const newChildrenJson = await this.syncChildren(tx, ctx, id, dto.composant, dto.composant_mode ?? 'merge');
+        await tx.infrastructure.update({ where: { id }, data: { composant: newChildrenJson } });
       }
-    }
 
-    const data: any = {
-      id_type_infrastructure: dto.typeId,
-      name: dto.name,
-      description: dto.description,
-      existing_infrastructure: dto.existing_infrastructure,
-      type: dto.type,
-      regionId: dto.regionId,
-      departementId: dto.departementId,
-      arrondissementId: dto.arrondissementId,
-      communeId: dto.communeId,
-      domaineId: dto.domaineId,
-      sousdomaineId: dto.sousdomaineId,
-      utilisateurId: dto.utilisateurId,
-      competenceId: dto.competenceId ?? null,
-      location: dto.location ? ensureObject(dto.location) : undefined,
-      images: dto.images ? await this.toCloudinaryUrls(ensureArray(dto.images), folder) : undefined,
-      attribus: dto.attribus ? ensureObject(dto.attribus) : undefined,
-      composant: newComposant,
-    };
+      // 3) retourne l’obj final
+      const updated = await tx.infrastructure.findUnique({
+        where: { id },
+        select: {
+          id: true, id_parent: true,
+          id_type_infrastructure: true, name: true, description: true, type: true,
+          regionId: true, departementId: true, arrondissementId: true, communeId: true,
+          domaineId: true, sousdomaineId: true, utilisateurId: true, competenceId: true,
+          location: true, images: true, attribus: true, composant: true, updated_at: true,
+        },
+      });
 
-    const updated = await this.prisma.infrastructure.update({
-      where: { id }, data,
-      select: {
-        id: true, id_parent: true,
-        id_type_infrastructure: true, name: true, description: true, type: true,
-        regionId: true, departementId: true, arrondissementId: true, communeId: true,
-        domaineId: true, sousdomaineId: true, utilisateurId: true, competenceId: true,
-        location: true, images: true, attribus: true, composant: true, updated_at: true,
-      },
+      return {
+        ...updated!,
+        id: toStrId(updated!.id),
+        id_parent: updated!.id_parent ? toStrId(updated!.id_parent as any) : null,
+      };
     });
 
-    return {
-      ...updated,
-      id: toStrId(updated.id),
-      id_parent: updated.id_parent ? toStrId(updated.id_parent as any) : null,
-    };
+    return result;
+  }
+
+  /* ---------- GET ONE ---------- */
+  async findOne(idStr: string, include?: string[]) {
+    const id = BigInt(idStr);
+    const row = await this.prisma.infrastructure.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        id_parent: true,
+        id_type_infrastructure: true,
+        name: true,
+        description: true,
+        existing_infrastructure: true,
+        type: true,
+        regionId: true, departementId: true, arrondissementId: true, communeId: true,
+        domaineId: true, sousdomaineId: true,
+        utilisateurId: true, competenceId: true,
+        location: true, images: true, attribus: true, composant: true,
+        created_at: true, updated_at: true,
+        ...(include?.includes('type') ? { typeRef: { select: { id: true, name: true, type: true, domaineId: true, sousdomaineId: true } } } : {}),
+        ...(include?.includes('territory') ? {
+          region:        { select: { id: true, nom: true } },
+          departement:   { select: { id: true, nom: true} },
+          arrondissement:{ select: { id: true, nom: true } },
+          commune:       { select: { id: true, nom: true } },
+          competence:    { select: { id: true, name: true } },
+        } : {}),
+      },
+    });
+    if (!row) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
+
+    return { ...row, id: toStrId(row.id), id_parent: row.id_parent ? toStrId(row.id_parent as any) : null };
   }
 
   /* ---------- DELETE ---------- */
@@ -544,19 +667,13 @@ export class InfrastructuresService {
   async exportCsv(params: Parameters<InfrastructuresService['list']>[0]) {
     const full = await this.list({ ...params, page: 1, pageSize: 100000, sort: params.sort });
     const headers = [
-      'id','id_parent',
-      'name','description','type','existing_infrastructure',
-      'id_type_infrastructure',
-      'regionId','departementId','arrondissementId','communeId',
-      'domaineId','sousdomaineId','utilisateurId','competenceId',
-      'created_at','updated_at'
+      'id','id_parent','name','description','type','existing_infrastructure',
+      'id_type_infrastructure','regionId','departementId','arrondissementId','communeId',
+      'domaineId','sousdomaineId','utilisateurId','competenceId','created_at','updated_at'
     ];
     const rows = full.items.map((r: any) => ([
-      r.id,
-      r.id_parent ?? '',
-      r.name, r.description ?? '', r.type, r.existing_infrastructure ? 1 : 0,
-      r.id_type_infrastructure,
-      r.regionId, r.departementId, r.arrondissementId, r.communeId,
+      r.id, r.id_parent ?? '', r.name, r.description ?? '', r.type, r.existing_infrastructure ? 1 : 0,
+      r.id_type_infrastructure, r.regionId, r.departementId, r.arrondissementId, r.communeId,
       r.domaineId ?? '', r.sousdomaineId ?? '', r.utilisateurId ?? '', r.competenceId ?? '',
       r.created_at?.toISOString?.() ?? '', r.updated_at?.toISOString?.() ?? ''
     ].map(v => (typeof v === 'string' && v.includes(',')) ? `"${v.replace(/"/g,'""')}"` : v).join(',')));
@@ -601,10 +718,9 @@ export class InfrastructuresService {
     return result;
   }
 
-  /** 1) Résumé : total + par etat + par type */
+  /* ---------- Stats ---------- */
   async statsSummary(q: Scope, req: any) {
     const where = applyUserCommune(buildWhere(q), req);
-
     const [total, simple, complexe] = await this.prisma.$transaction([
       this.prisma.infrastructure.count({ where }),
       this.prisma.infrastructure.count({ where: { ...where, type: 'SIMPLE' } }),
@@ -621,7 +737,6 @@ export class InfrastructuresService {
       ORDER BY c DESC;
     `);
 
-    // Bucketize & impose l’ordre des 5 états
     const map = new Map<string, number>();
     for (const r of rows || []) {
       const k = (r.etat || '').toString().trim().toUpperCase();
@@ -633,15 +748,11 @@ export class InfrastructuresService {
     return {
       message: 'Résumé des infrastructures.',
       messageE: 'Infrastructures summary.',
-      data: {
-        total,
-        byType: { SIMPLE: simple, COMPLEXE: complexe },
-        byEtat,
-      },
+      data: { total, byType: { SIMPLE: simple, COMPLEXE: complexe }, byEtat },
     };
   }
 
-  /** 2) Groupements (type|region|departement|commune) avec option etats */
+  /** Groupements (type|region|departement|commune) avec option etats */
   async statsGroup(
     q: Scope & { group: 'type'|'region'|'departement'|'commune'; include_etat?: boolean; limit?: number },
     req: any,
@@ -726,7 +837,7 @@ export class InfrastructuresService {
     };
   }
 
-  /** 3) Groupements par competenceId / domaineId (ordre décroissant) */
+  /** Groupements par competenceId / domaineId (ordre décroissant) */
   async statsByDimension(
     dim: 'competence'|'domaine',
     q: Scope & { include_etat?: boolean; limit?: number },
