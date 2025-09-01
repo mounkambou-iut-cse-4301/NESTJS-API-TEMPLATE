@@ -1,3 +1,4 @@
+// src/types/types.service.ts
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTypeDto } from './dto/create-type.dto';
@@ -6,71 +7,59 @@ import { UpdateTypeDto } from './dto/update-type.dto';
 /* ------------------------------- Helpers ------------------------------- */
 
 function isPlainObject(v: any) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
-
-/** MAJ + suppression des accents (pour clés & valeurs enum) */
 function toUpperNoAccent(input: string): string {
-  return input
+  return String(input ?? '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
     .trim();
 }
-
-/** Split sur , ; | et normalise (trim, filtre vides) */
 function csvToArray(input: string): string[] {
-  return input
-    .split(/[,\|;]+/g)
-    .map(s => s.trim())
-    .filter(Boolean);
+  return input.split(/[,\|;]+/g).map(s => s.trim()).filter(Boolean);
 }
-
-/** Normalise un tableau d’options enum (upper, no accent, unique) */
 function normalizeEnumArray(arr: any[]): string[] {
-  const out = arr
-    .map(v => (v === null || v === undefined) ? '' : toUpperNoAccent(String(v)))
-    .filter(Boolean);
-  const seen = new Set<string>();
-  const uniq: string[] = [];
-  for (const v of out) { if (!seen.has(v)) { seen.add(v); uniq.push(v); } }
+  const out = arr.map(v => (v == null ? '' : toUpperNoAccent(String(v)))).filter(Boolean);
+  const seen = new Set<string>(); const uniq: string[] = [];
+  for (const v of out) if (!seen.has(v)) { seen.add(v); uniq.push(v); }
   return uniq;
 }
-
-/** Convertit (id | string | {id} | array) -> array d’IDs numériques uniques */
 function toIdArray(input: any): number[] {
   const arr = Array.isArray(input) ? input : (input == null ? [] : [input]);
-  const ids = arr
-    .map((it) => {
-      if (typeof it === 'number') return it;
-      if (typeof it === 'string' && it.trim() !== '' && !Number.isNaN(Number(it))) return Number(it);
-      if (it && typeof it === 'object' && typeof (it as any).id !== 'undefined') {
-        const v = (it as any).id;
-        if (typeof v === 'number') return v;
-        if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) return Number(v);
-      }
-      return null;
-    })
-    .filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
+  const ids = arr.map((it) => {
+    if (typeof it === 'number') return it;
+    if (typeof it === 'string' && it.trim() !== '' && !Number.isNaN(Number(it))) return Number(it);
+    if (it && typeof it === 'object' && typeof (it as any).id !== 'undefined') {
+      const v = (it as any).id;
+      if (typeof v === 'number') return v;
+      if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) return Number(v);
+    }
+    return null;
+  }).filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
   return Array.from(new Set(ids));
 }
 
 /**
- * Attributs :
- *  - KEY toujours en MAJ SANS ACCENT
- *  - 'enm' => 'enum'
- *  - 'string' avec séparateurs => enum + value=array
- *  - enum + string => split CSV
- *  - enum + scalaire => array [val]
+ * Normalisation d’un attribut :
+ * - key -> MAJ SANS ACCENT
+ * - type -> minuscule ('enm' → 'enum')
+ * - enum: CSV/string/array → array de strings normalisées (MAJ SANS ACCENT)
+ * - string:number:boolean: cast doux
+ * - object: value = array d’attributs (récursif)
+ * - auto-détection: si type absent/'string' et value string CSV → enum
  */
 function normalizeOneAttribut(attr: any): any {
   const base = isPlainObject(attr) ? attr : {};
   const out: any = { ...base };
 
+  // key UPPER NO ACCENT
   if (out.key !== undefined && out.key !== null) out.key = toUpperNoAccent(String(out.key));
-  const rawType = typeof out.type === 'string' ? out.type.trim().toLowerCase() : out.type;
 
-  let t: string | undefined = rawType;
+  // type in lowercase
+  let t: string | undefined =
+    typeof out.type === 'string' ? out.type.trim().toLowerCase() : out.type;
   if (t === 'enm') t = 'enum';
 
+  // auto-enum si string CSV
   const valueIsDelimitedString =
     (t === 'string' || t === undefined) &&
     typeof out.value === 'string' &&
@@ -81,25 +70,38 @@ function normalizeOneAttribut(attr: any): any {
     out.value = csvToArray(out.value);
   }
 
+  // ENUM
   if (t === 'enum') {
-    if (out.value === null || out.value === undefined) {
-      out.value = null;
-    } else if (typeof out.value === 'string') {
-      out.value = normalizeEnumArray(csvToArray(out.value));
-    } else if (Array.isArray(out.value)) {
-      out.value = normalizeEnumArray(out.value);
-    } else {
-      out.value = normalizeEnumArray([out.value]);
-    }
+    if (out.value == null) out.value = null;
+    else if (typeof out.value === 'string') out.value = normalizeEnumArray(csvToArray(out.value));
+    else if (Array.isArray(out.value)) out.value = normalizeEnumArray(out.value);
+    else out.value = normalizeEnumArray([out.value]);
     out.type = 'enum';
     return out;
   }
 
-  if (t === 'string' && typeof out.value !== 'string' && out.value != null) {
-    out.value = String(out.value);
+  // OBJECT (récursif)
+  if (t === 'object') {
+    const arr = Array.isArray(out.value) ? out.value : [];
+    out.value = arr.filter((it) => it && typeof it === 'object').map(normalizeOneAttribut);
+    out.type = 'object';
+    return out;
   }
 
-  out.type = t ?? out.type;
+  // PRIMITIFS
+  if (t === 'string') {
+    if (out.value != null && typeof out.value !== 'string') out.value = String(out.value);
+  } else if (t === 'number') {
+    if (out.value != null && typeof out.value !== 'number') {
+      const n = Number(out.value);
+      out.value = Number.isFinite(n) ? n : null;
+    }
+  } else if (t === 'boolean') {
+    if (typeof out.value !== 'boolean') out.value = !!out.value;
+  }
+
+  // toujours forcer le type en minuscule si fourni
+  if (t) out.type = t;
   return out;
 }
 
@@ -108,28 +110,26 @@ function normalizeAttribus(input: any): any[] {
   return arr.filter(it => it && typeof it === 'object').map(normalizeOneAttribut);
 }
 
-/** Injecte ETAT (enum) + LONGITUDE + LATITUDE si absents */
-function ensureCoreAttributes(attribus: any[], location?: any): any[] {
+/** Injecte ETAT (enum) si absent */
+function ensureCoreAttributes(attribus: any[]): any[] {
   const list = Array.isArray(attribus) ? [...attribus] : [];
-
   const has = (k: string) => list.some(a => toUpperNoAccent(String(a?.key ?? '')) === k);
-
   if (!has('ETAT')) {
     list.push({
       key: 'ETAT',
       type: 'enum',
-      value: ['EXCELLENT', 'BON', 'PASSABLE', 'MAUVAIS', 'TRES MAUVAIS'],
+      value: ['EXCELLENT','BON','PASSABLE','MAUVAIS','TRES MAUVAIS'],
     });
   }
   return normalizeAttribus(list);
 }
 
 /**
- * Normalisation globale pour CREATE/UPDATE :
- * - type (SIMPLE|COMPLEXE)
- * - location objet, images array
- * - attribus normalisés (+ injection ETAT/LON/LAT)
- * - composant: stocké comme array d’IDs
+ * Normalisation globale CREATE/UPDATE :
+ * - type (SIMPLE/COMPLEXE) reste MAJ
+ * - location objet; images array (défaut [])
+ * - attribus normalisés (type en minuscule, key en MAJ SANS ACCENT, object récursif)
+ * - composant: array d’IDs
  */
 function normalizeTypePayload(input: Partial<CreateTypeDto | UpdateTypeDto>) {
   const out: any = { ...input };
@@ -142,10 +142,11 @@ function normalizeTypePayload(input: Partial<CreateTypeDto | UpdateTypeDto>) {
   }
 
   if (out.location !== undefined) out.location = isPlainObject(out.location) ? out.location : {};
-  out.images = [];
+  if (out.images !== undefined && !Array.isArray(out.images)) out.images = [];
+  if (out.images === undefined) out.images = [];
 
   if (out.attribus !== undefined) {
-    out.attribus = ensureCoreAttributes(normalizeAttribus(out.attribus), out.location);
+    out.attribus = ensureCoreAttributes(normalizeAttribus(out.attribus));
   }
 
   if (out.composant !== undefined) {
@@ -165,9 +166,6 @@ function normalizeTypePayload(input: Partial<CreateTypeDto | UpdateTypeDto>) {
 export class TypesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /* ===================== Expansion récursive — FULL OBJECTS ===================== */
-
-  /** Sélecteur complet pour un type d’infrastructure (retour API) */
   private get fullSelect() {
     return {
       id: true,
@@ -177,7 +175,7 @@ export class TypesService {
       location: true,
       images: true,
       attribus: true,
-      composant: true,               // <-- IDs en base
+      composant: true,
       domaineId: true,
       domaine: { select: { id: true, nom: true, code: true } },
       sousdomaineId: true,
@@ -189,25 +187,15 @@ export class TypesService {
     } as const;
   }
 
-  /** Matérialise un enregistrement DB en objet API (sanitization simple) */
   private materialize(row: any) {
     return {
       ...row,
       attribus: Array.isArray(row.attribus) ? row.attribus : [],
       images: Array.isArray(row.images) ? row.images : [],
       location: isPlainObject(row.location) ? row.location : {},
-      // composant sera remplacé ensuite par des objets
     };
   }
 
-  /**
-   * Expansion récursive des composants :
-   * - lit les IDs de composant,
-   * - charge les objets complets,
-   * - remonte récursivement jusqu’à maxDepth,
-   * - protège contre les cycles (visited),
-   * - cache les fetchs (cache Map).
-   */
   private async expandFullTreeByIds(
     ids: number[],
     maxDepth = 10,
@@ -217,7 +205,6 @@ export class TypesService {
     const order = ids ?? [];
     if (!order.length || maxDepth <= 0) return [];
 
-    // IDs manquants en cache
     const missing = order.filter((id) => !cache.has(id));
     if (missing.length) {
       const rows = await this.prisma.typeInfrastructure.findMany({
@@ -227,15 +214,12 @@ export class TypesService {
       rows.forEach((r) => cache.set(r.id, this.materialize(r)));
     }
 
-    // Construire chaque node, en respectant l’ordre initial
     const nodes: any[] = [];
     for (const id of order) {
       const base = cache.get(id);
       if (!base) continue;
 
-      // anti-cycle
       if (visited.has(id)) {
-        // si cycle, on renvoie le noeud sans ses enfants pour éviter boucle
         nodes.push({ ...base, composant: [] });
         continue;
       }
@@ -245,22 +229,19 @@ export class TypesService {
       const childIds = toIdArray(base.composant);
       const children = await this.expandFullTreeByIds(childIds, maxDepth - 1, visited, cache);
 
-      nodes.push({
-        ...base,
-        composant: children, // objets complets des enfants
-      });
+      nodes.push({ ...base, composant: children });
 
       visited.delete(id);
     }
 
     return nodes;
-  }
+    }
 
   /* ===================== LIST ===================== */
   async list(params: {
     page: number; pageSize: number; sort?: Record<string,'asc'|'desc'>;
     q?: string; type?: string; domaineId?: number; sousdomaineId?: number; competenceId?: number;
-    depth?: number; // facultatif, par défaut 1 (enfants directs)
+    depth?: number;
   }) {
     const { page, pageSize, sort, q, type, domaineId, sousdomaineId, competenceId } = params;
     const depth = Math.max(1, Math.min(Number(params.depth ?? 1), 5));
@@ -331,7 +312,7 @@ export class TypesService {
           location: normalized.location,
           images: normalized.images,
           attribus: normalized.attribus,
-          composant: normalized.composant, // IDs
+          composant: normalized.composant,
           domaineId: dto.domaineId ?? null,
           sousdomaineId: dto.sousdomaineId ?? null,
           competenceId: dto.competenceId ?? null,
@@ -347,7 +328,7 @@ export class TypesService {
     }
   }
 
-  /* ===================== FIND ONE — FULL COMPONENT OBJECTS ===================== */
+  /* ===================== FIND ONE (avec composants développés) ===================== */
   async findOne(id: number, depth = 10) {
     const row = await this.prisma.typeInfrastructure.findUnique({
       where: { id },
@@ -358,7 +339,6 @@ export class TypesService {
     const base = this.materialize(row);
     const compIds = toIdArray(base.composant);
 
-    // Par défaut : on va profond (10 niveaux) et on renvoie TOUT sur les composants
     const cache = new Map<number, any>([[base.id, base]]);
     const composant = await this.expandFullTreeByIds(
       compIds,
@@ -394,7 +374,7 @@ export class TypesService {
           location: normalized.location,
           images: normalized.images,
           attribus: normalized.attribus,
-          composant: normalized.composant, // IDs
+          composant: normalized.composant,
           domaineId: dto.domaineId,
           competenceId: dto.competenceId,
           sousdomaineId: dto.sousdomaineId,
@@ -413,7 +393,7 @@ export class TypesService {
 
   /* ===================== FORM ===================== */
   async form(id: number) {
-    const row = await this.findOne(id, 1); // enfants directs pour édition
+    const row = await this.findOne(id, 1);
     return {
       id: row.id,
       name: row.name,
@@ -422,7 +402,7 @@ export class TypesService {
       domaineId: row.domaineId,
       sousdomaineId: row.sousdomaineId,
       form: { attribus: row.attribus, composant: row.composant },
-      note: 'ATTRIBUTS : clés en MAJ SANS ACCENT. ENUM: CSV → array. Composant stocké en IDs mais retourné en objets complets (1 niveau ici).',
+      note: 'ATTRIBUTS : key en MAJ SANS ACCENT; type en minuscule; enum CSV→array; object = tableau d’attributs récursif.',
     };
   }
 
@@ -452,7 +432,7 @@ export class TypesService {
     };
   }
 
-  /* ===================== REMOVE ===================== */
+   /* ===================== REMOVE ===================== */
   async remove(id: number) {
     const used = await this.prisma.infrastructure.count({ where: { id_type_infrastructure: id } });
     if (used > 0) {

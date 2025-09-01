@@ -1,3 +1,4 @@
+// src/types/dto/composant.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsIn, IsObject, IsOptional, IsString } from 'class-validator';
@@ -31,7 +32,7 @@ export class ComposantDto {
 
   @ApiProperty({
     type: [AttributeDto],
-    description: 'Toujours un tableau d’objets attributs',
+    description: 'Toujours un tableau d’attributs (object possible, récursif via value).',
   })
   @IsArray()
   @Type(() => AttributeDto)
@@ -39,7 +40,7 @@ export class ComposantDto {
 
   @ApiPropertyOptional({
     type: () => [ComposantDto],
-    description: 'Composants enfants (récursif, optionnel)',
+    description: 'Composants enfants (récursif, optionnel).',
   })
   @IsOptional()
   @IsArray()
