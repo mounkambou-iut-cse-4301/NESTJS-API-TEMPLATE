@@ -351,3 +351,35 @@ model Infrastructure {
   @@index([communeId], name: "idx_infra_commune")
   @@index([id_type_infrastructure], name: "idx_infra_type")
 }
+
+model DeletedInfrastructure {
+  /// On conserve le même id que l’infrastructure d’origine
+  id                       BigInt   @id
+  id_parent                BigInt?
+  id_type_infrastructure   Int
+  name                     String
+  description              String?
+  existing_infrastructure  Boolean  @default(true)
+  type                     String
+  regionId                 Int
+  departementId            Int
+  arrondissementId         Int
+  communeId                Int
+  domaineId                Int?
+  sousdomaineId            Int?
+  competenceId             Int?
+  utilisateurId            Int?
+  location                 Json?
+  images                   Json?
+  attribus                 Json?
+  composant                Json?
+  created_at               DateTime
+  updated_at               DateTime
+
+  /// Colonnes additionnelles
+  reason                   String
+  fileURL                  String
+
+  @@map("DeletedInfrastructure")
+}
+

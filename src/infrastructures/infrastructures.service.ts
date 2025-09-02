@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInfrastructureDto, ComponentInput } from './dto/create-infra.dto';
 import { UpdateInfrastructureDto } from './dto/update-infra.dto';
+import { DeleteInfrastructureDto } from './dto/delete-infra.dto';
 
 type Order = Record<string, 'asc' | 'desc'>;
 
@@ -88,7 +89,7 @@ function sqlWhereNumeric(where: Record<string, any>) {
   return parts.length ? 'WHERE '+parts.join(' AND ') : '';
 }
 
-/** Restreint le périmètre à la commune du user connecté si définie. */
+/** Restreint le périmètre à la commune du user connecté si définie (écrase les autres niveaux). */
 function applyUserCommune(where: any, req: any) {
   const userCommuneId = req?.user?.communeId as number | undefined;
   if (userCommuneId) {
@@ -99,6 +100,30 @@ function applyUserCommune(where: any, req: any) {
   }
   return where;
 }
+
+/** Ajoute id_parent: null pour les compteurs globaux root-only (Prisma). */
+function rootOnly(where: any) {
+  return { ...where, id_parent: null as any };
+}
+
+/** Ajoute "id_parent IS NULL" à un WHERE SQL (déjà construit via sqlWhereNumeric). */
+function sqlWhereWithRoot(base: string): string {
+  return base && base.trim().length ? `${base} AND id_parent IS NULL` : 'WHERE id_parent IS NULL';
+}
+
+// -------------------------------------------------------------------
+// AJOUTS: helpers pour suppression récursive & archivage
+// -------------------------------------------------------------------
+
+/** Sélecteur complet pour archiver une ligne d’infrastructure */
+const infraFullSelect = {
+  id: true, id_parent: true, id_type_infrastructure: true,
+  name: true, description: true, existing_infrastructure: true, type: true,
+  regionId: true, departementId: true, arrondissementId: true, communeId: true,
+  domaineId: true, sousdomaineId: true, competenceId: true, utilisateurId: true,
+  location: true, images: true, attribus: true, composant: true,
+  created_at: true, updated_at: true,
+} as const;
 
 @Injectable()
 export class InfrastructuresService {
@@ -265,7 +290,6 @@ export class InfrastructuresService {
       regionId, departementId, arrondissementId, communeId,
       typeId, type, q, domaineId, sousdomaineId, utilisateurId, created_from, created_to, competenceId, req
     } = params;
-    const currentUserId = req?.sub as number | undefined;
     const userCommuneId = req?.user?.communeId as number | undefined;
 
     const where: any = { id_parent: null };
@@ -276,7 +300,8 @@ export class InfrastructuresService {
     if (typeof utilisateurId === 'number') where.utilisateurId = utilisateurId;
     if (typeof competenceId === 'number') where.competenceId = competenceId;
 
-    if (currentUserId && userCommuneId) where.communeId = userCommuneId;
+    // 🔒 Scope commune utilisateur prioritaire
+    if (userCommuneId) where.communeId = userCommuneId;
 
     if (typeof typeId === 'number') where.id_type_infrastructure = typeId;
     if (typeof domaineId === 'number') where.domaineId = domaineId;
@@ -655,7 +680,7 @@ export class InfrastructuresService {
     return { ...row, id: toStrId(row.id), id_parent: row.id_parent ? toStrId(row.id_parent as any) : null };
   }
 
-  /* ---------- DELETE ---------- */
+  /* ---------- DELETE (simple) ---------- */
   async remove(idStr: string) {
     const id = BigInt(idStr);
     const exists = await this.prisma.infrastructure.count({ where: { id } });
@@ -663,7 +688,7 @@ export class InfrastructuresService {
     await this.prisma.infrastructure.delete({ where: { id } });
   }
 
-  /* ---------- EXPORT CSV ---------- */
+  /* ---------- EXPORT CSV (root only via list) ---------- */
   async exportCsv(params: Parameters<InfrastructuresService['list']>[0]) {
     const full = await this.list({ ...params, page: 1, pageSize: 100000, sort: params.sort });
     const headers = [
@@ -718,21 +743,25 @@ export class InfrastructuresService {
     return result;
   }
 
-  /* ---------- Stats ---------- */
+  /* ---------- Stats (ROOT-ONLY pour les totaux / groupements) ---------- */
   async statsSummary(q: Scope, req: any) {
-    const where = applyUserCommune(buildWhere(q), req);
+    // root only + scope commune
+    const where = rootOnly(applyUserCommune(buildWhere(q), req));
+
     const [total, simple, complexe] = await this.prisma.$transaction([
       this.prisma.infrastructure.count({ where }),
       this.prisma.infrastructure.count({ where: { ...where, type: 'SIMPLE' } }),
       this.prisma.infrastructure.count({ where: { ...where, type: 'COMPLEXE' } }),
     ]);
 
-    const base = sqlWhereNumeric(where);
+    // by ETAT (root-only en SQL)
+    const base = sqlWhereNumeric(where);            // (id_parent n'est pas pris en charge ici)
+    const baseRoot = sqlWhereWithRoot(base);        // on ajoute id_parent IS NULL
     const etatExpr = etatExprSQL();
     const rows = await this.prisma.$queryRawUnsafe<Array<{ etat: string | null; c: any }>>(`
       SELECT ${etatExpr} AS etat, COUNT(*) AS c
       FROM Infrastructure i
-      ${base}
+      ${baseRoot}
       GROUP BY etat
       ORDER BY c DESC;
     `);
@@ -752,12 +781,13 @@ export class InfrastructuresService {
     };
   }
 
-  /** Groupements (type|region|departement|commune) avec option etats */
+  /** Groupements (type|region|departement|commune) — ROOT ONLY — option etats */
   async statsGroup(
     q: Scope & { group: 'type'|'region'|'departement'|'commune'; include_etat?: boolean; limit?: number },
     req: any,
   ) {
-    const where = applyUserCommune(buildWhere(q), req);
+    const scoped = applyUserCommune(buildWhere(q), req);
+    const where = rootOnly(scoped);
     const includeEtat = q.include_etat !== false;
     const limit = Number(q.limit ?? 50);
 
@@ -768,11 +798,12 @@ export class InfrastructuresService {
                                   'communeId';
 
     const base = sqlWhereNumeric(where);
+    const baseRoot = sqlWhereWithRoot(base);
 
     const totals = await this.prisma.$queryRawUnsafe<Array<{ k: number | null; c: any }>>(`
       SELECT ${col} AS k, COUNT(*) AS c
       FROM Infrastructure i
-      ${base}
+      ${baseRoot}
       GROUP BY ${col}
       ORDER BY c DESC;
     `);
@@ -803,7 +834,7 @@ export class InfrastructuresService {
                ${etatExpr} AS etat,
                COUNT(*) AS c
         FROM Infrastructure i
-        ${base}
+        ${baseRoot}
         GROUP BY ${col}, etat;
       `);
     }
@@ -837,23 +868,25 @@ export class InfrastructuresService {
     };
   }
 
-  /** Groupements par competenceId / domaineId (ordre décroissant) */
+  /** Groupements par competenceId / domaineId — ROOT ONLY (ordre décroissant) */
   async statsByDimension(
     dim: 'competence'|'domaine',
     q: Scope & { include_etat?: boolean; limit?: number },
     req: any,
   ) {
-    const where = applyUserCommune(buildWhere(q), req);
+    const scoped = applyUserCommune(buildWhere(q), req);
+    const where = rootOnly(scoped);
     const includeEtat = q.include_etat !== false;
     const limit = Number(q.limit ?? 50);
 
     const col = dim === 'competence' ? 'competenceId' : 'domaineId';
     const base = sqlWhereNumeric(where);
+    const baseRoot = sqlWhereWithRoot(base);
 
     const totals = await this.prisma.$queryRawUnsafe<Array<{ k: number | null; c: any }>>(`
       SELECT ${col} AS k, COUNT(*) AS c
       FROM Infrastructure i
-      ${base}
+      ${baseRoot}
       GROUP BY ${col}
       ORDER BY c DESC;
     `);
@@ -877,7 +910,7 @@ export class InfrastructuresService {
                ${etatExpr} AS etat,
                COUNT(*) AS c
         FROM Infrastructure i
-        ${base}
+        ${baseRoot}
         GROUP BY ${col}, etat;
       `);
     }
@@ -908,6 +941,207 @@ export class InfrastructuresService {
       messageE: `Grouping by ${dim}.`,
       group: dim,
       items,
+    };
+  }
+
+  /** Upload (base64 dataURL ou http) vers Cloudinary pour la preuve */
+  private async toProofURL(input: string, folder: string): Promise<string> {
+    if (typeof input !== 'string' || !input.trim()) {
+      throw new BadRequestException({ message: 'Fichier justificatif requis.', messageE: 'Proof file required.' });
+    }
+    if (/^data:(image\/.+|application\/pdf);base64,/.test(input)) {
+      return await uploadImageToCloudinary(input, folder);
+    }
+    if (/^https?:\/\//i.test(input)) return input;
+    throw new BadRequestException({ message: 'Format de fichier non supporté.', messageE: 'Unsupported proof file format.' });
+  }
+
+  /** Récupère récursivement toute la sous-arborescence (parent + enfants n niveaux). */
+  private async collectSubtreeRows(rootId: bigint) {
+    const root = await this.prisma.infrastructure.findUnique({
+      where: { id: rootId },
+      select: infraFullSelect,
+    });
+    if (!root) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
+
+    const all: typeof root[] = [root];
+    // niveaux (pour suppression du fond vers le haut si nécessaire)
+    const levels: bigint[][] = [[rootId]];
+    let idx = 0;
+
+    while (idx < levels.length) {
+      const parentIds = levels[idx];
+      const children = await this.prisma.infrastructure.findMany({
+        where: { id_parent: { in: parentIds } },
+        select: infraFullSelect,
+      });
+
+      if (!children.length) break;
+      all.push(...children);
+
+      const nextLevelIds = children.map(c => c.id as bigint);
+      levels.push(nextLevelIds);
+      idx++;
+    }
+
+    return { root, all, levels };
+  }
+
+  /** Archive en masse dans DeletedInfrastructure (conserve les mêmes champs + reason/fileURL). */
+  private async archiveRows(rows: Array<any>, reason: string, fileURL: string, tx: any) {
+    const data = rows.map(r => ({
+      id: r.id as bigint,
+      id_parent: r.id_parent as bigint | null,
+      id_type_infrastructure: r.id_type_infrastructure,
+      name: r.name,
+      description: r.description,
+      existing_infrastructure: r.existing_infrastructure,
+      type: r.type,
+      regionId: r.regionId,
+      departementId: r.departementId,
+      arrondissementId: r.arrondissementId,
+      communeId: r.communeId,
+      domaineId: r.domaineId,
+      sousdomaineId: r.sousdomaineId,
+      competenceId: r.competenceId,
+      utilisateurId: r.utilisateurId,
+      location: r.location as any,
+      images: r.images as any,
+      attribus: r.attribus as any,
+      composant: r.composant as any,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      reason,
+      fileURL,
+    }));
+
+    await tx.deletedInfrastructure.createMany({
+      data,
+      skipDuplicates: true,
+    });
+
+    return data.length;
+  }
+
+  /**
+   * Supprime une infrastructure + tous ses descendants, APRES archivage.
+   * - Upload du justificatif -> fileURL
+   * - Collecte récursive (n niveaux)
+   * - Archive createMany()
+   * - Delete du plus profond vers la racine (par niveaux)
+   */
+  async archiveAndDelete(idStr: string, body: DeleteInfrastructureDto) {
+    if (!idStr) throw new BadRequestException({ message: 'ID requis.', messageE: 'ID required.' });
+    const id = BigInt(idStr);
+
+    const reason = (body?.reason ?? '').toString().trim();
+    if (!reason) throw new BadRequestException({ message: 'Raison requise.', messageE: 'Reason required.' });
+
+    const fileURL = await this.toProofURL(body.proofFile, `infrastructures/deleted/proofs`);
+
+    // Collecter arbre complet
+    const { all, levels } = await this.collectSubtreeRows(id);
+
+    // Transaction: archive -> delete (du bas vers le haut)
+    const res = await this.prisma.$transaction(async (tx) => {
+      const archivedCount = await this.archiveRows(all, reason, fileURL, tx);
+
+      // Supprimer du plus profond au plus haut
+      for (let depth = levels.length - 1; depth >= 0; depth--) {
+        const idsAtLevel = levels[depth];
+        if (!idsAtLevel.length) continue;
+        await tx.infrastructure.deleteMany({ where: { id: { in: idsAtLevel } } });
+      }
+
+      return { archivedCount, deletedCount: all.length, fileURL, reason };
+    });
+
+    return res;
+  }
+
+  // -------------------------------------------------------------------
+  // Listing / détail des éléments archivés (pas de req ici → inchangé)
+  // -------------------------------------------------------------------
+
+  async listDeleted(params: {
+    page: number; pageSize: number; sort?: Order;
+    q?: string; type?: string; regionId?: number; departementId?: number; arrondissementId?: number; communeId?: number;
+    typeId?: number; domaineId?: number; sousdomaineId?: number; competenceId?: number; utilisateurId?: number;
+  }) {
+    const {
+      page, pageSize, sort, q, type,
+      regionId, departementId, arrondissementId, communeId,
+      typeId, domaineId, sousdomaineId, competenceId, utilisateurId,
+    } = params;
+
+    const where: any = {};
+    if (q) {
+      where.OR = [
+        { name:        { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { reason:      { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    if (type) where.type = type;
+    if (typeof regionId === 'number') where.regionId = regionId;
+    if (typeof departementId === 'number') where.departementId = departementId;
+    if (typeof arrondissementId === 'number') where.arrondissementId = arrondissementId;
+    if (typeof communeId === 'number') where.communeId = communeId;
+    if (typeof utilisateurId === 'number') where.utilisateurId = utilisateurId;
+    if (typeof competenceId === 'number') where.competenceId = competenceId;
+    if (typeof domaineId === 'number') where.domaineId = domaineId;
+    if (typeof sousdomaineId === 'number') where.sousdomaineId = sousdomaineId;
+    if (typeof typeId === 'number') where.id_type_infrastructure = typeId;
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.deletedInfrastructure.count({ where }),
+      this.prisma.deletedInfrastructure.findMany({
+        where,
+        orderBy: sort ?? { id: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true, id_parent: true, id_type_infrastructure: true,
+          name: true, description: true, existing_infrastructure: true, type: true,
+          regionId: true, departementId: true, arrondissementId: true, communeId: true,
+          domaineId: true, sousdomaineId: true, competenceId: true, utilisateurId: true,
+          location: true, images: true, attribus: true, composant: true,
+          created_at: true, updated_at: true,
+          reason: true, fileURL: true,
+        },
+      }),
+    ]);
+
+    const items = rows.map(r => ({
+      ...r,
+      id: r.id.toString(),
+      id_parent: r.id_parent ? r.id_parent.toString() : null,
+    }));
+
+    return { total, items };
+  }
+
+  async findOneDeleted(idStr: string) {
+    const id = BigInt(idStr);
+    const row = await this.prisma.deletedInfrastructure.findUnique({
+      where: { id },
+      select: {
+        id: true, id_parent: true, id_type_infrastructure: true,
+        name: true, description: true, existing_infrastructure: true, type: true,
+        regionId: true, departementId: true, arrondissementId: true, communeId: true,
+        domaineId: true, sousdomaineId: true, competenceId: true, utilisateurId: true,
+        location: true, images: true, attribus: true, composant: true,
+        created_at: true, updated_at: true,
+        reason: true, fileURL: true,
+      },
+    });
+    if (!row) {
+      throw new NotFoundException({ message: 'Elément archivé introuvable.', messageE: 'Archived item not found.' });
+    }
+    return {
+      ...row,
+      id: row.id.toString(),
+      id_parent: row.id_parent ? row.id_parent.toString() : null,
     };
   }
 }

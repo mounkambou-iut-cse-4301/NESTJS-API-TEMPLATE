@@ -177,11 +177,13 @@ import { BulkInfraDto } from './dto/bulk.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 import { InfraGroupDto, InfraGroupSimpleDto, InfraSummaryDto } from './dto/infra-stats.dto';
+import { ListDeletedQueryDto } from './dto/list-deleted.query.dto';
+import { DeleteInfrastructureDto } from './dto/delete-infra.dto';
 
 function meta(page:number, pageSize:number, total:number) {
   return { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total/Math.max(1,pageSize))) };
 }
-function sanitizeSort(sort?: string) {
+function sanitizeSort(sort?: string, p0?: string[]) {
   if (!sort) return undefined;
   const orders: Record<string,'asc'|'desc'> = {};
   for (const t of sort.split(',').map(s=>s.trim()).filter(Boolean)) {
@@ -282,6 +284,39 @@ export class InfrastructuresController {
   async update(@Param() p: InfraIdParamDto, @Body() dto: UpdateInfrastructureDto) {
     const row = await this.service.update(p.id, dto);
     return { message: 'Infrastructure mise à jour.', messageE: 'Infrastructure updated.', data: row };
+  }
+
+   /* --- suppression + archivage --- */
+  @ApiOperation({ summary: 'Supprimer une infrastructure (avec archivage)', description: 'Archive toute la sous-arborescence dans DeletedInfrastructure, puis supprime.' })
+  @Post(':id/remove')
+  async removeWithReason(
+    @Param('id') id: string,
+    @Body() body: DeleteInfrastructureDto,
+    // @Req() req: any  // si tu veux tracer l’auteur
+  ) {
+    const res = await this.service.archiveAndDelete(id, body);
+    return { message: 'Infrastructure supprimée et archivée.', messageE: 'Infrastructure deleted and archived.', data: res };
+  }
+
+  /* --- liste des supprimées --- */
+  @ApiOperation({ summary: 'Lister les infrastructures supprimées', description: 'Pagination, filtres (mêmes que list), tri.' })
+  @Get('deleted')
+  async listDeleted(@Query() q: ListDeletedQueryDto) {
+    const page = Math.max(1, Number(q.page ?? 1));
+    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
+    const sort = sanitizeSort(q.sort, [
+      'id','name','type','created_at','updated_at','regionId','departementId','arrondissementId','communeId','id_type_infrastructure'
+    ]);
+    const { total, items } = await this.service.listDeleted({ ...q, page, pageSize, sort });
+    return { message: 'Liste des infrastructures supprimées.', messageE: 'Deleted infrastructures list.', data: items, meta: meta(page, pageSize, total) };
+  }
+
+  /* --- détail d’une supprimée --- */
+  @ApiOperation({ summary: 'Détail d’une infrastructure supprimée' })
+  @Get('deleted/:id')
+  async getDeletedOne(@Param('id') id: string) {
+    const row = await this.service.findOneDeleted(id);
+    return { message: 'Infrastructure supprimée récupérée.', messageE: 'Deleted infrastructure fetched.', data: row };
   }
 
   @ApiOperation({

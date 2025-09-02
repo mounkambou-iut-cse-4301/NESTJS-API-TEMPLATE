@@ -27,6 +27,7 @@ type TypeStatsGeoInput = {
   regionId?: number;
   departementId?: number;
   arrondissementId?: number;
+  // NOTE: on ne modifie pas la signature, mais on appliquera communeId utilisateur si présent
 };
 
 type EtatRow = { etat: string | null; c: any };
@@ -64,6 +65,27 @@ function sqlWhere(where: Record<string, any>) {
   return parts.length ? 'WHERE '+parts.join(' AND ') : '';
 }
 
+/** Construit un WHERE SQL en combinant base (sqlWhere), rootOnly (id_parent IS NULL) et bornes de dates. */
+function sqlWhereWithDates(
+  baseWhere: string,
+  field: 'created_at'|'updated_at',
+  from?: Date,
+  to?: Date,
+  rootOnly?: boolean,
+) {
+  const clauses: string[] = [];
+  if (baseWhere && baseWhere.trim()) clauses.push(baseWhere.replace(/^WHERE\s+/i,''));
+  if (rootOnly) clauses.push('id_parent IS NULL');
+  if (from) clauses.push(`${field} >= '${from.toISOString().slice(0,19).replace('T',' ')}'`);
+  if (to)   clauses.push(`${field} <= '${to.toISOString().slice(0,19).replace('T',' ')}'`);
+  return clauses.length ? 'WHERE ' + clauses.join(' AND ') : '';
+}
+
+/** Ajoute id_parent: null au where Prisma pour les compteurs globaux. */
+function rootWhere(where: any) {
+  return { ...where, id_parent: null as any };
+}
+
 /* ----------------- Constantes & helpers ETAT ----------------- */
 
 /** Valeurs autorisées (majuscules) */
@@ -90,29 +112,24 @@ const EXCLUDED_ATTR_KEYS = new Set(['ETAT','DESCRIPTION']);
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Si req.user.communeId est défini, on récupère l’arrondissementId de la commune (pour les stats type). */
-  private async getArrondissementFromUser(req?: any): Promise<number | null> {
-    const communeId = req?.user?.communeId ? Number(req.user.communeId) : null;
-    if (!communeId) return null;
-    const c = await this.prisma.commune.findUnique({
-      where: { id: communeId },
-      select: { arrondissementId: true },
-    });
-    return c?.arrondissementId ?? null;
+  /** Renvoie communeId de l'utilisateur si présent, sinon null. */
+  private getUserCommuneId(req?: any): number | null {
+    const cid = req?.user?.communeId;
+    return typeof cid === 'number' ? cid : null;
   }
 
-  /** where parts SANS id_parent (on n’y touche pas). */
-  private whereParts(q: TypeStatsGeoInput, userArrId?: number | null): string[] {
+  /** where parts SANS id_parent (on n’y touche pas) — attributs doivent inclure enfants. */
+  private whereParts(q: TypeStatsGeoInput, userCommuneId?: number | null): string[] {
     const w: string[] = [`id_type_infrastructure=${Number(q.typeId)}`];
     if (q.regionId) w.push(`regionId=${Number(q.regionId)}`);
     if (q.departementId) w.push(`departementId=${Number(q.departementId)}`);
     if (q.arrondissementId) w.push(`arrondissementId=${Number(q.arrondissementId)}`);
-    // scope utilisateur (arrondissement de sa commune)
-    if (userArrId) w.push(`arrondissementId=${Number(userArrId)}`);
+    // scope utilisateur — commune uniquement si présente
+    if (userCommuneId) w.push(`communeId=${Number(userCommuneId)}`);
     return w;
   }
-  private whereSQL(q: TypeStatsGeoInput, userArrId?: number | null): string {
-    const parts = this.whereParts(q, userArrId);
+  private whereSQL(q: TypeStatsGeoInput, userCommuneId?: number | null): string {
+    const parts = this.whereParts(q, userCommuneId);
     return parts.length ? `WHERE ${parts.join(' AND ')}` : '';
   }
   private andCond(base: string, cond: string): string {
@@ -124,13 +141,13 @@ export class AnalyticsService {
     return k.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/'/g, "''");
   }
 
-  /** WHERE Prisma équivalent (priorité au scope utilisateur si présent). */
-  private prismaWhere(q: TypeStatsGeoInput, userArrId?: number | null) {
+  /** WHERE Prisma équivalent (priorité au scope utilisateur commune si présent). */
+  private prismaWhere(q: TypeStatsGeoInput, userCommuneId?: number | null) {
     const where: any = { id_type_infrastructure: Number(q.typeId) };
     if (q.regionId) where.regionId = Number(q.regionId);
     if (q.departementId) where.departementId = Number(q.departementId);
     if (q.arrondissementId) where.arrondissementId = Number(q.arrondissementId);
-    if (userArrId) where.arrondissementId = Number(userArrId);
+    if (userCommuneId) where.communeId = Number(userCommuneId);
     return where;
   }
 
@@ -155,15 +172,15 @@ export class AnalyticsService {
     };
   }
 
-  /* ========================= 1) Stats par TYPE (attribus only) ========================= */
+  /* ========================= 1) Stats par TYPE (attribus only, inclut enfants) ========================= */
   async typeStatsByGeo(q: TypeStatsGeoInput, req?: any) {
     const meta = await this.getTypeMeta(Number(q.typeId));
     if (!meta) throw new NotFoundException({ message: 'TypeInfrastructure invalide.', messageE: 'Invalid TypeInfrastructure.' });
 
-    const userArrId = await this.getArrondissementFromUser(req);
-    const W = this.whereSQL(q, userArrId);
+    const userCommuneId = this.getUserCommuneId(req);
+    const W = this.whereSQL(q, userCommuneId); // ⚠️ pas de filtre id_parent ici (inclut enfants)
 
-    // Totaux & par nature
+    // Totaux & par nature — ici, comme on reste dans l’analyse d’attributs, on ne filtre pas id_parent
     const totalRows: any[] = await this.prisma.$queryRawUnsafe(`SELECT COUNT(*) AS c FROM Infrastructure ${W};`);
     const total = Number(totalRows?.[0]?.c ?? 0);
 
@@ -196,7 +213,7 @@ export class AnalyticsService {
 
     // Recensement des clés d’attribut (hors ETAT & DESCRIPTION) via Prisma
     const rowsAttribus = await this.prisma.infrastructure.findMany({
-      where: this.prismaWhere(q, userArrId),
+      where: this.prismaWhere(q, userCommuneId), // pas de rootOnly
       select: { attribus: true },
     });
     const keysSet = new Set<string>();
@@ -362,7 +379,7 @@ export class AnalyticsService {
         typeId: Number(q.typeId),
         regionId: q.regionId ?? null,
         departementId: q.departementId ?? null,
-        arrondissementId: (q.arrondissementId ?? null) || (userArrId ?? null),
+        arrondissementId: q.arrondissementId ?? null,
       },
       type: meta,
       resume: {
@@ -414,18 +431,19 @@ export class AnalyticsService {
     return results.every(c => c > 0);
   }
 
-  /* ---- A. Overview ---- */
+  /* ---- A. Overview (root only) ---- */
   async overview(q: Scope, req?: any) {
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
       return { message: 'Vue d’ensemble.', messageE: 'Overview.', data: { total_infrastructures: 0, communes_actives: 0, repartition: { SIMPLE: 0, COMPLEXE: 0 } } };
     }
 
+    const whereRoot = rootWhere(where);
     const [total, simple, complexe, communesActive] = await this.prisma.$transaction([
-      this.prisma.infrastructure.count({ where }),
-      this.prisma.infrastructure.count({ where: { ...where, type: 'SIMPLE' }}),
-      this.prisma.infrastructure.count({ where: { ...where, type: 'COMPLEXE' }}),
-      this.prisma.infrastructure.groupBy({ by: ['communeId'], where, orderBy: { communeId: 'asc' }, _count: { _all: true } }),
+      this.prisma.infrastructure.count({ where: whereRoot }),
+      this.prisma.infrastructure.count({ where: { ...whereRoot, type: 'SIMPLE' }}),
+      this.prisma.infrastructure.count({ where: { ...whereRoot, type: 'COMPLEXE' }}),
+      this.prisma.infrastructure.groupBy({ by: ['communeId'], where: whereRoot, orderBy: { communeId: 'asc' }, _count: { _all: true } }),
     ]);
 
     return {
@@ -439,7 +457,7 @@ export class AnalyticsService {
     };
   }
 
-  /* ---- B. Distribution par type ---- */
+  /* ---- B. Distribution par type (root only) ---- */
   async distributionTypes(q: Scope, req?: any) {
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -448,7 +466,7 @@ export class AnalyticsService {
 
     const grouped = await this.prisma.infrastructure.groupBy({
       by: ['id_type_infrastructure'],
-      where,
+      where: rootWhere(where),
       orderBy: { id_type_infrastructure: 'asc' },
       _count: { _all: true },
     });
@@ -470,7 +488,7 @@ export class AnalyticsService {
     return { message: 'Répartition par type.', messageE: 'Distribution by type.', items };
   }
 
-  /* ---- C. Distribution par domaine ---- */
+  /* ---- C. Distribution par domaine (root only) ---- */
   async distributionDomaines(q: Scope, req?: any) {
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -479,7 +497,7 @@ export class AnalyticsService {
 
     const grouped = await this.prisma.infrastructure.groupBy({
       by: ['domaineId'],
-      where,
+      where: rootWhere(where),
       orderBy: { domaineId: 'asc' },
       _count: { _all: true },
     });
@@ -493,7 +511,7 @@ export class AnalyticsService {
     return { message: 'Répartition par domaine.', messageE: 'Distribution by domain.', items };
   }
 
-  /* ---- D. Séries temporelles (créations) ---- */
+  /* ---- D. Séries temporelles (créations) — root only ---- */
   private fmt(group_by:'mois'|'trimestre'|'annee'){ return group_by==='annee' ? '%Y' : group_by==='trimestre' ? null : '%Y-%m'; }
 
   async timeseriesCreated(q: Scope, req?: any){
@@ -507,19 +525,13 @@ export class AnalyticsService {
 
     const fmt = this.fmt(q.group_by ?? 'mois');
     const baseWhere = sqlWhere(where);
-    const dateCond  = from || to
-      ? (baseWhere ? baseWhere+' AND ' : 'WHERE ') +
-        [
-          from ? `created_at >= '${from.toISOString().slice(0,19).replace('T',' ')}'` : '',
-          to   ? `created_at <= '${to  .toISOString().slice(0,19).replace('T',' ')}'` : '',
-        ].filter(Boolean).join(' AND ')
-      : baseWhere;
+    const dateCond  = sqlWhereWithDates(baseWhere, 'created_at', from, to, true); // rootOnly=true
 
     if (fmt) {
       const rows: any[] = await this.prisma.$queryRawUnsafe(`
         SELECT DATE_FORMAT(created_at, '${fmt}') AS bucket, COUNT(*) AS c
         FROM Infrastructure
-        ${dateCond || ''}
+        ${dateCond}
         GROUP BY bucket ORDER BY bucket ASC;
       `);
       return { message:'Série temporelle (créations).', messageE:'Time series (created).', items: rows };
@@ -527,14 +539,14 @@ export class AnalyticsService {
       const rows: any[] = await this.prisma.$queryRawUnsafe(`
         SELECT CONCAT(YEAR(created_at),'-T',QUARTER(created_at)) AS bucket, COUNT(*) AS c
         FROM Infrastructure
-        ${dateCond || ''}
+        ${dateCond}
         GROUP BY bucket ORDER BY bucket ASC;
       `);
       return { message:'Série temporelle (créations).', messageE:'Time series (created).', items: rows };
     }
   }
 
-  /* ---- E. Séries temporelles (mises à jour) ---- */
+  /* ---- E. Séries temporelles (mises à jour) — root only ---- */
   async timeseriesUpdates(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -546,19 +558,13 @@ export class AnalyticsService {
 
     const fmt = this.fmt(q.group_by ?? 'mois');
     const baseWhere = sqlWhere(where);
-    const dateCond  = from || to
-      ? (baseWhere ? baseWhere+' AND ' : 'WHERE ') +
-        [
-          from ? `updated_at >= '${from.toISOString().slice(0,19).replace('T',' ')}'` : '',
-          to   ? `updated_at <= '${to  .toISOString().slice(0,19).replace('T',' ')}'` : '',
-        ].filter(Boolean).join(' AND ')
-      : baseWhere;
+    const dateCond  = sqlWhereWithDates(baseWhere, 'updated_at', from, to, true); // rootOnly=true
 
     if (fmt) {
       const rows: any[] = await this.prisma.$queryRawUnsafe(`
         SELECT DATE_FORMAT(updated_at, '${fmt}') AS bucket, COUNT(*) AS c
         FROM Infrastructure
-        ${dateCond || ''}
+        ${dateCond}
         GROUP BY bucket ORDER BY bucket ASC;
       `);
       return { message:'Série temporelle (mises à jour).', messageE:'Time series (updates).', items: rows };
@@ -566,14 +572,14 @@ export class AnalyticsService {
       const rows: any[] = await this.prisma.$queryRawUnsafe(`
         SELECT CONCAT(YEAR(updated_at),'-T',QUARTER(updated_at)) AS bucket, COUNT(*) AS c
         FROM Infrastructure
-        ${dateCond || ''}
+        ${dateCond}
         GROUP BY bucket ORDER BY bucket ASC;
       `);
       return { message:'Série temporelle (mises à jour).', messageE:'Time series (updates).', items: rows };
     }
   }
 
-  /* ---- F. Top communes ---- */
+  /* ---- F. Top communes (root only) ---- */
   async topCommunes(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -582,7 +588,7 @@ export class AnalyticsService {
 
     const rows = await this.prisma.infrastructure.groupBy({
       by: ['communeId'],
-      where,
+      where: rootWhere(where),
       orderBy: { communeId: 'asc' },
       _count: { _all: true },
     });
@@ -601,7 +607,7 @@ export class AnalyticsService {
     return { message:'Top communes.', messageE:'Top communes.', items };
   }
 
-  /* ---- G. Top types ---- */
+  /* ---- G. Top types (root only) ---- */
   async topTypes(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -610,7 +616,7 @@ export class AnalyticsService {
 
     const rows = await this.prisma.infrastructure.groupBy({
       by: ['id_type_infrastructure'],
-      where,
+      where: rootWhere(where),
       orderBy: { id_type_infrastructure: 'asc' },
       _count: { _all: true },
     });
@@ -629,39 +635,40 @@ export class AnalyticsService {
     return { message:'Top types.', messageE:'Top types.', items };
   }
 
-  /* ---- H. Choropleth ---- */
+  /* ---- H. Choropleth (root only) ---- */
   async mapChoropleth(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Choropleth prêt.', messageE:'Choropleth ready.', items: [] };
     }
     const rows = await this.prisma.infrastructure.groupBy({
-      by: ['communeId'], where, orderBy: { communeId: 'asc' }, _count: { _all: true }
+      by: ['communeId'], where: rootWhere(where), orderBy: { communeId: 'asc' }, _count: { _all: true }
     });
     const items = (rows as any[]).map(r => ({ communeId: r.communeId, count: r._count._all ?? 0 }));
     return { message:'Choropleth prêt.', messageE:'Choropleth ready.', items };
   }
 
-  /* ---- I. Heatmap points ---- */
+  /* ---- I. Heatmap points (root only) ---- */
   async mapHeatmap(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Heatmap prête.', messageE:'Heatmap ready.', items: [] };
     }
+    const whereRoot = rootWhere(where);
     if (q.from || q.to) {
-      (where as any).created_at = {
+      (whereRoot as any).created_at = {
         ...(q.from? { gte: new Date(q.from+'T00:00:00Z') }:{}),
         ...(q.to?   { lte: new Date(q.to  +'T23:59:59Z') }:{}),
       };
     }
-    const rows = await this.prisma.infrastructure.findMany({ where, select: { id:true, location:true }});
+    const rows = await this.prisma.infrastructure.findMany({ where: whereRoot, select: { id:true, location:true }});
     const points = rows
       .map(r => ({ id: toStrId(r.id), lat: (r.location as any)?.lat, lon: (r.location as any)?.log }))
       .filter(p => typeof p.lat === 'number' && typeof p.lon === 'number');
     return { message:'Heatmap prête.', messageE:'Heatmap ready.', items: points };
   }
 
-  /* ---- J. Complétude d’un attribut (attribus only) ---- */
+  /* ---- J. Complétude d’un attribut (attribus only, inclut enfants) ---- */
   async completeness(q: Scope & { attr: string }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -671,11 +678,11 @@ export class AnalyticsService {
     // on refuse ETAT / DESCRIPTION
     const keyU = q.attr?.trim()?.toUpperCase?.() ?? '';
     if (EXCLUDED_ATTR_KEYS.has(keyU)) {
-      const total = await this.prisma.infrastructure.count({ where });
+      const total = await this.prisma.infrastructure.count({ where }); // pas de rootOnly -> inclut enfants
       return { message:'Complétude calculée.', messageE:'Completeness computed.', data: { total, filled: 0, percent: 0 } };
     }
 
-    const total = await this.prisma.infrastructure.count({ where });
+    const total = await this.prisma.infrastructure.count({ where }); // inclut enfants
     if (!total) return { message:'Complétude calculée.', messageE:'Completeness computed.', data: { total: 0, filled: 0, percent: 0 } };
 
     const key = q.attr.replace(/"/g,'\\"');
@@ -692,14 +699,14 @@ export class AnalyticsService {
     return { message:'Complétude calculée.', messageE:'Completeness computed.', data: { total, filled, percent } };
   }
 
-  /* ---- K. Coverage ---- */
+  /* ---- K. Coverage (root only) ---- */
   async coverage(q: Scope, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Couverture calculée.', messageE:'Coverage computed.', data: { communes_total: 0, communes_couvertes: 0, percent: 0 } };
     }
 
-    const active = await this.prisma.infrastructure.groupBy({ by: ['communeId'], where, orderBy: { communeId: 'asc' }, _count: { _all: true } });
+    const active = await this.prisma.infrastructure.groupBy({ by: ['communeId'], where: rootWhere(where), orderBy: { communeId: 'asc' }, _count: { _all: true } });
 
     const communeScope: any = {};
     if (q.regionId)         communeScope.regionId = Number(q.regionId);
@@ -711,7 +718,7 @@ export class AnalyticsService {
     return { message:'Couverture calculée.', messageE:'Coverage computed.', data: { communes_total: totalCommunes, communes_couvertes: active.length, percent } };
   }
 
-  /* ---- L. Distribution d’un attribut (attribus only) ---- */
+  /* ---- L. Distribution d’un attribut (attribus only, inclut enfants) ---- */
   async attrDistribution(q: Scope & { attr: string }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -725,14 +732,14 @@ export class AnalyticsService {
     const rows: any[] = await this.prisma.$queryRawUnsafe(`
       SELECT JSON_UNQUOTE(JSON_EXTRACT(i.attribus, '$."${key}"')) AS value, COUNT(*) AS c
       FROM Infrastructure i
-      ${sqlWhere(where)}
+      ${sqlWhere(where)}  -- inclut enfants
       GROUP BY value
       ORDER BY c DESC;
     `);
     return { message:'Distribution attribut.', messageE:'Attribute distribution.', items: rows.map(r=>({ value: r.value, count: Number(r.c) })) };
   }
 
-  /* ---- M. Crosstab de 2 attributs (attribus only) ---- */
+  /* ---- M. Crosstab de 2 attributs (attribus only, inclut enfants) ---- */
   async attrCrosstab(q: Scope & { attrA: string; attrB: string }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -751,29 +758,30 @@ export class AnalyticsService {
         JSON_UNQUOTE(JSON_EXTRACT(i.attribus, '$."${B}"')) AS b,
         COUNT(*) AS c
       FROM Infrastructure i
-      ${sqlWhere(where)}
+      ${sqlWhere(where)}  -- inclut enfants
       GROUP BY a,b
       ORDER BY c DESC;
     `);
     return { message:'Crosstab attributs.', messageE:'Attributes crosstab.', items: rows.map(r=>({ a: r.a, b: r.b, count: Number(r.c) })) };
   }
 
-  /* ---- N. Fraîcheur ---- */
+  /* ---- N. Fraîcheur (root only) ---- */
   async freshness(q: Scope & { max_age_days?: number }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
       return { message:'Fraîcheur calculée.', messageE:'Freshness computed.', data: { total: 0, recent: 0, percent_recent: 0 } };
     }
     const days = Number(q.max_age_days ?? 90);
+    const whereRoot = rootWhere(where);
     const recent = await this.prisma.infrastructure.count({
-      where: { ...where, updated_at: { gte: new Date(Date.now() - days*86400000) } },
+      where: { ...whereRoot, updated_at: { gte: new Date(Date.now() - days*86400000) } },
     });
-    const total = await this.prisma.infrastructure.count({ where });
+    const total = await this.prisma.infrastructure.count({ where: whereRoot });
     const percent = total ? +(recent*100/total).toFixed(2) : 0;
     return { message:'Fraîcheur calculée.', messageE:'Freshness computed.', data: { total, recent, percent_recent: percent } };
   }
 
-  /* ---- O. Activité ---- */
+  /* ---- O. Activité (root only) ---- */
   async activity(q: Scope & { from?: string; to?: string }, req?: any){
     const where = buildWhere(q, req);
     if (!(await this.territoryIdsExist(q, req))) {
@@ -783,14 +791,21 @@ export class AnalyticsService {
     const from = q.from ? new Date(q.from+'T00:00:00Z') : new Date(Date.now()-30*86400000);
     const to   = q.to   ? new Date(q.to  +'T23:59:59Z') : new Date();
 
+    // On applique id_parent IS NULL pour l’activité globale
     const base = sqlWhere(where);
+    const outerWhere = sqlWhereWithDates(base, 'created_at', from, to, true); // rootOnly=true
+    const innerExtra = (base && base.trim()) ? base.replace(/^WHERE\s+/i,'') + ' AND id_parent IS NULL' : 'id_parent IS NULL';
+
     const rows: any[] = await this.prisma.$queryRawUnsafe(`
       SELECT DATE(created_at) AS d, COUNT(*) AS created,
-             (SELECT COUNT(*) FROM Infrastructure j WHERE DATE(j.updated_at)=DATE(i.created_at)
-                ${base ? ' AND '+base.replace(/^WHERE /,'') : ''}) AS updated
+             (
+               SELECT COUNT(*)
+               FROM Infrastructure j
+               WHERE DATE(j.updated_at)=DATE(i.created_at)
+                 AND ${innerExtra}
+             ) AS updated
       FROM Infrastructure i
-      WHERE DATE(i.created_at) BETWEEN DATE('${from.toISOString().slice(0,10)}') AND DATE('${to.toISOString().slice(0,10)}')
-        ${base ? ' AND '+base.replace(/^WHERE /,'') : ''}
+      ${outerWhere}
       GROUP BY d ORDER BY d ASC;
     `);
     return { message:'Activité agrégée.', messageE:'Aggregated activity.', items: rows.map(r=>({ date: r.d, created: Number(r.created), updated: Number(r.updated) })) };
