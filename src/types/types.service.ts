@@ -142,8 +142,7 @@ function normalizeTypePayload(input: Partial<CreateTypeDto | UpdateTypeDto>) {
   }
 
   if (out.location !== undefined) out.location = isPlainObject(out.location) ? out.location : {};
-  if (out.images !== undefined && !Array.isArray(out.images)) out.images = [];
-  if (out.images === undefined) out.images = [];
+ out.images = [];
 
   if (out.attribus !== undefined) {
     out.attribus = ensureCoreAttributes(normalizeAttribus(out.attribus));
