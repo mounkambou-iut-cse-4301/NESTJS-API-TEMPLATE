@@ -11,6 +11,19 @@ import { DeleteInfrastructureDto } from './dto/delete-infra.dto';
 
 type Order = Record<string, 'asc' | 'desc'>;
 
+// infrastructures.service.ts (en haut, à côté des helpers)
+
+function parseBigIntId(idStr: string, field = 'id'): bigint {
+  if (typeof idStr !== 'string' || !/^\d+$/.test(idStr)) {
+    throw new BadRequestException({
+      message: `${field} invalide (doit être numérique).`,
+      messageE: `Invalid ${field} (must be numeric).`,
+    });
+  }
+  return BigInt(idStr);
+}
+
+
 /* ---------- helpers ---------- */
 function ensureObject(v: any) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
 function ensureArray<T = any>(v: any): T[] { return Array.isArray(v) ? v : []; }

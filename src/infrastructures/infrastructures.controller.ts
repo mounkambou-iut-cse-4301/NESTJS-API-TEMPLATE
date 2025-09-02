@@ -265,16 +265,7 @@ export class InfrastructuresController {
     return await this.service.statsByDimension('domaine', q, req);
   }
 
-  @ApiOperation({
-    summary: 'Détail',
-    description: 'Param `include=type,territory,composants` pour enrichir la réponse.',
-  })
-  @Get(':id')
-  async one(@Param() p: InfraIdParamDto, @Query('include') include?: string) {
-    const inc = (include || '').split(',').map(s=>s.trim()).filter(Boolean);
-    const row = await this.service.findOne(p.id, inc);
-    return { message: 'Infrastructure récupérée.', messageE: 'Infrastructure fetched.', data: row };
-  }
+ 
 
   @ApiOperation({
     summary: 'Mettre à jour',
@@ -365,6 +356,15 @@ export class InfrastructuresController {
     });
     res.send(csv);
   }
-
+ @ApiOperation({
+    summary: 'Détail',
+    description: 'Param `include=type,territory,composants` pour enrichir la réponse.',
+  })
+  @Get(':id')
+  async one(@Param() p: InfraIdParamDto, @Query('include') include?: string) {
+    const inc = (include || '').split(',').map(s=>s.trim()).filter(Boolean);
+    const row = await this.service.findOne(p.id, inc);
+    return { message: 'Infrastructure récupérée.', messageE: 'Infrastructure fetched.', data: row };
+  }
   
 }
