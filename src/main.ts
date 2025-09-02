@@ -18,7 +18,9 @@ async function bootstrap() {
       'https://superadmin.sigcom.collexios.com',
       'https://portail.sigcom.collexios.com',
       'http://superadmin.sigcom.collexios.com',
-      'http://portail.sigcom.collexios.com'
+      'http://portail.sigcom.collexios.com',
+      'https://admin.commune.sigcom.collexios.com',
+      'http://admin.commune.sigcom.collexios.com'
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
