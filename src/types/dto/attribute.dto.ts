@@ -17,7 +17,7 @@ function toLower(input: any) {
 
 export class AttributeDto {
   @ApiProperty({ description: 'Clé attribut (normalisée en MAJ SANS ACCENT).' })
-  @Transform(({ value }) => upperNoAccents(String(value)))
+  @Transform(({ value }) => upperNoAccents(String(value)?.trim()))
   @IsString()
   key: string;
 

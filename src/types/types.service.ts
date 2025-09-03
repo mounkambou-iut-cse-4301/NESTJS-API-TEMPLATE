@@ -118,9 +118,17 @@ function ensureCoreAttributes(attribus: any[]): any[] {
     list.push({
       key: 'ETAT',
       type: 'enum',
-      value: ['EXCELLENT','BON','PASSABLE','MAUVAIS','TRES MAUVAIS'],
+      value: ['FONCTIONNEL','NON FONCTIONNEL'],
     });
   }
+  //   if (!has('ETAT')) {
+  //   list.push({
+  //     key: 'ETAT',
+  //     type: 'enum',
+  //     value: ['BON ETAT','ETAT ACCEPTABLE','MAUVAIS ETAT'],
+  //   });
+  // }
+  //value: ['FONCTIONNEL','NON FONCTIONNEL'],
   return normalizeAttribus(list);
 }
 
