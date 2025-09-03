@@ -21,7 +21,7 @@ export class SousDomainesService {
       this.prisma.sousDomaine.count({ where }),
       this.prisma.sousDomaine.findMany({
         where,
-        orderBy: sort ?? { id: 'desc' },
+        orderBy: sort ?? { nom: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: {

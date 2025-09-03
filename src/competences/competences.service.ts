@@ -29,7 +29,7 @@ export class CompetencesService {
       this.prisma.competence.count({ where }),
       this.prisma.competence.findMany({
         where,
-        orderBy: sort ?? { id: 'desc' },
+        orderBy: sort ?? { name: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: { id: true, name: true, created_at: true, updated_at: true },

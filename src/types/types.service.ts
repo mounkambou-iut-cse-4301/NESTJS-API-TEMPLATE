@@ -269,7 +269,7 @@ export class TypesService {
       this.prisma.typeInfrastructure.count({ where }),
       this.prisma.typeInfrastructure.findMany({
         where,
-        orderBy: sort ?? { id: 'desc' },
+        orderBy: sort ?? { name: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         select: this.fullSelect,
