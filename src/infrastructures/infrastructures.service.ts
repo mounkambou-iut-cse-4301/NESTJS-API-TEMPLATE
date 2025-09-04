@@ -59,7 +59,7 @@ type Scope = {
 };
 
 /** États autorisés (toujours MAJ) */
-const ALLOWED_ETATS = ['EXCELLENT','BON','PASSABLE','MAUVAIS','TRES MAUVAIS'] as const;
+const ALLOWED_ETATS = ['FONCTIONNEL','NON FONCTIONNEL'] as const;
 type Etat = typeof ALLOWED_ETATS[number];
 
 /** Expression SQL robuste pour lire ETAT depuis attribus (etat|ETAT, string|array) */

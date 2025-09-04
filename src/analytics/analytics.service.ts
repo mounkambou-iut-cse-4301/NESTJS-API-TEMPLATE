@@ -89,7 +89,7 @@ function rootWhere(where: any) {
 /* ----------------- Constantes & helpers ETAT ----------------- */
 
 /** Valeurs autorisées (majuscules) */
-const ALLOWED_ETATS = ['EXCELLENT','BON','PASSABLE','MAUVAIS','TRES MAUVAIS'] as const;
+const ALLOWED_ETATS = ['FONCTIONNEL','NON FONCTIONNEL'] as const;
 type Etat = typeof ALLOWED_ETATS[number];
 
 /** Expression SQL : ETAT coalescé entre $.ETAT et $.etat, string upper */
