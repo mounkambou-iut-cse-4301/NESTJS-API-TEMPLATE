@@ -320,16 +320,21 @@ export class AnalyticsService {
           FROM Infrastructure
           ${this.andCond(W, condBool)};
         `);
-        const boolEtat: any[] = await this.prisma.$queryRawUnsafe(`
-          SELECT
-            ${JSON_ETAT_EXPR} AS etat,
-            SUM(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) = 'true'  THEN 1 ELSE 0 END) AS vrai,
-            SUM(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(attribus, '$."${key}"')) = 'false' THEN 1 ELSE 0 END) AS faux
-          FROM Infrastructure
-          ${this.andCond(W, condBool)}
-          GROUP BY etat
-          ORDER BY (vrai+faux) DESC;
-        `);
+const boolEtat: any[] = await this.prisma.$queryRawUnsafe(`
+  SELECT
+    ${JSON_ETAT_EXPR} AS etat,
+    SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = TRUE  THEN 1 ELSE 0 END) AS vrai,
+    SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = FALSE THEN 1 ELSE 0 END) AS faux
+  FROM Infrastructure
+  ${this.andCond(W, condBool)}
+  GROUP BY etat
+  ORDER BY
+    (
+      SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = TRUE  THEN 1 ELSE 0 END) +
+      SUM(CASE WHEN JSON_EXTRACT(attribus, '$."${key}"') = FALSE THEN 1 ELSE 0 END)
+    ) DESC;
+`);
+
         bloc.booleen = {
           vrai: Number(boolRows?.[0]?.vrai ?? 0),
           faux: Number(boolRows?.[0]?.faux ?? 0),
