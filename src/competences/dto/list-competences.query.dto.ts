@@ -3,6 +3,11 @@ import { Transform } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class ListCompetencesQueryDto {
+
+  @ApiPropertyOptional({ example: 1 })
+  @Transform(({ value }) => Number(value)) @IsInt() @Min(1) @IsOptional()
+  sousDomaineId?: number;
+
   @ApiPropertyOptional() @IsString() @IsOptional()
   q?: string;
 

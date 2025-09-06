@@ -172,6 +172,8 @@ model SousDomaine {
 
   types            TypeInfrastructure[]
   infrastructures  Infrastructure[]
+
+  Competence Competence[]
 }
 
 /// Points collectés sur le terrain (trace GPS)
@@ -205,6 +207,8 @@ model TypeCommune {
 model Competence {
   id        Int       @id @default(autoincrement())
   name      String    @unique
+  sousDomaineId Int?
+  sousDomaine   SousDomaine?  @relation(fields: [sousDomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 

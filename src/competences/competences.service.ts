@@ -1,3 +1,4 @@
+import { SousDomaine } from './../../generated/prisma/index.d';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -20,10 +21,11 @@ function buildMeta(page: number, pageSize: number, total: number) {
 export class CompetencesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(params: { page: number; pageSize: number; sort?: Order; q?: string }) {
-    const { page, pageSize, sort, q } = params;
+  async list(params: { page: number; pageSize: number; sort?: Order; q?: string, sousDomaineId?: number }): Promise<{ items: any[]; meta: any }> {
+    const { page, pageSize, sort, q, sousDomaineId } = params;
     const where: any = {};
     if (q) where.name = { contains: q, mode: 'insensitive' };
+    if (sousDomaineId) where.sousDomaineId = sousDomaineId;
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.competence.count({ where }),
@@ -32,7 +34,7 @@ export class CompetencesService {
         orderBy: sort ?? { name: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        select: { id: true, name: true, created_at: true, updated_at: true },
+        select: { id: true, name: true, created_at: true, updated_at: true,sousDomaine:true,sousDomaineId:true },
       }),
     ]);
     return { items, meta: buildMeta(page, pageSize, total) };
@@ -54,7 +56,7 @@ export class CompetencesService {
 
   async findOne(id: number) {
     const row = await this.prisma.competence.findUnique({
-      where: { id }, select: { id: true, name: true, created_at: true, updated_at: true },
+      where: { id }, select: { id: true, name: true, created_at: true, updated_at: true,sousDomaine:true },
     });
     if (!row) throw new NotFoundException({ message: 'Compétence introuvable.', messageE: 'Competence not found.' });
     return row;

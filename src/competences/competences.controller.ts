@@ -30,7 +30,7 @@ export class CompetencesController {
     }
 
     const { items, meta } = await this.service.list({
-      page, pageSize, sort: Object.keys(orders).length ? orders : undefined, q: q.q,
+      page, pageSize, sort: Object.keys(orders).length ? orders : undefined, q: q.q, sousDomaineId: q.sousDomaineId
     });
     return { message: 'Compétences chargées.', messageE: 'Competences loaded.', data: items, meta };
   }
