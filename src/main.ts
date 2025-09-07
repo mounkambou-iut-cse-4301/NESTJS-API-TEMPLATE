@@ -35,8 +35,8 @@ async function bootstrap() {
 
   // 1. Construction de la config Swagger avec bearer
   const config = new DocumentBuilder()
-    .setTitle('SINGCOM API')
-    .setDescription('API de gestion de SINGCOM')
+    .setTitle('SIGCOM API')
+    .setDescription('API de gestion de SIGCOM')
     .setVersion('1.0')
     .addBearerAuth(
       {
