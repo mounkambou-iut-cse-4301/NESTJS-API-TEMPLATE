@@ -81,7 +81,6 @@
 //   }
 // }
 // src/competences/competences.service.ts
-import { SousDomaine } from './../../generated/prisma/index.d';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 

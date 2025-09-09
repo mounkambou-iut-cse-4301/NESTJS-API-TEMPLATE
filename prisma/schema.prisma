@@ -3,57 +3,58 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 // prisma/schema.prisma
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
-/* =========================
-   Territoire
-   ========================= */
+/**
+ * =========================
+ * Territoire
+ * =========================
+ */
 
 model Region {
-  id              Int               @id @default(autoincrement())
+  id              Int              @id @default(autoincrement())
   nom             String
   nom_en          String?
-  code            String?           @unique
+  code            String?          @unique
   departements    Departement[]
   communes        Commune[]
   infrastructures Infrastructure[]
 }
 
 model Departement {
-  id               Int               @id @default(autoincrement())
-  regionId         Int
-  nom              String
-  nom_en           String?
-  code             String?           @unique
+  id       Int     @id @default(autoincrement())
+  regionId Int
+  nom      String
+  nom_en   String?
+  code     String? @unique
 
-  region           Region            @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  arrondissements  Arrondissement[]
-  communes         Commune[]
-  infrastructures  Infrastructure[]
+  region          Region           @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  arrondissements Arrondissement[]
+  communes        Commune[]
+  infrastructures Infrastructure[]
 }
 
 model Arrondissement {
-  id               Int               @id @default(autoincrement())
-  departementId    Int
-  nom              String
-  nom_en           String?
-  code             String?           @unique
+  id            Int     @id @default(autoincrement())
+  departementId Int
+  nom           String
+  nom_en        String?
+  code          String? @unique
 
-  departement      Departement       @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  communes         Commune[]
-  infrastructures  Infrastructure[]
+  departement     Departement      @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  communes        Commune[]
+  infrastructures Infrastructure[]
 }
 
 model Commune {
-  id               Int               @id @default(autoincrement())
+  id               Int     @id @default(autoincrement())
   arrondissementId Int?
   departementId    Int
   regionId         Int
@@ -62,73 +63,76 @@ model Commune {
   nom_maire        String?
   longitude        Float?
   latitude         Float?
-  code             String?           @unique
+  code             String? @unique
   typeCommuneId    Int?
+  communeUrl       String? @unique
 
   /// Commune vérifiée ?
-  is_verified      Boolean           @default(true)
+  is_verified Boolean @default(true)
   /// Commune bloquée ?
-  is_block         Boolean           @default(false)
+  is_block    Boolean @default(false)
 
-  created_at       DateTime          @default(now())
-  updated_at       DateTime          @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  arrondissement   Arrondissement?   @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  departement      Departement       @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  region           Region            @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  typeCommune      TypeCommune?      @relation(fields: [typeCommuneId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  arrondissement Arrondissement? @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  departement    Departement     @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  region         Region          @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  typeCommune    TypeCommune?    @relation(fields: [typeCommuneId], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
-  utilisateurs     Utilisateur[]
-  infrastructures  Infrastructure[]
+  utilisateurs    Utilisateur[]
+  infrastructures Infrastructure[]
 }
 
-/* =========================
-   Auth & rôles
-   ========================= */
+/**
+ * =========================
+ * Auth & rôles
+ * =========================
+ */
 
 model Utilisateur {
-  id                  Int               @id @default(autoincrement())
-  nom                 String
-  email               String            @unique
-  mot_de_passe        String
-  communeId           Int?
-  telephone           String            @unique
+  id                 Int       @id @default(autoincrement())
+  nom                String
+  email              String    @unique
+  mot_de_passe       String
+  communeId          Int?
+  telephone          String    @unique
   /// Compte vérifié (email / validation admin)
-  is_verified         Boolean           @default(false)
-  photo_url           String?
-  ville               String?
-  adresse             String?
+  is_verified        Boolean   @default(false)
+  photo_url          String?
+  ville              String?
+  adresse            String?
   /// Compte bloqué (accès refusé)
-  is_block            Boolean           @default(false)
-  derniere_connexion  DateTime?
-  created_at          DateTime          @default(now())
-  updated_at          DateTime          @updatedAt
+  is_block           Boolean   @default(false)
+  derniere_connexion DateTime?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
 
-  commune             Commune?          @relation(fields: [communeId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  roles               UtilisateurRole[]
-  infrastructures     Infrastructure[]
+  commune         Commune?          @relation(fields: [communeId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  roles           UtilisateurRole[]
+  infrastructures Infrastructure[]
 
-  Parcour             Parcour[]
+  Parcour Parcour[]
 }
 
 model Role {
-  id     Int               @id @default(autoincrement())
-  nom    String            @unique   // SUPER_ADMIN | MINISTERE | COMMUNE
-  perms  RolePermission[]
-  users  UtilisateurRole[]
+  id    Int               @id @default(autoincrement())
+  nom   String            @unique // SUPER_ADMIN | MINISTERE | COMMUNE
+  perms RolePermission[]
+  users UtilisateurRole[]
 }
 
 model Permission {
-  id     Int               @id @default(autoincrement())
-  code   String            @unique   // MODELES_GERER, INFRA_ECRIRE, ...
-  roles  RolePermission[]
+  id    Int              @id @default(autoincrement())
+  code  String           @unique // MODELES_GERER, INFRA_ECRIRE, ...
+  roles RolePermission[]
 }
 
 model UtilisateurRole {
   utilisateurId Int
   roleId        Int
-  user          Utilisateur  @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  role          Role         @relation(fields: [roleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  user          Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  role          Role        @relation(fields: [roleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
   @@id([utilisateurId, roleId])
 }
@@ -136,110 +140,112 @@ model UtilisateurRole {
 model RolePermission {
   roleId       Int
   permissionId Int
-  role         Role        @relation(fields: [roleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  permission   Permission  @relation(fields: [permissionId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
   @@id([roleId, permissionId])
 }
 
 model Domaine {
-  id               Int                 @id @default(autoincrement())
-  nom              String              @unique
-  nom_en           String?
-  code             String?
-  created_at       DateTime            @default(now())
-  updated_at       DateTime            @updatedAt
+  id         Int      @id @default(autoincrement())
+  nom        String   @unique
+  nom_en     String?
+  code       String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  sousDomaines     SousDomaine[]
-  types            TypeInfrastructure[]
-  infrastructures  Infrastructure[]
+  sousDomaines    SousDomaine[]
+  types           TypeInfrastructure[]
+  infrastructures Infrastructure[]
 }
 
 model SousDomaine {
-  id               Int                 @id @default(autoincrement())
-  domaineId        Int
-  domaine          Domaine             @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  id        Int     @id @default(autoincrement())
+  domaineId Int
+  domaine   Domaine @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: Restrict)
 
-  nom              String
-  nom_en          String?
-  code            String?
-  created_at      DateTime             @default(now())
-  updated_at      DateTime             @updatedAt
+  nom        String
+  nom_en     String?
+  code       String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   types           TypeInfrastructure[]
   infrastructures Infrastructure[]
 
-  Competence      Competence[]
+  Competence Competence[]
 }
 
 /// Points collectés sur le terrain (trace GPS)
 model Parcour {
-  id           BigInt        @id @default(autoincrement())
+  id           BigInt       @id @default(autoincrement())
   collecteurId Int?
-  collecteur   Utilisateur?  @relation(fields: [collecteurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  collecteur   Utilisateur? @relation(fields: [collecteurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
-  latitude     Float
-  longitude    Float
-  recordedAt   DateTime
+  latitude   Float
+  longitude  Float
+  recordedAt DateTime
 
-  created_at   DateTime      @default(now())
-  updated_at   DateTime      @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@index([collecteurId], name: "idx_parcour_collecteur")
-  @@index([recordedAt],  name: "idx_parcour_recordedAt")
+  @@index([recordedAt], name: "idx_parcour_recordedAt")
 }
 
 /// Typologie administrative d’une commune (ex: URBAINE / RURALE)
 model TypeCommune {
-  id         Int        @id @default(autoincrement())
-  name       String     @unique
-  created_at DateTime   @default(now())
-  updated_at DateTime   @updatedAt
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  Commune    Commune[]
+  Commune Commune[]
 }
 
 /// Référentiel de compétences (ex: SANTÉ, ÉDUCATION…)
 model Competence {
-  id             Int                 @id @default(autoincrement())
-  name           String              @unique
-  sousDomaineId  Int?
-  sousDomaine    SousDomaine?        @relation(fields: [sousDomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  created_at     DateTime            @default(now())
-  updated_at     DateTime            @updatedAt
+  id            Int          @id @default(autoincrement())
+  name          String       @unique
+  sousDomaineId Int?
+  sousDomaine   SousDomaine? @relation(fields: [sousDomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
 
-  Infrastructure      Infrastructure[]
-  TypeInfrastructure  TypeInfrastructure[]
+  Infrastructure     Infrastructure[]
+  TypeInfrastructure TypeInfrastructure[]
 }
 
-/* =========================
-   Types d'infrastructure (modèles)
-   ========================= */
+/**
+ * =========================
+ * Types d'infrastructure (modèles)
+ * =========================
+ */
 
 model TypeInfrastructure {
-  id           Int        @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   /// Nom du type (ex: "hopital")
-  name         String     @unique
+  name        String  @unique
   /// Nature du type: "simple" ou "complexe"
-  type         String
+  type        String
   /// Localisation par défaut (JSON libre)
-  location     Json?
+  location    Json?
   /// Description textuelle du type
-  description  String?
+  description String?
   /// Images par défaut (JSON libre)
-  images       Json?
+  images      Json?
   /// Déclaration des attributs (JSON array)
-  attribus     Json
+  attribus    Json
   /// Déclaration des composants (JSON array) (récursif)
-  composant    Json?
+  composant   Json?
 
   /// Classification
   domaineId     Int?
   sousdomaineId Int?
   competenceId  Int?
-  domaine       Domaine?       @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  sousdomaine   SousDomaine?   @relation(fields: [sousdomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  competence    Competence?    @relation(fields: [competenceId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  domaine       Domaine?     @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  sousdomaine   SousDomaine? @relation(fields: [sousdomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  competence    Competence?  @relation(fields: [competenceId], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -247,33 +253,37 @@ model TypeInfrastructure {
   infrastructures Infrastructure[]
 }
 
-/* =========================
-   Infrastructures réelles (records)
-   ========================= */
+/**
+ * =========================
+ * Infrastructures réelles (records)
+ * =========================
+ */
 
 model Infrastructure {
-  id                      BigInt   @id @default(autoincrement())
+  id BigInt @id @default(autoincrement())
 
-  id_parent               BigInt?
-  parent                  Infrastructure?  @relation("InfrastructureParent", fields: [id_parent], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  children                Infrastructure[] @relation("InfrastructureParent")
+  id_parent BigInt?
+  parent    Infrastructure?  @relation("InfrastructureParent", fields: [id_parent], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  children  Infrastructure[] @relation("InfrastructureParent")
 
   /// Référence du type (modèle)
-  id_type_infrastructure  Int
-  typeRef                 TypeInfrastructure @relation(fields: [id_type_infrastructure], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  id_type_infrastructure Int
+  typeRef                TypeInfrastructure @relation(fields: [id_type_infrastructure], references: [id], onUpdate: Cascade, onDelete: Restrict)
 
   /// Nom lisible (ex: "Hopital de djongolo")
-  name                    String
+  name        String
   /// Description textuelle du record communal
-  description             String?
+  description String?
 
   /// Infrastructure déjà existante ? (1/0)
-  existing_infrastructure Boolean  @default(true)
-
+  existing_infrastructure Boolean @default(true)
+  is_synchronized         Boolean @default(false)
   /// "simple" | "complexe"
   type                    String
 
-  /* Liens territoriaux (FK) */
+  /**
+   * Liens territoriaux (FK)
+   */
   regionId         Int
   departementId    Int
   arrondissementId Int
@@ -281,31 +291,31 @@ model Infrastructure {
   utilisateurId    Int?
   competenceId     Int?
 
-  region           Region         @relation(fields: [regionId],         references: [id], onUpdate: Cascade, onDelete: Restrict)
-  departement      Departement    @relation(fields: [departementId],    references: [id], onUpdate: Cascade, onDelete: Restrict)
-  arrondissement   Arrondissement @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  commune          Commune        @relation(fields: [communeId],        references: [id], onUpdate: Cascade, onDelete: Restrict)
-  utilisateur      Utilisateur?   @relation(fields: [utilisateurId],    references: [id], onUpdate: Cascade, onDelete: SetNull)
-  competence       Competence?    @relation(fields: [competenceId],     references: [id], onUpdate: Cascade, onDelete: SetNull)
+  region         Region         @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  departement    Departement    @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  commune        Commune        @relation(fields: [communeId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  utilisateur    Utilisateur?   @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  competence     Competence?    @relation(fields: [competenceId], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   /// Localisation réelle (JSON libre)
-  location    Json?
+  location Json?
   /// Photos réelles (JSON libre)
-  images      Json?
+  images   Json?
   /// Attributs réels (JSON objet)
-  attribus    Json
+  attribus Json
 
   /// Classification
   domaineId     Int?
   sousdomaineId Int?
-  domaine       Domaine?      @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  sousdomaine   SousDomaine?  @relation(fields: [sousdomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  domaine       Domaine?     @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  sousdomaine   SousDomaine? @relation(fields: [sousdomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   /// Composants réels (JSON array)
-  composant   Json?
+  composant Json?
 
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@index([communeId], name: "idx_infra_commune")
   @@index([id_type_infrastructure], name: "idx_infra_type")
@@ -336,8 +346,16 @@ model DeletedInfrastructure {
   updated_at              DateTime
 
   /// Colonnes additionnelles
-  reason                  String
-  fileURL                 String
+  reason  String
+  fileURL String
 
   @@map("DeletedInfrastructure")
+}
+
+model Setting {
+  id               Int     @id @default(1) // une seule ligne (id=1)
+  centralServerUrl String? // nullable
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
