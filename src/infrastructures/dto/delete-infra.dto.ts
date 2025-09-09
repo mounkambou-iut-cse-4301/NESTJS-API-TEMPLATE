@@ -1,3 +1,4 @@
+// src/infrastructures/dto/delete-infra.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString } from 'class-validator';
 
@@ -9,7 +10,7 @@ export class DeleteInfrastructureDto {
 
   @ApiProperty({
     description: 'Fichier justificatif: dataURL base64 (image/pdf) ou URL http(s).',
-    example: 'data:application/pdf;base64,JVBERi0xLjcKJc...'
+    example: 'data:application/pdf;base64,JVBERi0xLjcKJc...',
   })
   @IsString()
   @IsNotEmpty()

@@ -1,3 +1,4 @@
+// src/infrastructures/dto/infra-id.param.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsNotEmpty } from 'class-validator';

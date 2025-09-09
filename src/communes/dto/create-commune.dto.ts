@@ -34,6 +34,12 @@ export class CreateCommuneDto {
   @IsOptional() @IsString()
   code?: string;
 
+  //recupere communeurl
+@ApiPropertyOptional({ example: 'https://ma-commune.cm' })
+@IsOptional()
+@IsString() // ou @IsUrl({}, { message: 'URL invalide' })
+communeUrl?: string;
+
   @ApiProperty({ example: 100, description: 'FK Arrondissement.id' })
   @IsOptional()
   @IsInt()

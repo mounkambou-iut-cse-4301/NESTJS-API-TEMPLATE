@@ -5,6 +5,11 @@ import { IsBoolean, IsInt, IsLatitude, IsLongitude, IsOptional, IsString } from 
 export class UpdateCommuneDto {
   @ApiPropertyOptional() @IsOptional() @IsString() nom?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() nom_en?: string;
+    @ApiPropertyOptional({ example: 'https://ma-commune.cm' })
+@IsOptional()
+@IsString() // ou @IsUrl()
+communeUrl?: string | null;
+
       @ApiPropertyOptional({ example: 'Mr Emmanuel' })
   @IsOptional() @IsString()
   nom_maire?: string;
