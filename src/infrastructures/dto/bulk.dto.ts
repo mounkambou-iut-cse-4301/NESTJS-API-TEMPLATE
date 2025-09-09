@@ -1,3 +1,4 @@
+// src/infrastructures/dto/bulk.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { CreateInfrastructureDto } from './create-infra.dto';
 import { IsArray, ValidateNested } from 'class-validator';

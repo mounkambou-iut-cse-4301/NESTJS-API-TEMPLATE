@@ -5,22 +5,22 @@ import { IsBoolean, IsIn, IsInt, IsOptional, Min } from 'class-validator';
 
 export class BaseScopeDto {
   @ApiPropertyOptional({ description: 'Filtre regionId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1)
   regionId?: number;
 
   @ApiPropertyOptional({ description: 'Filtre departementId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1)
   departementId?: number;
 
   @ApiPropertyOptional({ description: 'Filtre arrondissementId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1)
   arrondissementId?: number;
 
   @ApiPropertyOptional({ description: 'Filtre communeId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1)
   communeId?: number;
 
@@ -30,17 +30,17 @@ export class BaseScopeDto {
   type?: 'SIMPLE'|'COMPLEXE';
 
   @ApiPropertyOptional({ description: 'Filtrer par TypeInfrastructure (FK)', example: 2 })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1)
   typeId?: number;
 
   @ApiPropertyOptional({ description: 'Filtrer par domaine (FK)', example: 1 })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1)
   domaineId?: number;
 
   @ApiPropertyOptional({ description: 'Filtrer par compétence (FK)', example: 3 })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1)
   competenceId?: number;
 }
@@ -56,12 +56,12 @@ export class InfraGroupDto extends BaseScopeDto {
   group: 'type'|'region'|'departement'|'commune';
 
   @ApiPropertyOptional({ description: 'Inclure la ventilation par attribus.etat', default: true })
-  @Transform(({ value }) => value === undefined ? true : (value === 'true' || value === true))
+  @Transform(({ value }) => (value === undefined ? true : (value === 'true' || value === true)))
   @IsOptional() @IsBoolean()
   include_etat?: boolean;
 
   @ApiPropertyOptional({ description: 'Limiter le nombre de groupes retournés', default: 50 })
-  @Transform(({ value }) => value === undefined ? 50 : Number(value))
+  @Transform(({ value }) => (value === undefined ? 50 : Number(value)))
   @IsOptional() @IsInt() @Min(1)
   limit?: number;
 }
@@ -69,12 +69,12 @@ export class InfraGroupDto extends BaseScopeDto {
 /** 3) Groupement par competenceId / domaineId */
 export class InfraGroupSimpleDto extends BaseScopeDto {
   @ApiPropertyOptional({ description: 'Inclure la ventilation par attribus.etat', default: true })
-  @Transform(({ value }) => value === undefined ? true : (value === 'true' || value === true))
+  @Transform(({ value }) => (value === undefined ? true : (value === 'true' || value === true)))
   @IsOptional() @IsBoolean()
   include_etat?: boolean;
 
   @ApiPropertyOptional({ description: 'Limiter le nombre de groupes retournés', default: 50 })
-  @Transform(({ value }) => value === undefined ? 50 : Number(value))
+  @Transform(({ value }) => (value === undefined ? 50 : Number(value)))
   @IsOptional() @IsInt() @Min(1)
   limit?: number;
 }

@@ -1,3 +1,4 @@
+// src/infrastructures/dto/list-infra.query.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
@@ -12,20 +13,20 @@ export class ListInfraQueryDto {
   @ApiPropertyOptional({ description: 'Tri: -created_at,name,type' })
   @IsOptional() @IsString() sort?: string;
 
-  @ApiPropertyOptional() @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @ApiPropertyOptional() @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1) regionId?: number;
 
-  @ApiPropertyOptional() @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @ApiPropertyOptional() @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1) departementId?: number;
 
-  @ApiPropertyOptional() @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @ApiPropertyOptional() @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1) arrondissementId?: number;
 
-  @ApiPropertyOptional() @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @ApiPropertyOptional() @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1) communeId?: number;
 
   @ApiPropertyOptional({ description: 'id_type_infrastructure' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1) typeId?: number;
 
   @ApiPropertyOptional({ description: 'SIMPLE|COMPLEXE' })
@@ -36,19 +37,19 @@ export class ListInfraQueryDto {
   @IsOptional() @IsString() q?: string;
 
   @ApiPropertyOptional({ description: 'Filtre domaineId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1) domaineId?: number;
     
   @ApiPropertyOptional({ description: 'Filtre utilisateurId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1) utilisateurId?: number;
 
-   @ApiPropertyOptional({ description: 'Filtre competenceId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @ApiPropertyOptional({ description: 'Filtre competenceId' })
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1) competenceId?: number;
 
   @ApiPropertyOptional({ description: 'Filtre sousdomaineId' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
   @IsOptional() @IsInt() @Min(1) sousdomaineId?: number;
 
   @ApiPropertyOptional({ description: 'YYYY-MM-DD' }) @IsOptional() @IsString()
