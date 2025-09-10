@@ -383,6 +383,7 @@ import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 import { InfraGroupDto, InfraGroupSimpleDto, InfraSummaryDto } from './dto/infra-stats.dto';
 import { ListDeletedQueryDto } from './dto/list-deleted.query.dto';
 import { DeleteInfrastructureDto } from './dto/delete-infra.dto';
+import { UpdateAttribusDto } from './dto/update-attribus.dto';
 
 function meta(page:number, pageSize:number, total:number) {
   return { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total/Math.max(1,pageSize))) };
@@ -563,4 +564,11 @@ export class InfrastructuresController {
     const row = await this.service.findOne(p.id, inc);
     return { message: 'Infrastructure récupérée.', messageE: 'Infrastructure fetched.', data: row };
   }
+
+  @ApiOperation({ summary: 'Mettre à jour uniquement le JSON attribus (deep-merge)' })
+@Patch(':id/attribus')
+async patchAttribus(@Param('id') id: string, @Body() dto: UpdateAttribusDto) {
+  const data = await this.service.updateAttribus(id, dto);
+  return { message: 'Attribus mis à jour.', messageE: 'Attributes updated.', data };
+}
 }
