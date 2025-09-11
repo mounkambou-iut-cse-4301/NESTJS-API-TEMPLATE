@@ -398,13 +398,13 @@ function sanitizeSort(sort?: string) {
   return Object.keys(orders).length ? orders : undefined;
 }
 
-@ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard, NotBlockedGuard)
+
 @ApiTags('Infrastructures')
 @Controller('api/v1/infrastructures')
 export class InfrastructuresController {
   constructor(private readonly service: InfrastructuresService) {}
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({
     summary: 'Lister les infrastructures',
     description: 'Pagination + filtres: regionId, departementId, arrondissementId, communeId, typeId, type, domaineId, sousdomaineId, q, created_from, created_to, competenceId. Tri: created_at,name,type.',
@@ -433,7 +433,8 @@ export class InfrastructuresController {
     const res = await this.service.create(dto, req.sub);
     return { message: 'Infrastructure créée.', messageE: 'Infrastructure created.', data: res };
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @Get('stats/summary')
   @ApiOperation({
     summary: 'Résumé des infrastructures',
@@ -442,7 +443,8 @@ export class InfrastructuresController {
   async statsSummary(@Query() q: InfraSummaryDto, @Req() req: any) {
     return await this.service.statsSummary(q, req);
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @Get('stats/group')
   @ApiOperation({
     summary: 'Groupements (type|region|departement|commune)',
@@ -451,7 +453,8 @@ export class InfrastructuresController {
   async statsGroup(@Query() q: InfraGroupDto, @Req() req: any) {
     return await this.service.statsGroup(q, req);
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @Get('stats/by-competence')
   @ApiOperation({
     summary: 'Groupement par competenceId',
@@ -460,7 +463,8 @@ export class InfrastructuresController {
   async statsByCompetence(@Query() q: InfraGroupSimpleDto, @Req() req: any) {
     return await this.service.statsByDimension('competence', q, req);
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @Get('stats/by-domaine')
   @ApiOperation({
     summary: 'Groupement par domaineId',
@@ -469,7 +473,8 @@ export class InfrastructuresController {
   async statsByDomaine(@Query() q: InfraGroupSimpleDto, @Req() req: any) {
     return await this.service.statsByDimension('domaine', q, req);
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({
     summary: 'Mettre à jour',
     description: 'Remplace éventuellement le JSON `composant` (pas de création/suppression physique d’enfants).',
@@ -479,7 +484,8 @@ export class InfrastructuresController {
     const row = await this.service.update(p.id, dto);
     return { message: 'Infrastructure mise à jour.', messageE: 'Infrastructure updated.', data: row };
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   /* --- suppression + archivage --- */
   @ApiOperation({ summary: 'Supprimer une infrastructure (avec archivage)', description: 'Archive toute la sous-arborescence dans DeletedInfrastructure, puis supprime.' })
   @Post(':id/remove')
@@ -487,7 +493,8 @@ export class InfrastructuresController {
     const res = await this.service.archiveAndDelete(id, body);
     return { message: 'Infrastructure supprimée et archivée.', messageE: 'Infrastructure deleted and archived.', data: res };
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   /* --- liste des supprimées --- */
   @ApiOperation({ summary: 'Lister les infrastructures supprimées', description: 'Pagination, filtres (mêmes que list), tri.' })
   @Get('deleted')
@@ -498,7 +505,8 @@ export class InfrastructuresController {
     const { total, items } = await this.service.listDeleted({ ...q, page, pageSize, sort });
     return { message: 'Liste des infrastructures supprimées.', messageE: 'Deleted infrastructures list.', data: items, meta: meta(page, pageSize, total) };
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   /* --- détail d’une supprimée --- */
   @ApiOperation({ summary: 'Détail d’une infrastructure supprimée' })
   @Get('deleted/:id')
@@ -506,7 +514,8 @@ export class InfrastructuresController {
     const row = await this.service.findOneDeleted(id);
     return { message: 'Infrastructure supprimée récupérée.', messageE: 'Deleted infrastructure fetched.', data: row };
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({
     summary: 'Supprimer',
     description: 'Supprime l’infrastructure. Avec le FK `ON DELETE CASCADE`, supprimer un parent supprime aussi ses enfants.',
@@ -516,7 +525,8 @@ export class InfrastructuresController {
     await this.service.remove(p.id);
     return { message: 'Infrastructure supprimée.', messageE: 'Infrastructure deleted.' };
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({
     summary: 'Bulk validate',
     description: 'Validation à blanc d’un tableau d’items (FK, champs requis).',
@@ -526,7 +536,8 @@ export class InfrastructuresController {
     const res = await this.service.validateBulk(body.items);
     return { message: 'Validation effectuée.', messageE: 'Validation done.', data: res };
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({
     summary: 'Bulk import',
     description: 'Crée en série les infrastructures et leurs composants.',
@@ -536,7 +547,8 @@ export class InfrastructuresController {
     const res = await this.service.bulk(rows, req.sub);
     return { message: 'Import traité.', messageE: 'Import processed.', data: res };
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({
     summary: 'Export CSV',
     description: 'Même filtres que la liste. Retourne un CSV (UTF-8).',
@@ -553,7 +565,8 @@ export class InfrastructuresController {
     });
     res.send(csv);
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({
     summary: 'Détail',
     description: 'Param `include=type,territory,composants` pour enrichir la réponse.',
@@ -564,7 +577,8 @@ export class InfrastructuresController {
     const row = await this.service.findOne(p.id, inc);
     return { message: 'Infrastructure récupérée.', messageE: 'Infrastructure fetched.', data: row };
   }
-
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({ summary: 'Mettre à jour uniquement le JSON attribus (deep-merge)' })
 @Patch(':id/attribus')
 async patchAttribus(@Param('id') id: string, @Body() dto: UpdateAttribusDto) {

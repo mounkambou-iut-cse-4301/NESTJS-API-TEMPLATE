@@ -3374,6 +3374,7 @@ import { CreateInfrastructureDto, ComponentInput } from './dto/create-infra.dto'
 import { UpdateInfrastructureDto } from './dto/update-infra.dto';
 import { DeleteInfrastructureDto } from './dto/delete-infra.dto';
 import { UpdateAttribusDto } from './dto/update-attribus.dto';
+import { Prisma } from '@prisma/client';
 
 type Order = Record<string, 'asc' | 'desc'>;
 
@@ -4410,18 +4411,21 @@ export class InfrastructuresService {
     return { ...row, id: row.id.toString(), id_parent: row.id_parent ? row.id_parent.toString() : null };
   }
   /** Met à jour UNIQUEMENT le JSON `attribus` d’une infrastructure (deep-merge). */
-async updateAttribus(idStr: string, dto: UpdateAttribusDto) {
-  if (!dto || !dto.attribus || typeof dto.attribus !== 'object' || Array.isArray(dto.attribus)) {
-    throw new BadRequestException({
-      message: 'attribus doit être un objet JSON.',
-      messageE: 'attribus must be a JSON object.',
-    });
-  }
+// Nécessaire en haut du fichier si pas déjà présent
+// import { Prisma } from '@prisma/client';
 
+async updateAttribus(idStr: string, dto: UpdateAttribusDto) {
   const id = BigInt(idStr);
+
   const current = await this.prisma.infrastructure.findUnique({
     where: { id },
-    select: { attribus: true },
+    select: {
+      communeId: true,
+      name: true,
+      description: true,
+      images: true,
+      attribus: true,
+    },
   });
   if (!current) {
     throw new NotFoundException({
@@ -4430,18 +4434,74 @@ async updateAttribus(idStr: string, dto: UpdateAttribusDto) {
     });
   }
 
-  const base = ensureObject(current.attribus);
-  const patch = ensureObject(dto.attribus);
+  // On prépare le payload d'update Prisma
+  const data: Prisma.InfrastructureUpdateInput = {};
 
-  // deep-merge: objets fusionnés, tableaux REMPLACÉS
-  const next = deepMerge(base, patch);
+  // 1) attribus: deep-merge UNIQUEMENT si fourni
+  if (dto.attribus !== undefined) {
+    if (typeof dto.attribus !== 'object' || Array.isArray(dto.attribus)) {
+      throw new BadRequestException({
+        message: 'attribus doit être un objet JSON.',
+        messageE: 'attribus must be a JSON object.',
+      });
+    }
+    const base = (current.attribus && typeof current.attribus === 'object') ? current.attribus : {};
+    const patch = dto.attribus || {};
+    const merged = deepMerge(base, patch);
+    data.attribus = merged as Prisma.InputJsonValue; // <- évite TS2322
+  }
+
+  // 2) name (facultatif)
+  if (dto.name !== undefined) {
+    data.name = dto.name;
+  }
+
+  // 3) description (facultative, nullable)
+  if (dto.description !== undefined) {
+    data.description = dto.description; // string | null ok
+  }
+
+  // 4) images (string | string[]) => remplace entièrement si fourni
+  if (dto.images !== undefined) {
+    const list = Array.isArray(dto.images) ? dto.images : [dto.images];
+    const urls = await this.toCloudinaryUrls(list, `infrastructures/${current.communeId}`);
+    data.images = urls as unknown as Prisma.InputJsonValue;
+  }
+
+  // Rien à faire ?
+  if (Object.keys(data).length === 0) {
+    // rien n'a été demandé
+    return {
+      id: id.toString(),
+      name: current.name,
+      description: current.description,
+      images: current.images,
+      attribus: current.attribus,
+      updated_at: new Date(), // valeur indicative
+    };
+  }
 
   const updated = await this.prisma.infrastructure.update({
     where: { id },
-    data: { attribus: next }, // ✅ on ne modifie que cette colonne
-    select: { id: true, attribus: true, updated_at: true },
+    data,
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      images: true,
+      attribus: true,
+      updated_at: true,
+    },
   });
 
-  return { id: updated.id.toString(), attribus: updated.attribus, updated_at: updated.updated_at };
+  return {
+    id: updated.id.toString(),
+    name: updated.name,
+    description: updated.description,
+    images: updated.images,
+    attribus: updated.attribus,
+    updated_at: updated.updated_at,
+  };
 }
+
 }
