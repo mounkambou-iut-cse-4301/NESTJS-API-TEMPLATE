@@ -107,8 +107,8 @@ function meta(p:number, s:number, total:number) {
   return { page: p, pageSize: s, total, totalPages: Math.max(1, Math.ceil(total/Math.max(1,s))) };
 }
 
-@ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard, NotBlockedGuard)
+// @ApiBearerAuth('JWT-auth')
+// @UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('TypesInfrastructure')
 @Controller('api/v1/types')
 export class TypesController {

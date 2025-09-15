@@ -910,7 +910,7 @@ Please change your password at first login.
   }
 
   /** Dashboard pour l'utilisateur courant */
-  async dashboard(id: number) {
+   async dashboard(id: number) {
     const userId = id;
     if (!userId) {
       throw new BadRequestException({
@@ -920,7 +920,7 @@ Please change your password at first login.
     }
 
     const total = await this.prisma.infrastructure.count({
-      where: { utilisateurId: userId },
+      where: { utilisateurId: userId,id_parent:null },
     });
 
     if (!total) {
@@ -953,6 +953,7 @@ Please change your password at first login.
       FROM "Infrastructure"
       WHERE "utilisateurId" = ${Number(userId)}
         AND DATE("created_at") = DATE(${lastDay})
+        AND "id_parent" IS NULL
     `;
     const lastDayCount = Number(rows?.[0]?.c ?? 0);
 

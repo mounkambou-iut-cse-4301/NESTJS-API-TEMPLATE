@@ -24,6 +24,8 @@ import { ExportsModule } from './exports/exports.module';
 import { PortailsModule } from './portails/portails.module';
 import { HealthModule } from './health/health.module';
 import { SettingsModule } from './settings/settings.module';
+import { SyncRefsModule } from './sync-refs/sync-refs.module';
+import { SyncTypesModule } from './sync-types/sync-types.module';
 
 @Module({
   imports: [
@@ -51,7 +53,9 @@ import { SettingsModule } from './settings/settings.module';
     ExportsModule,
     PortailsModule,
     HealthModule,
-    SettingsModule
+    SettingsModule,
+    SyncRefsModule,
+    SyncTypesModule
   ],
 })
 export class AppModule {}
