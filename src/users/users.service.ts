@@ -677,84 +677,88 @@ export class UsersService {
     return { total, items };
   }
 
-  async create(dto: CreateUserDto) {
-    if (!dto.telephone) {
-      throw new BadRequestException({
-        message: 'Le numéro de téléphone est obligatoire.',
-        messageE: 'Phone number is required.',
-      });
-    }
-    if (!dto.telephone.startsWith('+237')) {
-      throw new BadRequestException({
-        message: 'Numéro de téléphone invalide (doit commencer par +237).',
-        messageE: 'Invalid phone number (must start with +237).',
-      });
-    }
-    const telExists = await this.prisma.utilisateur.findUnique({
-      where: { telephone: dto.telephone },
-      select: { id: true },
+ async create(dto: CreateUserDto) {
+  if (!dto.telephone) {
+    throw new BadRequestException({
+      message: 'Le numéro de téléphone est obligatoire.',
+      messageE: 'Phone number is required.',
     });
-    if (telExists) {
-      throw new BadRequestException({
-        message: 'Numéro de téléphone déjà utilisé.',
-        messageE: 'Phone number already in use.',
-      });
-    }
-
-    const emailExists = await this.prisma.utilisateur.findUnique({
-      where: { email: dto.email },
-      select: { id: true },
+  }
+  if (!dto.telephone.startsWith('+237')) {
+    throw new BadRequestException({
+      message: 'Numéro de téléphone invalide (doit commencer par +237).',
+      messageE: 'Invalid phone number (must start with +237).',
     });
-    if (emailExists) {
-      throw new BadRequestException({
-        message: 'Adresse email déjà utilisée.',
-        messageE: 'Email already in use.',
+  }
+  const telExists = await this.prisma.utilisateur.findUnique({
+    where: { telephone: dto.telephone },
+    select: { id: true },
+  });
+  if (telExists) {
+    throw new BadRequestException({
+      message: 'Numéro de téléphone déjà utilisé.',
+      messageE: 'Phone number already in use.',
+    });
+  }
+
+  const emailExists = await this.prisma.utilisateur.findUnique({
+    where: { email: dto.email },
+    select: { id: true },
+  });
+  if (emailExists) {
+    throw new BadRequestException({
+      message: 'Adresse email déjà utilisée.',
+      messageE: 'Email already in use.',
+    });
+  }
+
+  let photoUrl: string | undefined;
+  if (dto.photoBase64) {
+    // ---------- Cloudinary disabled ----------
+    // Avant : photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
+    // Pour désactiver Cloudinary sans supprimer le code, la ligne ci-dessus est commentée.
+    // Comportement actuel : on sauvegarde la valeur fournie telle quelle (ex: URL ou string).
+    photoUrl = dto.photoBase64 as unknown as string;
+  }
+
+  const hash = await bcrypt.hash(dto.mot_de_passe, 10);
+
+  try {
+    const created = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.utilisateur.create({
+        data: {
+          nom: dto.nom,
+          email: dto.email,
+          mot_de_passe: hash,
+          telephone: dto.telephone,
+          communeId: dto.communeId ?? null,
+          ville: dto.ville ?? null,
+          adresse: dto.adresse ?? null,
+          is_verified: dto.is_verified ?? false,
+          is_block: dto.is_block ?? false,
+          ...(photoUrl ? { photo_url: photoUrl } : {}),
+        },
+        select: { id: true, nom: true, email: true, telephone: true },
       });
-    }
 
-    let photoUrl: string | undefined;
-    if (dto.photoBase64) {
-      photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
-    }
-
-    const hash = await bcrypt.hash(dto.mot_de_passe, 10);
-
-    try {
-      const created = await this.prisma.$transaction(async (tx) => {
-        const user = await tx.utilisateur.create({
-          data: {
-            nom: dto.nom,
-            email: dto.email,
-            mot_de_passe: hash,
-            telephone: dto.telephone,
-            communeId: dto.communeId ?? null,
-            ville: dto.ville ?? null,
-            adresse: dto.adresse ?? null,
-            is_verified: dto.is_verified ?? false,
-            is_block: dto.is_block ?? false,
-            ...(photoUrl ? { photo_url: photoUrl } : {}),
-          },
-          select: { id: true, nom: true, email: true, telephone: true },
-        });
-
-        if (dto.roleId !== undefined && dto.roleId !== null) {
-          const roleExists = await tx.role.count({ where: { id: dto.roleId } });
-          if (!roleExists) {
-            throw new BadRequestException({
-              message: 'Rôle invalide.',
-              messageE: 'Invalid role.',
-            });
-          }
-          await tx.utilisateurRole.create({
-            data: { utilisateurId: user.id, roleId: dto.roleId },
+      if (dto.roleId !== undefined && dto.roleId !== null) {
+        const roleExists = await tx.role.count({ where: { id: dto.roleId } });
+        if (!roleExists) {
+          throw new BadRequestException({
+            message: 'Rôle invalide.',
+            messageE: 'Invalid role.',
           });
         }
+        await tx.utilisateurRole.create({
+          data: { utilisateurId: user.id, roleId: dto.roleId },
+        });
+      }
 
-        return user;
-      });
+      return user;
+    });
 
-      const subject = 'SIGCOM - Compte créé / Account created';
-      const message =
+    const subject = 'SIGCOM - Compte créé / Account created';
+    const message =
 `SIGCOM — Compte créé
 
 Bonjour ${created.nom},
@@ -772,19 +776,19 @@ Email: ${created.email}
 Phone: ${created.telephone}
 Please change your password at first login.
 `;
-      await this.email.sendEmail(subject, message, created.email);
+    await this.email.sendEmail(subject, message, created.email);
 
-      return created;
-    } catch (e: any) {
-      if (e?.code === 'P2002') {
-        throw new BadRequestException({
-          message: 'Contrainte d’unicité violée (email ou téléphone).',
-          messageE: 'Unique constraint failed (email or phone).',
-        });
-      }
-      throw e;
+    return created;
+  } catch (e: any) {
+    if (e?.code === 'P2002') {
+      throw new BadRequestException({
+        message: 'Contrainte d’unicité violée (email ou téléphone).',
+        messageE: 'Unique constraint failed (email or phone).',
+      });
     }
+    throw e;
   }
+}
 
   async findOne(id: number) {
     const user = await this.prisma.utilisateur.findUnique({
@@ -814,85 +818,89 @@ Please change your password at first login.
     return user;
   }
 
-  async update(id: number, dto: UpdateUserDto) {
-    await this.ensureExists(id);
+ async update(id: number, dto: UpdateUserDto) {
+  await this.ensureExists(id);
 
-    if (dto.telephone) {
-      if (!dto.telephone.startsWith('+237')) {
-        throw new BadRequestException({
-          message: 'Numéro de téléphone invalide (doit commencer par +237).',
-          messageE: 'Invalid phone number (must start with +237).',
-        });
-      }
-      const telOwner = await this.prisma.utilisateur.findUnique({
-        where: { telephone: dto.telephone },
-        select: { id: true },
+  if (dto.telephone) {
+    if (!dto.telephone.startsWith('+237')) {
+      throw new BadRequestException({
+        message: 'Numéro de téléphone invalide (doit commencer par +237).',
+        messageE: 'Invalid phone number (must start with +237).',
       });
-      if (telOwner && telOwner.id !== id) {
-        throw new BadRequestException({
-          message: 'Numéro de téléphone déjà utilisé.',
-          messageE: 'Phone number already in use.',
-        });
-      }
     }
-
-    if (dto.email) {
-      const mailOwner = await this.prisma.utilisateur.findUnique({
-        where: { email: dto.email },
-        select: { id: true },
+    const telOwner = await this.prisma.utilisateur.findUnique({
+      where: { telephone: dto.telephone },
+      select: { id: true },
+    });
+    if (telOwner && telOwner.id !== id) {
+      throw new BadRequestException({
+        message: 'Numéro de téléphone déjà utilisé.',
+        messageE: 'Phone number already in use.',
       });
-      if (mailOwner && mailOwner.id !== id) {
-        throw new BadRequestException({
-          message: 'Adresse email déjà utilisée.',
-          messageE: 'Email already in use.',
-        });
-      }
-    }
-
-    let photoUrl: string | undefined;
-    if (dto.photoBase64) {
-      photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
-    }
-
-    const data: any = {
-      nom: dto.nom,
-      email: dto.email,
-      telephone: dto.telephone,
-      communeId: dto.communeId,
-      ville: dto.ville,
-      adresse: dto.adresse,
-      is_verified: dto.is_verified,
-      is_block: dto.is_block,
-    };
-    if (dto.mot_de_passe) data.mot_de_passe = await argon2.hash(dto.mot_de_passe);
-    if (photoUrl) data.photo_url = photoUrl;
-
-    try {
-      const updated = await this.prisma.utilisateur.update({
-        where: { id },
-        data,
-        select: {
-          id: true,
-          nom: true,
-          email: true,
-          telephone: true,
-          communeId: true,
-          is_verified: true,
-          is_block: true,
-          updated_at: true,
-        },
-      });
-      return updated;
-    } catch (e: any) {
-      if (e.code === 'P2002') {
-        throw new BadRequestException({
-          message: 'Contrainte d’unicité violée (email ou téléphone).',
-          messageE: 'Unique constraint failed (email or phone).',
-        });
-      }
-      throw e;
     }
   }
+
+  if (dto.email) {
+    const mailOwner = await this.prisma.utilisateur.findUnique({
+      where: { email: dto.email },
+      select: { id: true },
+    });
+    if (mailOwner && mailOwner.id !== id) {
+      throw new BadRequestException({
+        message: 'Adresse email déjà utilisée.',
+        messageE: 'Email already in use.',
+      });
+    }
+  }
+
+  let photoUrl: string | undefined;
+  if (dto.photoBase64) {
+    // ---------- Cloudinary disabled ----------
+    // Avant : photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
+    // La ligne Cloudinary est commentée ci-dessus.
+    // Désormais : on sauvegarde directement la valeur reçue (URL ou string) dans photoUrl.
+    photoUrl = dto.photoBase64 as unknown as string;
+  }
+
+  const data: any = {
+    nom: dto.nom,
+    email: dto.email,
+    telephone: dto.telephone,
+    communeId: dto.communeId,
+    ville: dto.ville,
+    adresse: dto.adresse,
+    is_verified: dto.is_verified,
+    is_block: dto.is_block,
+  };
+  if (dto.mot_de_passe) data.mot_de_passe = await argon2.hash(dto.mot_de_passe);
+  if (photoUrl) data.photo_url = photoUrl;
+
+  try {
+    const updated = await this.prisma.utilisateur.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        nom: true,
+        email: true,
+        telephone: true,
+        communeId: true,
+        is_verified: true,
+        is_block: true,
+        updated_at: true,
+      },
+    });
+    return updated;
+  } catch (e: any) {
+    if (e.code === 'P2002') {
+      throw new BadRequestException({
+        message: 'Contrainte d’unicité violée (email ou téléphone).',
+        messageE: 'Unique constraint failed (email or phone).',
+      });
+    }
+    throw e;
+  }
+}
 
   async remove(id: number) {
     await this.ensureExists(id);

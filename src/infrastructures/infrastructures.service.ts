@@ -3726,28 +3726,54 @@ export class InfrastructuresService {
   }
 
   /* ---------- CREATE ---------- */
-  async create(dto: CreateInfrastructureDto, currentUserId?: number) {
-    await this.ensureTypeExists(dto.typeId);
-    await this.ensureTerritoryExists(dto.regionId, dto.departementId, dto.arrondissementId, dto.communeId);
-    await this.ensureClassification(dto.domaineId, dto.sousdomaineId);
+ async create(dto: CreateInfrastructureDto, currentUserId?: number) {
+  await this.ensureTypeExists(dto.typeId);
+  await this.ensureTerritoryExists(dto.regionId, dto.departementId, dto.arrondissementId, dto.communeId);
+  await this.ensureClassification(dto.domaineId, dto.sousdomaineId);
 
-    const creatorId = dto.utilisateurId ?? currentUserId ?? null;
-    await this.ensureUserExists(creatorId ?? undefined);
+  const creatorId = dto.utilisateurId ?? currentUserId ?? null;
+  await this.ensureUserExists(creatorId ?? undefined);
 
-    const parentFolder = `infrastructures/${dto.communeId}`;
+  const parentFolder = `infrastructures/${dto.communeId}`;
 
-    const normalizedComponents: any[] = [];
-    for (const c of ensureArray(dto.composant)) {
-      normalizedComponents.push(await this.normalizeComponentTree(c, `${parentFolder}/components`, 1, true));
-    }
+  const normalizedComponents: any[] = [];
+  for (const c of ensureArray(dto.composant)) {
+    normalizedComponents.push(await this.normalizeComponentTree(c, `${parentFolder}/components`, 1, true));
+  }
 
-    const dataParent: any = {
-      id_parent: null,
-      id_type_infrastructure: dto.typeId,
-      name: dto.name,
-      description: dto.description ?? null,
-      existing_infrastructure: dto.existing_infrastructure === undefined ? true : this.getExistingFlag(dto), // <-- respecte l'input
-      type: dto.type ?? 'SIMPLE',
+  const dataParent: any = {
+    id_parent: null,
+    id_type_infrastructure: dto.typeId,
+    name: dto.name,
+    description: dto.description ?? null,
+    existing_infrastructure: dto.existing_infrastructure === undefined ? true : this.getExistingFlag(dto), // <-- respecte l'input
+    type: dto.type ?? 'SIMPLE',
+    regionId: dto.regionId,
+    departementId: dto.departementId,
+    arrondissementId: dto.arrondissementId,
+    communeId: dto.communeId,
+    domaineId: dto.domaineId ?? null,
+    sousdomaineId: dto.sousdomaineId ?? null,
+    competenceId: dto.competenceId ?? null,
+    utilisateurId: creatorId,
+    location: ensureObject(dto.location),
+
+    // ---------- Images ----------
+    // Avant : images: await this.toCloudinaryUrls(ensureArray(dto.images), parentFolder),
+    // La ligne Cloudinary est commentée ci-dessous pour garder trace.
+    // Maintenant : on stocke directement ce qui est fourni par le client (string | string[])
+    images: ensureArray(dto.images),
+
+    attribus: ensureObject(dto.attribus),
+    composant: [],
+  };
+
+  const result = await this.prisma.$transaction(async (tx) => {
+    const parent = await tx.infrastructure.create({ data: dataParent, select: { id: true } });
+
+    const ctx = {
+      creatorId,
+      typeId: dto.typeId,
       regionId: dto.regionId,
       departementId: dto.departementId,
       arrondissementId: dto.arrondissementId,
@@ -3755,42 +3781,22 @@ export class InfrastructuresService {
       domaineId: dto.domaineId ?? null,
       sousdomaineId: dto.sousdomaineId ?? null,
       competenceId: dto.competenceId ?? null,
-      utilisateurId: creatorId,
-      location: ensureObject(dto.location),
-      images: await this.toCloudinaryUrls(ensureArray(dto.images), parentFolder),
-      attribus: ensureObject(dto.attribus),
-      composant: [],
     };
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const parent = await tx.infrastructure.create({ data: dataParent, select: { id: true } });
+    const enrichedChildren: any[] = [];
+    for (const comp of normalizedComponents) {
+      enrichedChildren.push(await this.createComponentRecursive(tx, ctx, comp, parent.id));
+    }
 
-      const ctx = {
-        creatorId,
-        typeId: dto.typeId,
-        regionId: dto.regionId,
-        departementId: dto.departementId,
-        arrondissementId: dto.arrondissementId,
-        communeId: dto.communeId,
-        domaineId: dto.domaineId ?? null,
-        sousdomaineId: dto.sousdomaineId ?? null,
-        competenceId: dto.competenceId ?? null,
-      };
+    if (enrichedChildren.length) {
+      await tx.infrastructure.update({ where: { id: parent.id }, data: { composant: enrichedChildren }, select: { id: true } });
+    }
 
-      const enrichedChildren: any[] = [];
-      for (const comp of normalizedComponents) {
-        enrichedChildren.push(await this.createComponentRecursive(tx, ctx, comp, parent.id));
-      }
+    return { id: toStrId(parent.id), composants: enrichedChildren };
+  }, { maxWait: 20000, timeout: 120000 });
 
-      if (enrichedChildren.length) {
-        await tx.infrastructure.update({ where: { id: parent.id }, data: { composant: enrichedChildren }, select: { id: true } });
-      }
-
-      return { id: toStrId(parent.id), composants: enrichedChildren };
-    }, { maxWait: 20000, timeout: 120000 });
-
-    return result;
-  }
+  return result;
+}
 
   /* ---------- UPDATE & sync enfants ---------- */
   private async deleteSubtree(tx: any, id: bigint): Promise<void> {
@@ -3906,93 +3912,99 @@ export class InfrastructuresService {
     return enriched;
   }
 
-  async update(idStr: string, dto: UpdateInfrastructureDto) {
-    const id = BigInt(idStr);
-    const current = await this.prisma.infrastructure.findUnique({
+ async update(idStr: string, dto: UpdateInfrastructureDto) {
+  const id = BigInt(idStr);
+  const current = await this.prisma.infrastructure.findUnique({
+    where: { id },
+    select: {
+      id: true, id_parent: true, id_type_infrastructure: true, name: true, description: true, type: true,
+      existing_infrastructure: true,
+      regionId: true, departementId: true, arrondissementId: true, communeId: true,
+      domaineId: true, sousdomaineId: true, utilisateurId: true, competenceId: true,
+      location: true, images: true, attribus: true,
+    },
+  });
+  if (!current) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
+
+  const effTypeId = dto.typeId ?? current.id_type_infrastructure;
+  await this.ensureTypeExists(effTypeId);
+
+  const effRegion = dto.regionId ?? current.regionId;
+  const effDep    = dto.departementId ?? current.departementId;
+  const effArr    = dto.arrondissementId ?? current.arrondissementId;
+  const effCom    = dto.communeId ?? current.communeId;
+  await this.ensureTerritoryExists(effRegion, effDep, effArr, effCom);
+
+  await this.ensureClassification(dto.domaineId ?? current.domaineId ?? undefined, dto.sousdomaineId ?? current.sousdomaineId ?? undefined);
+  if (typeof dto.utilisateurId === 'number') await this.ensureUserExists(dto.utilisateurId);
+
+  const folder = `infrastructures/${effCom}`;
+
+  // ---------------- Images ----------------
+  // Avant : nextImages = dto.images !== undefined ? await this.toCloudinaryUrls(ensureArray(dto.images), folder) : undefined;
+  // Ligne Cloudinary commentée (ne supprime pas la logique originale).
+  // Désormais : on sauvegarde directement ce qui est fourni par le client.
+  const nextImages = dto.images !== undefined ? ensureArray(dto.images) : undefined;
+
+  const attribusMode = (dto as any).attribus_mode ?? 'merge';
+  const nextAttribus = dto.attribus === undefined ? undefined : (attribusMode === 'replace' ? ensureObject(dto.attribus) : deepMerge(current.attribus, dto.attribus));
+  const nextLocation = dto.location === undefined ? undefined : deepMerge(current.location, dto.location);
+  const nextExisting =
+    (dto as any).existing_infrastructure !== undefined || (dto as any).existingInfrastructure !== undefined
+      ? this.getExistingFlag(dto)
+      : current.existing_infrastructure;
+
+  const result = await this.prisma.$transaction(async (tx) => {
+    await tx.infrastructure.update({
+      where: { id },
+      data: {
+        id_type_infrastructure: effTypeId,
+        name: dto.name ?? current.name,
+        description: dto.description === undefined ? current.description : (dto.description ?? null),
+        existing_infrastructure: nextExisting, // <-- respecte l'input si fourni
+        type: (dto.type ?? current.type) === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+        regionId: effRegion, departementId: effDep, arrondissementId: effArr, communeId: effCom,
+        domaineId: dto.domaineId ?? current.domaineId,
+        sousdomaineId: dto.sousdomaineId ?? current.sousdomaineId,
+        competenceId: dto.competenceId ?? current.competenceId,
+        utilisateurId: dto.utilisateurId ?? current.utilisateurId,
+        // si nextImages est undefined on conserve current.images
+        images: (nextImages as any) ?? (current.images as any),
+        location: nextLocation ?? current.location,
+        attribus: nextAttribus ?? current.attribus,
+      },
+      select: { id: true },
+    });
+
+    if (dto.composant !== undefined) {
+      const ctx = {
+        creatorId: dto.utilisateurId ?? current.utilisateurId ?? null,
+        typeId: effTypeId,
+        regionId: effRegion, departementId: effDep, arrondissementId: effArr, communeId: effCom,
+        domaineId: dto.domaineId ?? current.domaineId ?? null,
+        sousdomaineId: dto.sousdomaineId ?? current.sousdomaineId ?? null,
+        competenceId: dto.competenceId ?? current.competenceId ?? null,
+        folder,
+      };
+      const newChildrenJson = await this.syncChildren(tx, ctx, id, dto.composant, (dto as any).composant_mode ?? 'merge');
+      await tx.infrastructure.update({ where: { id }, data: { composant: newChildrenJson } });
+    }
+
+    const updated = await tx.infrastructure.findUnique({
       where: { id },
       select: {
         id: true, id_parent: true, id_type_infrastructure: true, name: true, description: true, type: true,
-        existing_infrastructure: true,
         regionId: true, departementId: true, arrondissementId: true, communeId: true,
         domaineId: true, sousdomaineId: true, utilisateurId: true, competenceId: true,
-        location: true, images: true, attribus: true,
+        location: true, images: true, attribus: true, composant: true, updated_at: true,
       },
     });
-    if (!current) throw new NotFoundException({ message: 'Infrastructure introuvable.', messageE: 'Infrastructure not found.' });
 
-    const effTypeId = dto.typeId ?? current.id_type_infrastructure;
-    await this.ensureTypeExists(effTypeId);
+    return { ...updated!, id: toStrId(updated!.id), id_parent: updated!.id_parent ? toStrId(updated!.id_parent as any) : null };
+  });
 
-    const effRegion = dto.regionId ?? current.regionId;
-    const effDep    = dto.departementId ?? current.departementId;
-    const effArr    = dto.arrondissementId ?? current.arrondissementId;
-    const effCom    = dto.communeId ?? current.communeId;
-    await this.ensureTerritoryExists(effRegion, effDep, effArr, effCom);
-
-    await this.ensureClassification(dto.domaineId ?? current.domaineId ?? undefined, dto.sousdomaineId ?? current.sousdomaineId ?? undefined);
-    if (typeof dto.utilisateurId === 'number') await this.ensureUserExists(dto.utilisateurId);
-
-    const folder = `infrastructures/${effCom}`;
-
-    const nextImages = dto.images !== undefined ? await this.toCloudinaryUrls(ensureArray(dto.images), folder) : undefined;
-    const attribusMode = (dto as any).attribus_mode ?? 'merge';
-    const nextAttribus = dto.attribus === undefined ? undefined : (attribusMode === 'replace' ? ensureObject(dto.attribus) : deepMerge(current.attribus, dto.attribus));
-    const nextLocation = dto.location === undefined ? undefined : deepMerge(current.location, dto.location);
-    const nextExisting =
-      (dto as any).existing_infrastructure !== undefined || (dto as any).existingInfrastructure !== undefined
-        ? this.getExistingFlag(dto)
-        : current.existing_infrastructure;
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      await tx.infrastructure.update({
-        where: { id },
-        data: {
-          id_type_infrastructure: effTypeId,
-          name: dto.name ?? current.name,
-          description: dto.description === undefined ? current.description : (dto.description ?? null),
-          existing_infrastructure: nextExisting, // <-- respecte l'input si fourni
-          type: (dto.type ?? current.type) === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
-          regionId: effRegion, departementId: effDep, arrondissementId: effArr, communeId: effCom,
-          domaineId: dto.domaineId ?? current.domaineId,
-          sousdomaineId: dto.sousdomaineId ?? current.sousdomaineId,
-          competenceId: dto.competenceId ?? current.competenceId,
-          utilisateurId: dto.utilisateurId ?? current.utilisateurId,
-          images: (nextImages as any) ?? (current.images as any),
-          location: nextLocation ?? current.location,
-          attribus: nextAttribus ?? current.attribus,
-        },
-        select: { id: true },
-      });
-
-      if (dto.composant !== undefined) {
-        const ctx = {
-          creatorId: dto.utilisateurId ?? current.utilisateurId ?? null,
-          typeId: effTypeId,
-          regionId: effRegion, departementId: effDep, arrondissementId: effArr, communeId: effCom,
-          domaineId: dto.domaineId ?? current.domaineId ?? null,
-          sousdomaineId: dto.sousdomaineId ?? current.sousdomaineId ?? null,
-          competenceId: dto.competenceId ?? current.competenceId ?? null,
-          folder,
-        };
-        const newChildrenJson = await this.syncChildren(tx, ctx, id, dto.composant, (dto as any).composant_mode ?? 'merge');
-        await tx.infrastructure.update({ where: { id }, data: { composant: newChildrenJson } });
-      }
-
-      const updated = await tx.infrastructure.findUnique({
-        where: { id },
-        select: {
-          id: true, id_parent: true, id_type_infrastructure: true, name: true, description: true, type: true,
-          regionId: true, departementId: true, arrondissementId: true, communeId: true,
-          domaineId: true, sousdomaineId: true, utilisateurId: true, competenceId: true,
-          location: true, images: true, attribus: true, composant: true, updated_at: true,
-        },
-      });
-
-      return { ...updated!, id: toStrId(updated!.id), id_parent: updated!.id_parent ? toStrId(updated!.id_parent as any) : null };
-    });
-
-    return result;
-  }
+  return result;
+}
 
   /* ---------- GET ONE ---------- */
   async findOne(idStr: string, include?: string[]) {
@@ -4464,7 +4476,16 @@ async updateAttribus(idStr: string, dto: UpdateAttribusDto) {
   // 4) images (string | string[]) => remplace entièrement si fourni
   if (dto.images !== undefined) {
     const list = Array.isArray(dto.images) ? dto.images : [dto.images];
-    const urls = await this.toCloudinaryUrls(list, `infrastructures/${current.communeId}`);
+
+    // ---------- REMARQUE IMPORTANTE ----------
+    // Avant : on appelait this.toCloudinaryUrls(list, `infrastructures/${current.communeId}`)
+    // Pour désactiver Cloudinary sans supprimer le code, la ligne ci-dessous est commentée.
+    // urls = await this.toCloudinaryUrls(list, `infrastructures/${current.communeId}`);
+    //
+    // Maintenant : on stocke directement ce qu'on reçoit (chaîne ou tableau de chaînes)
+    // On suppose que le client fournit déjà l'URL ou la valeur à sauvegarder tel quel.
+    const urls = list; // on sauvegarde directement les valeurs reçues
+
     data.images = urls as unknown as Prisma.InputJsonValue;
   }
 
