@@ -8,6 +8,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 @Module({
   imports: [AuthModule,PrismaModule],
   controllers: [ParcoursController],
-  providers: [ParcoursService,PrismaService]
+  providers: [ParcoursService]
 })
 export class ParcoursModule {}

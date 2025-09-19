@@ -4,11 +4,12 @@ import { RolesController } from './roles.controller';
 import { RolesService } from './roles.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthModule } from 'src/auth/auth.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
 
 @Module({
-  imports: [AuthModule], // Import AuthModule to use its services like JwtService
+  imports: [AuthModule,PrismaModule], // Import AuthModule to use its services like JwtService
   controllers: [RolesController],
-  providers: [RolesService, PrismaService, AuthModule],
+  providers: [RolesService],
   exports: [RolesService],
 })
 export class RolesModule {}

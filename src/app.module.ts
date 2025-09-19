@@ -26,6 +26,8 @@ import { HealthModule } from './health/health.module';
 import { SettingsModule } from './settings/settings.module';
 import { SyncRefsModule } from './sync-refs/sync-refs.module';
 import { SyncTypesModule } from './sync-types/sync-types.module';
+import { SyncGeoModule } from './sync-geo/sync-geo.module';
+import { SyncAuthCentralModule } from './sync-auth/sync-auth.module';
 
 @Module({
   imports: [
@@ -55,7 +57,9 @@ import { SyncTypesModule } from './sync-types/sync-types.module';
     HealthModule,
     SettingsModule,
     SyncRefsModule,
-    SyncTypesModule
+    SyncTypesModule,
+    SyncGeoModule,
+    SyncAuthCentralModule
   ],
 })
 export class AppModule {}
