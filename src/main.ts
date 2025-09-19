@@ -62,12 +62,13 @@
 //   await app.listen(process.env.PORT ?? 4002);
 // }
 // bootstrap();
-
+// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as bodyParser from 'body-parser';
+import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -75,40 +76,30 @@ async function bootstrap() {
   // Permet à Nest d'écouter SIGINT/SIGTERM et d'appeler onModuleDestroy()
   app.enableShutdownHooks();
 
-  if (process.env.NODE_ENV === 'development' || process.env.APP_ENV === 'local') {
-    app.enableCors({
-      origin: true,   // autorise tout en local
-      credentials: true,
-    });
-  } else {
-    const whitelist: (string | RegExp)[] = [
-      /^https?:\/\/localhost(:\d+)?$/,
-      /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
-      /^https?:\/\/10\.41\.62\.\d{1,3}(:\d+)?$/,
-      'https://superadmin.sigcom.collexios.com',
-      'https://portail.sigcom.collexios.com',
-      'http://superadmin.sigcom.collexios.com',
-      'http://portail.sigcom.collexios.com',
-      'https://admin.commune.sigcom.collexios.com',
-      'http://admin.commune.sigcom.collexios.com',
-    ];
+  // --- CORS ULTRA-PERMISSIF (Swagger + toutes API) ---
+  app.enableCors({
+    origin: true,            // reflète l’Origin de la requête (équivaut à "*", compatible credentials)
+    credentials: true,       // cookies + Authorization
+    methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+    allowedHeaders: ['*'],   // accepte tous les headers
+    exposedHeaders: ['Content-Disposition'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  });
 
-    app.enableCors({
-      origin: (origin, cb) => {
-        if (!origin) return cb(null, true);
-        const ok = whitelist.some(rule =>
-          rule instanceof RegExp ? rule.test(origin) : rule === origin,
-        );
-        return ok ? cb(null, true) : cb(new Error('CORS blocked'), false);
-      },
-      credentials: false,
-      methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
-      allowedHeaders: ['Authorization','Content-Type','Accept','X-Requested-With','Origin'],
-      exposedHeaders: ['Content-Disposition'],
-      optionsSuccessStatus: 204,
-    });
-  }
+  // Middleware fallback pour OPTIONS (évite que certains proxies bloquent)
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', req.headers['access-control-request-headers'] || '*');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    next();
+  });
 
+  // Validation globale
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
     whitelist: true,
@@ -116,6 +107,7 @@ async function bootstrap() {
     transformOptions: { enableImplicitConversion: true },
   }));
 
+  // --- Swagger ---
   const config = new DocumentBuilder()
     .setTitle('SIGCOM API')
     .setDescription('API de gestion de SIGCOM')
@@ -127,11 +119,15 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api-docs', app, document, { swaggerOptions: { persistAuthorization: true } });
+  SwaggerModule.setup('api-docs', app, document, {
+    swaggerOptions: { persistAuthorization: true },
+  });
 
+  // --- Body parser ---
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
+  // Démarrage serveur
   await app.listen(Number(process.env.PORT) || 4002, '0.0.0.0');
 }
 bootstrap();
