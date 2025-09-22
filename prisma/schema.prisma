@@ -68,7 +68,7 @@ model Commune {
   communeUrl       String? @unique
 
   /// Commune vérifiée ?
-  is_verified Boolean @default(true)
+  is_verified Boolean @default(false)
   /// Commune bloquée ?
   is_block    Boolean @default(false)
 
@@ -355,6 +355,8 @@ model DeletedInfrastructure {
 model Setting {
   id               Int     @id @default(1) // une seule ligne (id=1)
   centralServerUrl String? // nullable
+    maxActivatedCommunes  Int      @default(10)
+
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
