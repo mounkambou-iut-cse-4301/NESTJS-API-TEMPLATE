@@ -677,118 +677,195 @@ export class UsersService {
     return { total, items };
   }
 
- async create(dto: CreateUserDto) {
-  if (!dto.telephone) {
-    throw new BadRequestException({
-      message: 'Le numéro de téléphone est obligatoire.',
-      messageE: 'Phone number is required.',
-    });
-  }
-  if (!dto.telephone.startsWith('+237')) {
-    throw new BadRequestException({
-      message: 'Numéro de téléphone invalide (doit commencer par +237).',
-      messageE: 'Invalid phone number (must start with +237).',
-    });
-  }
-  const telExists = await this.prisma.utilisateur.findUnique({
-    where: { telephone: dto.telephone },
-    select: { id: true },
-  });
-  if (telExists) {
-    throw new BadRequestException({
-      message: 'Numéro de téléphone déjà utilisé.',
-      messageE: 'Phone number already in use.',
-    });
-  }
+//  async create(dto: CreateUserDto) {
+//   if (!dto.telephone) {
+//     throw new BadRequestException({
+//       message: 'Le numéro de téléphone est obligatoire.',
+//       messageE: 'Phone number is required.',
+//     });
+//   }
+//   if (!dto.telephone.startsWith('+237')) {
+//     throw new BadRequestException({
+//       message: 'Numéro de téléphone invalide (doit commencer par +237).',
+//       messageE: 'Invalid phone number (must start with +237).',
+//     });
+//   }
+//   const telExists = await this.prisma.utilisateur.findUnique({
+//     where: { telephone: dto.telephone },
+//     select: { id: true },
+//   });
+//   if (telExists) {
+//     throw new BadRequestException({
+//       message: 'Numéro de téléphone déjà utilisé.',
+//       messageE: 'Phone number already in use.',
+//     });
+//   }
 
-  const emailExists = await this.prisma.utilisateur.findUnique({
-    where: { email: dto.email },
-    select: { id: true },
-  });
-  if (emailExists) {
-    throw new BadRequestException({
-      message: 'Adresse email déjà utilisée.',
-      messageE: 'Email already in use.',
-    });
-  }
+//   const emailExists = await this.prisma.utilisateur.findUnique({
+//     where: { email: dto.email },
+//     select: { id: true },
+//   });
+//   if (emailExists) {
+//     throw new BadRequestException({
+//       message: 'Adresse email déjà utilisée.',
+//       messageE: 'Email already in use.',
+//     });
+//   }
 
-  let photoUrl: string | undefined;
-  if (dto.photoBase64) {
-    // ---------- Cloudinary disabled ----------
-    // Avant : photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
-    // Pour désactiver Cloudinary sans supprimer le code, la ligne ci-dessus est commentée.
-    // Comportement actuel : on sauvegarde la valeur fournie telle quelle (ex: URL ou string).
-    photoUrl = dto.photoBase64 as unknown as string;
-  }
+//   let photoUrl: string | undefined;
+//   if (dto.photoBase64) {
+//     // ---------- Cloudinary disabled ----------
+//     // Avant : photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
+//     // Pour désactiver Cloudinary sans supprimer le code, la ligne ci-dessus est commentée.
+//     // Comportement actuel : on sauvegarde la valeur fournie telle quelle (ex: URL ou string).
+//     photoUrl = dto.photoBase64 as unknown as string;
+//   }
 
-  const hash = await bcrypt.hash(dto.mot_de_passe, 10);
+//   const hash = await bcrypt.hash(dto.mot_de_passe, 10);
 
-  try {
-    const created = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.utilisateur.create({
-        data: {
-          nom: dto.nom,
-          email: dto.email,
-          mot_de_passe: hash,
-          telephone: dto.telephone,
-          communeId: dto.communeId ?? null,
-          ville: dto.ville ?? null,
-          adresse: dto.adresse ?? null,
-          is_verified: dto.is_verified ?? false,
-          is_block: dto.is_block ?? false,
-          ...(photoUrl ? { photo_url: photoUrl } : {}),
-        },
-        select: { id: true, nom: true, email: true, telephone: true },
-      });
+//   try {
+//     const created = await this.prisma.$transaction(async (tx) => {
+//       const user = await tx.utilisateur.create({
+//         data: {
+//           nom: dto.nom,
+//           email: dto.email,
+//           mot_de_passe: hash,
+//           telephone: dto.telephone,
+//           communeId: dto.communeId ?? null,
+//           ville: dto.ville ?? null,
+//           adresse: dto.adresse ?? null,
+//           is_verified: dto.is_verified ?? false,
+//           is_block: dto.is_block ?? false,
+//           ...(photoUrl ? { photo_url: photoUrl } : {}),
+//         },
+//         select: { id: true, nom: true, email: true, telephone: true },
+//       });
 
-      if (dto.roleId !== undefined && dto.roleId !== null) {
-        const roleExists = await tx.role.count({ where: { id: dto.roleId } });
-        if (!roleExists) {
-          throw new BadRequestException({
-            message: 'Rôle invalide.',
-            messageE: 'Invalid role.',
-          });
-        }
-        await tx.utilisateurRole.create({
-          data: { utilisateurId: user.id, roleId: dto.roleId },
-        });
-      }
+//       if (dto.roleId !== undefined && dto.roleId !== null) {
+//         const roleExists = await tx.role.count({ where: { id: dto.roleId } });
+//         if (!roleExists) {
+//           throw new BadRequestException({
+//             message: 'Rôle invalide.',
+//             messageE: 'Invalid role.',
+//           });
+//         }
+//         await tx.utilisateurRole.create({
+//           data: { utilisateurId: user.id, roleId: dto.roleId },
+//         });
+//       }
 
-      return user;
-    });
+//       return user;
+//     });
 
-    const subject = 'SIGCOM - Compte créé / Account created';
-    const message =
-`SIGCOM — Compte créé
+//     const subject = 'SIGCOM - Compte créé / Account created';
+//     const message =
+// `SIGCOM — Compte créé
 
-Bonjour ${created.nom},
-Votre compte a été créé avec succès sur SIGCOM.
-Email : ${created.email}
-Téléphone : ${created.telephone}
-Merci de changer votre mot de passe à la première connexion.
+// Bonjour ${created.nom},
+// Votre compte a été créé avec succès sur SIGCOM.
+// Email : ${created.email}
+// Téléphone : ${created.telephone}
+// Merci de changer votre mot de passe à la première connexion.
 
----
-Account created
+// ---
+// Account created
 
-Hello ${created.nom},
-Your account has been successfully created on SIGCOM.
-Email: ${created.email}
-Phone: ${created.telephone}
-Please change your password at first login.
-`;
-    await this.email.sendEmail(subject, message, created.email);
+// Hello ${created.nom},
+// Your account has been successfully created on SIGCOM.
+// Email: ${created.email}
+// Phone: ${created.telephone}
+// Please change your password at first login.
+// `;
+//     await this.email.sendEmail(subject, message, created.email);
 
-    return created;
-  } catch (e: any) {
-    if (e?.code === 'P2002') {
-      throw new BadRequestException({
-        message: 'Contrainte d’unicité violée (email ou téléphone).',
-        messageE: 'Unique constraint failed (email or phone).',
-      });
+//     return created;
+//   } catch (e: any) {
+//     if (e?.code === 'P2002') {
+//       throw new BadRequestException({
+//         message: 'Contrainte d’unicité violée (email ou téléphone).',
+//         messageE: 'Unique constraint failed (email or phone).',
+//       });
+//     }
+//     throw e;
+//   }
+// }
+
+async create(dto: CreateUserDto) {
+    if (!dto.telephone) {
+      throw new BadRequestException({ message: 'Le numéro de téléphone est obligatoire.' });
     }
-    throw e;
+    if (!dto.telephone.startsWith('+237')) {
+      throw new BadRequestException({ message: 'Numéro de téléphone invalide (doit commencer par +237).' });
+    }
+
+    const telExists = await this.prisma.utilisateur.findUnique({
+      where: { telephone: dto.telephone },
+      select: { id: true },
+    });
+    if (telExists) throw new BadRequestException({ message: 'Numéro de téléphone déjà utilisé.' });
+
+    const emailExists = await this.prisma.utilisateur.findUnique({
+      where: { email: dto.email },
+      select: { id: true },
+    });
+    if (emailExists) throw new BadRequestException({ message: 'Adresse email déjà utilisée.' });
+
+    const hash = await bcrypt.hash(dto.mot_de_passe, 10);
+    const photoUrl = dto.photoBase64 ? (dto.photoBase64 as unknown as string) : undefined;
+
+    try {
+      const created = await this.prisma.$transaction(async (tx) => {
+        // Advisory lock (transaction-scoped) - choose a stable numeric key.
+        // Change 987654321 to any integer unique to this lock in your app.
+        await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock($1)', 987654321);
+
+        // Find last id in transaction
+        const last = await tx.utilisateur.findFirst({
+          orderBy: { id: 'desc' },
+          select: { id: true },
+        });
+        const nextId = (last?.id ?? 0) + 1;
+
+        // Create user forcing id
+        const user = await tx.utilisateur.create({
+          data: {
+            id: nextId,
+            nom: dto.nom,
+            email: dto.email,
+            mot_de_passe: hash,
+            telephone: dto.telephone,
+            communeId: dto.communeId ?? null,
+            ville: dto.ville ?? null,
+            adresse: dto.adresse ?? null,
+            is_verified: dto.is_verified ?? false,
+            is_block: dto.is_block ?? false,
+            ...(photoUrl ? { photo_url: photoUrl } : {}),
+          },
+          select: { id: true, nom: true, email: true, telephone: true },
+        });
+
+        if (dto.roleId !== undefined && dto.roleId !== null) {
+          const roleExists = await tx.role.count({ where: { id: dto.roleId } });
+          if (!roleExists) throw new BadRequestException({ message: 'Rôle invalide.' });
+          await tx.utilisateurRole.create({ data: { utilisateurId: user.id, roleId: dto.roleId } });
+        }
+
+        return user;
+      });
+
+      // send email (optionnel)
+      const subject = 'SIGCOM - Compte créé / Account created';
+      const message = `Bonjour ${created.nom},\nVotre compte a été créé. Email: ${created.email}`;
+      await this.email.sendEmail(subject, message, created.email);
+
+      return created;
+    } catch (e: any) {
+      if (e?.code === 'P2002') {
+        throw new BadRequestException({ message: 'Contrainte d’unicité violée (email ou téléphone).' });
+      }
+      throw e;
+    }
   }
-}
 
   async findOne(id: number) {
     const user = await this.prisma.utilisateur.findUnique({

@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNumberString,
   IsObject,
   IsOptional,
   IsString,
@@ -13,6 +14,13 @@ import {
 } from 'class-validator';
 
 export class ComponentInput {
+
+  @ApiPropertyOptional({ example: 12, description: 'Id numérique du type d’infrastructure pour ce composant' })
+  @IsOptional()
+  // on accepte soit un nombre soit une chaîne numérique ; IsNumberString autorise '12' et on peut cocher IsInt si on veut number
+  @IsNumberString()
+  id_type_infrastructure?: string; 
+  
   @ApiProperty({ example: 'PREAU' })
   @IsString()
   name!: string;
@@ -74,6 +82,11 @@ export class ComponentInput {
 }
 
 export class CreateInfrastructureDto {
+  @ApiPropertyOptional({ example: '1699876543210' })
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @ApiProperty({ example: 15 })
   @IsInt()
   typeId!: number;

@@ -184,106 +184,255 @@ export class InfrastructuresService {
   }
 
   /* ======================== Normalisation composants ======================== */
+  // private async normalizeComponentTree(
+  //   component: ComponentInput,
+  //   folder: string,
+  //   depth = 1,
+  //   treatIdAsTypeRef = false,   // en CREATE on l'active
+  // ): Promise<any> {
+  //   if (depth > InfrastructuresService.MAX_COMPONENT_DEPTH) {
+  //     throw new BadRequestException({ message: `Profondeur de composants excessive.`, messageE: `Component depth too large.` });
+  //   }
+  //   const c = ensureObject(component);
+  //   const rawName = typeof (c as any).name === 'string' ? (c as any).name.trim() : '';
+  //   if (!rawName) throw new BadRequestException({ message: `Chaque composant doit avoir un "name".`, messageE: `Each component must have a "name".` });
+
+  //   const typeRefIdCandidate = treatIdAsTypeRef ? parseTypeIdCandidate((c as any).id) : null;
+
+  //   const t = typeof (c as any).type === 'string' ? (c as any).type.toUpperCase() : 'SIMPLE';
+  //   const out: any = {
+  //     __typeRefId: typeRefIdCandidate,
+  //     name: rawName,
+  //     type: t === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+  //     description: typeof (c as any).description === 'string' ? (c as any).description : null,
+  //     location: ensureObject((c as any).location),
+  //     images: await this.toCloudinaryUrls(ensureArray((c as any).images), folder),
+  //     attribus: ensureObject((c as any).attribus),
+  //     existing_infrastructure: this.getExistingFlag(c), // <-- conserve/normalise le flag
+  //     composant: [],
+  //   };
+  //   for (const sub of ensureArray((c as any).composant)) {
+  //     out.composant.push(await this.normalizeComponentTree(sub, folder, depth + 1, treatIdAsTypeRef));
+  //   }
+  //   return out;
+  // }
+
   private async normalizeComponentTree(
-    component: ComponentInput,
-    folder: string,
-    depth = 1,
-    treatIdAsTypeRef = false,   // en CREATE on l'active
-  ): Promise<any> {
-    if (depth > InfrastructuresService.MAX_COMPONENT_DEPTH) {
-      throw new BadRequestException({ message: `Profondeur de composants excessive.`, messageE: `Component depth too large.` });
-    }
-    const c = ensureObject(component);
-    const rawName = typeof (c as any).name === 'string' ? (c as any).name.trim() : '';
-    if (!rawName) throw new BadRequestException({ message: `Chaque composant doit avoir un "name".`, messageE: `Each component must have a "name".` });
-
-    const typeRefIdCandidate = treatIdAsTypeRef ? parseTypeIdCandidate((c as any).id) : null;
-
-    const t = typeof (c as any).type === 'string' ? (c as any).type.toUpperCase() : 'SIMPLE';
-    const out: any = {
-      __typeRefId: typeRefIdCandidate,
-      name: rawName,
-      type: t === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
-      description: typeof (c as any).description === 'string' ? (c as any).description : null,
-      location: ensureObject((c as any).location),
-      images: await this.toCloudinaryUrls(ensureArray((c as any).images), folder),
-      attribus: ensureObject((c as any).attribus),
-      existing_infrastructure: this.getExistingFlag(c), // <-- conserve/normalise le flag
-      composant: [],
-    };
-    for (const sub of ensureArray((c as any).composant)) {
-      out.composant.push(await this.normalizeComponentTree(sub, folder, depth + 1, treatIdAsTypeRef));
-    }
-    return out;
+  component: ComponentInput,
+  folder: string,
+  depth = 1,
+  treatIdAsTypeRef = false,   // en CREATE on l'active
+): Promise<any> {
+  if (depth > InfrastructuresService.MAX_COMPONENT_DEPTH) {
+    throw new BadRequestException({ message: `Profondeur de composants excessive.`, messageE: `Component depth too large.` });
   }
+  const c = ensureObject(component);
+  const rawName = typeof (c as any).name === 'string' ? (c as any).name.trim() : '';
+  if (!rawName) throw new BadRequestException({ message: `Chaque composant doit avoir un "name".`, messageE: `Each component must have a "name".` });
+
+  // --- NEW: accept multiple keys that may indicate child's type id
+  let typeRefIdCandidate: number | null = null;
+  if (treatIdAsTypeRef) {
+    const maybe: any = c;
+    // priority: explicit id_type_infrastructure -> idTypeInfrastructure -> typeId -> legacy id (could be string)
+    if (maybe?.id_type_infrastructure !== undefined && maybe?.id_type_infrastructure !== null) {
+      typeRefIdCandidate = parseTypeIdCandidate(maybe.id_type_infrastructure);
+    }
+    if (typeRefIdCandidate === null && maybe?.idTypeInfrastructure !== undefined) {
+      typeRefIdCandidate = parseTypeIdCandidate(maybe.idTypeInfrastructure);
+    }
+    if (typeRefIdCandidate === null && maybe?.typeId !== undefined) {
+      typeRefIdCandidate = parseTypeIdCandidate(maybe.typeId);
+    }
+    // Keep a last-resort check for 'id' only when it's truly numeric (legacy distortions avoided)
+    if (typeRefIdCandidate === null && maybe?.id !== undefined) {
+      typeRefIdCandidate = parseTypeIdCandidate(maybe.id);
+    }
+  }
+
+  const t = typeof (c as any).type === 'string' ? (c as any).type.toUpperCase() : 'SIMPLE';
+  const out: any = {
+    __typeRefId: typeRefIdCandidate,
+    name: rawName,
+    type: t === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+    description: typeof (c as any).description === 'string' ? (c as any).description : null,
+    location: ensureObject((c as any).location),
+    images: await this.toCloudinaryUrls(ensureArray((c as any).images), folder),
+    attribus: ensureObject((c as any).attribus),
+    existing_infrastructure: this.getExistingFlag(c), // <-- conserve/normalise le flag
+    composant: [],
+  };
+  for (const sub of ensureArray((c as any).composant)) {
+    out.composant.push(await this.normalizeComponentTree(sub, folder, depth + 1, treatIdAsTypeRef));
+  }
+  return out;
+}
+
+
+  // private async createComponentRecursive(
+  //   tx: any,
+  //   ctx: {
+  //     creatorId: number | null;
+  //     typeId: number;
+  //     regionId: number;
+  //     departementId: number;
+  //     arrondissementId: number;
+  //     communeId: number;
+  //     domaineId: number | null;
+  //     sousdomaineId: number | null;
+  //     competenceId: number | null;
+  //   },
+  //   comp: any,
+  //   parentId: bigint,
+  //   depth = 1,
+  // ): Promise<any> {
+  //   if (depth > InfrastructuresService.MAX_COMPONENT_DEPTH) {
+  //     throw new BadRequestException({ message: `Profondeur de composants excessive.`, messageE: `Component depth too large.` });
+  //   }
+
+  //   let effectiveTypeId = ctx.typeId;
+  //   const candidate = parseTypeIdCandidate(comp?.__typeRefId);
+  //   if (candidate !== null) {
+  //     try {
+  //       const ok = await tx.typeInfrastructure.count({ where: { id: candidate } });
+  //       if (ok) effectiveTypeId = candidate;
+  //     } catch { effectiveTypeId = ctx.typeId; }
+  //   }
+
+  //   const child = await tx.infrastructure.create({
+  //     data: {
+  //       id_parent: parentId,
+  //       id_type_infrastructure: effectiveTypeId,
+  //       name: comp?.name,
+  //       description: comp?.description ?? null,
+  //       existing_infrastructure: this.getExistingFlag(comp), // <-- respecte l'input
+  //       type: comp?.type === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+  //       regionId: ctx.regionId,
+  //       departementId: ctx.departementId,
+  //       arrondissementId: ctx.arrondissementId,
+  //       communeId: ctx.communeId,
+  //       domaineId: ctx.domaineId,
+  //       sousdomaineId: ctx.sousdomaineId,
+  //       competenceId: ctx.competenceId,
+  //       utilisateurId: null,
+  //       location: ensureObject(comp?.location),
+  //       images: ensureArray(comp?.images),
+  //       attribus: ensureObject(comp?.attribus),
+  //       composant: [],
+  //     },
+  //     select: { id: true },
+  //   });
+
+  //   const enrichedChildren: any[] = [];
+  //   if (Array.isArray(comp?.composant) && comp.composant.length) {
+  //     for (const sub of comp.composant) {
+  //       const childCtx = { ...ctx, typeId: effectiveTypeId };
+  //       const enriched = await this.createComponentRecursive(tx, childCtx, sub, child.id, depth + 1);
+  //       enrichedChildren.push(enriched);
+  //     }
+  //     await tx.infrastructure.update({ where: { id: child.id }, data: { composant: enrichedChildren }, select: { id: true } });
+  //   }
+
+  //   const { __typeRefId, ...compOut } = comp;
+  //   return { ...compOut, id: toStrId(child.id), composant: enrichedChildren };
+  // }
 
   private async createComponentRecursive(
-    tx: any,
-    ctx: {
-      creatorId: number | null;
-      typeId: number;
-      regionId: number;
-      departementId: number;
-      arrondissementId: number;
-      communeId: number;
-      domaineId: number | null;
-      sousdomaineId: number | null;
-      competenceId: number | null;
-    },
-    comp: any,
-    parentId: bigint,
-    depth = 1,
-  ): Promise<any> {
-    if (depth > InfrastructuresService.MAX_COMPONENT_DEPTH) {
-      throw new BadRequestException({ message: `Profondeur de composants excessive.`, messageE: `Component depth too large.` });
-    }
-
-    let effectiveTypeId = ctx.typeId;
-    const candidate = parseTypeIdCandidate(comp?.__typeRefId);
-    if (candidate !== null) {
-      try {
-        const ok = await tx.typeInfrastructure.count({ where: { id: candidate } });
-        if (ok) effectiveTypeId = candidate;
-      } catch { effectiveTypeId = ctx.typeId; }
-    }
-
-    const child = await tx.infrastructure.create({
-      data: {
-        id_parent: parentId,
-        id_type_infrastructure: effectiveTypeId,
-        name: comp?.name,
-        description: comp?.description ?? null,
-        existing_infrastructure: this.getExistingFlag(comp), // <-- respecte l'input
-        type: comp?.type === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
-        regionId: ctx.regionId,
-        departementId: ctx.departementId,
-        arrondissementId: ctx.arrondissementId,
-        communeId: ctx.communeId,
-        domaineId: ctx.domaineId,
-        sousdomaineId: ctx.sousdomaineId,
-        competenceId: ctx.competenceId,
-        utilisateurId: ctx.creatorId,
-        location: ensureObject(comp?.location),
-        images: ensureArray(comp?.images),
-        attribus: ensureObject(comp?.attribus),
-        composant: [],
-      },
-      select: { id: true },
-    });
-
-    const enrichedChildren: any[] = [];
-    if (Array.isArray(comp?.composant) && comp.composant.length) {
-      for (const sub of comp.composant) {
-        const childCtx = { ...ctx, typeId: effectiveTypeId };
-        const enriched = await this.createComponentRecursive(tx, childCtx, sub, child.id, depth + 1);
-        enrichedChildren.push(enriched);
-      }
-      await tx.infrastructure.update({ where: { id: child.id }, data: { composant: enrichedChildren }, select: { id: true } });
-    }
-
-    const { __typeRefId, ...compOut } = comp;
-    return { ...compOut, id: toStrId(child.id), composant: enrichedChildren };
+  tx: any,
+  ctx: {
+    creatorId: number | null;
+    typeId: number;
+    regionId: number;
+    departementId: number;
+    arrondissementId: number;
+    communeId: number;
+    domaineId: number | null;
+    sousdomaineId: number | null;
+    competenceId: number | null;
+  },
+  comp: any,
+  parentId: bigint,
+  depth = 1,
+): Promise<any> {
+  if (depth > InfrastructuresService.MAX_COMPONENT_DEPTH) {
+    throw new BadRequestException({ message: `Profondeur de composants excessive.`, messageE: `Component depth too large.` });
   }
+
+  // determine effective typeId:
+  // - prefer comp.__typeRefId (populated par normalizeComponentTree from child's id_type_infrastructure/typeId/etc)
+  // - fallback to ctx.typeId
+  let effectiveTypeId = ctx.typeId;
+  const candidate = parseTypeIdCandidate(comp?.__typeRefId);
+  if (candidate !== null) {
+    try {
+      const ok = await tx.typeInfrastructure.count({ where: { id: candidate } });
+      if (ok) {
+        effectiveTypeId = candidate;
+      } else {
+        // invalid candidate -> keep ctx.typeId (no propagation of invalid types)
+        effectiveTypeId = ctx.typeId;
+      }
+    } catch {
+      effectiveTypeId = ctx.typeId;
+    }
+  }
+
+  // If comp already carries an explicit 'id' (coming from communal sync) and it's numeric,
+  // we should attempt to use it as explicit id for the child. Otherwise Prisma will generate one.
+  // We will accept string numeric ids as BigInt to preserve remote ids.
+  let createData: any = {
+    id_parent: parentId,
+    id_type_infrastructure: effectiveTypeId,
+    name: comp?.name,
+    description: comp?.description ?? null,
+    existing_infrastructure: this.getExistingFlag(comp),
+    type: comp?.type === 'COMPLEXE' ? 'COMPLEXE' : 'SIMPLE',
+    regionId: ctx.regionId,
+    departementId: ctx.departementId,
+    arrondissementId: ctx.arrondissementId,
+    communeId: ctx.communeId,
+    domaineId: ctx.domaineId,
+    sousdomaineId: ctx.sousdomaineId,
+    competenceId: ctx.competenceId,
+    utilisateurId: ctx.creatorId,
+    location: ensureObject(comp?.location),
+    images: ensureArray(comp?.images),
+    attribus: ensureObject(comp?.attribus),
+    composant: [],
+  };
+
+  // Accept explicit comp.id (string or number) coming from sync — if numeric, convert to BigInt and provide as id.
+  if (comp?.id !== undefined && comp?.id !== null) {
+    const maybeId = comp.id;
+    try {
+      const big = BigInt(maybeId);
+      createData.id = big;
+    } catch {
+      // ignore non-numeric id (do not set createData.id)
+    }
+  }
+
+  const child = await tx.infrastructure.create({
+    data: createData,
+    select: { id: true },
+  });
+
+  const enrichedChildren: any[] = [];
+  if (Array.isArray(comp?.composant) && comp.composant.length) {
+    // For grandchildren, pass the effectiveTypeId as the new ctx.typeId so that if child
+    // had its own type, grandchildren will by default inherit that (logical chain).
+    const childCtx = { ...ctx, typeId: effectiveTypeId };
+    for (const sub of comp.composant) {
+      const enriched = await this.createComponentRecursive(tx, childCtx, sub, child.id, depth + 1);
+      enrichedChildren.push(enriched);
+    }
+    await tx.infrastructure.update({ where: { id: child.id }, data: { composant: enrichedChildren }, select: { id: true } });
+  }
+
+  const { __typeRefId, ...compOut } = comp;
+  return { ...compOut, id: toStrId(child.id), composant: enrichedChildren };
+}
+
 
   /* ---------- LIST ---------- */
   async list(params: {
@@ -359,13 +508,15 @@ export class InfrastructuresService {
   }
 
   /* ---------- CREATE ---------- */
- async create(dto: CreateInfrastructureDto, currentUserId?: number) {
+
+async create(dto: CreateInfrastructureDto, currentUserId?: number) {  
+  // validations habituelles
   await this.ensureTypeExists(dto.typeId);
   await this.ensureTerritoryExists(dto.regionId, dto.departementId, dto.arrondissementId, dto.communeId);
   await this.ensureClassification(dto.domaineId, dto.sousdomaineId);
 
   const creatorId = dto.utilisateurId ?? currentUserId ?? null;
-  await this.ensureUserExists(creatorId ?? undefined);
+  // await this.ensureUserExists(creatorId ?? undefined);
 
   const parentFolder = `infrastructures/${dto.communeId}`;
 
@@ -374,12 +525,13 @@ export class InfrastructuresService {
     normalizedComponents.push(await this.normalizeComponentTree(c, `${parentFolder}/components`, 1, true));
   }
 
-  const dataParent: any = {
+  // Prepare parent data (without id for now)
+  const dataParentBase: any = {
     id_parent: null,
     id_type_infrastructure: dto.typeId,
     name: dto.name,
     description: dto.description ?? null,
-    existing_infrastructure: dto.existing_infrastructure === undefined ? true : this.getExistingFlag(dto), // <-- respecte l'input
+    existing_infrastructure: dto.existing_infrastructure === undefined ? true : this.getExistingFlag(dto),
     type: dto.type ?? 'SIMPLE',
     regionId: dto.regionId,
     departementId: dto.departementId,
@@ -388,20 +540,43 @@ export class InfrastructuresService {
     domaineId: dto.domaineId ?? null,
     sousdomaineId: dto.sousdomaineId ?? null,
     competenceId: dto.competenceId ?? null,
-    utilisateurId: creatorId,
+    utilisateurId: null,
     location: ensureObject(dto.location),
-
-    // ---------- Images ----------
-    // Avant : images: await this.toCloudinaryUrls(ensureArray(dto.images), parentFolder),
-    // La ligne Cloudinary est commentée ci-dessous pour garder trace.
-    // Maintenant : on stocke directement ce qui est fourni par le client (string | string[])
     images: ensureArray(dto.images),
-
     attribus: ensureObject(dto.attribus),
     composant: [],
   };
 
+  // desiredId: use dto.id if provided, else compute nextId based on current max id
+  // We'll compute nextId INSIDE a separate small transaction to avoid race as much as possible.
+  let desiredId: bigint | undefined = undefined;
+  if (dto.id) {
+    // accept provided id (string) -> convert to bigint
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      desiredId = BigInt(dto.id!);
+    } catch (e) {
+      throw new BadRequestException({ message: 'id fourni invalide (doit être numérique).', messageE: 'Invalid id provided.' });
+    }
+  } else {
+    // get current max id and add 1
+    const last = await this.prisma.infrastructure.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
+    if (last && last.id !== undefined && last.id !== null) {
+      // last.id may be bigint
+      const lastBig = typeof last.id === 'bigint' ? last.id : BigInt(String(last.id));
+      desiredId = lastBig + 1n;
+    } else {
+      // table vide -> start at 1
+      desiredId = 1n;
+    }
+  }
+
+  // Build final parent data with explicit id
+  const dataParent = { ...dataParentBase, id: desiredId };
+
+  // Create parent + children in transaction
   const result = await this.prisma.$transaction(async (tx) => {
+    // create parent with explicit id
     const parent = await tx.infrastructure.create({ data: dataParent, select: { id: true } });
 
     const ctx = {
@@ -428,8 +603,32 @@ export class InfrastructuresService {
     return { id: toStrId(parent.id), composants: enrichedChildren };
   }, { maxWait: 20000, timeout: 120000 });
 
+  // --- IMPORTANT: si on a forcé un id explicite et qu'on utilise Postgres avec sequence,
+  //     il faut ajuster la sequence pour que les prochains autoincrement ne retombent pas sur un id déjà utilisé.
+  //     On vérifie et on setval si nécessaire.
+  try {
+    // Only for Postgres: set sequence to at least desiredId
+    // Table name: adapted to Prisma naming. If your DB table name is different adapt the SQL.
+    // This uses a raw exec; ensure you trust this environment.
+    const maybeSetSeqSql = `
+      SELECT setval(
+        pg_get_serial_sequence('"Infrastructure"', 'id'),
+        GREATEST(
+          (SELECT COALESCE(MAX(id)::bigint, 0) FROM "Infrastructure"),
+          ${desiredId.toString()}
+        )
+      );
+    `;
+    await this.prisma.$executeRawUnsafe(maybeSetSeqSql);
+  } catch (e) {
+    // log but do not fail the create — sequence adjust best-effort
+    // logger not available here; use console to avoid missing reference
+    console.warn('setval sequence failed (non-fatal). Vérifie manuellement la séquence si nécessaire.', e);
+  }
+
   return result;
 }
+
 
   /* ---------- UPDATE & sync enfants ---------- */
   private async deleteSubtree(tx: any, id: bigint): Promise<void> {
