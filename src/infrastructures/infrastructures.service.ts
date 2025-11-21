@@ -510,7 +510,7 @@ export class InfrastructuresService {
   /* ---------- CREATE ---------- */
 
 async create(dto: CreateInfrastructureDto, currentUserId?: number) {  
-  console.log(dto.composant);
+  // console.log(dto.composant);
   
   // validations habituelles
   await this.ensureTypeExists(dto.typeId);
