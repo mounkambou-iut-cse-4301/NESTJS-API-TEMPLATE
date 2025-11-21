@@ -510,12 +510,14 @@ export class InfrastructuresService {
   /* ---------- CREATE ---------- */
 
 async create(dto: CreateInfrastructureDto, currentUserId?: number) {  
+  console.log(dto.composant);
+  
   // validations habituelles
   await this.ensureTypeExists(dto.typeId);
   await this.ensureTerritoryExists(dto.regionId, dto.departementId, dto.arrondissementId, dto.communeId);
   await this.ensureClassification(dto.domaineId, dto.sousdomaineId);
 
-  const creatorId = dto.utilisateurId ?? currentUserId ?? null;
+  const creatorId =  null;
   // await this.ensureUserExists(creatorId ?? undefined);
 
   const parentFolder = `infrastructures/${dto.communeId}`;
