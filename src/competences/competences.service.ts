@@ -122,19 +122,48 @@ export class CompetencesService {
     return { items, meta: buildMeta(page, pageSize, total) };
   }
 
+  // async create(dto: { name: string }) {
+  //   try {
+  //     return await this.prisma.competence.create({
+  //       data: { name: dto.name },
+  //       select: { id: true, name: true, created_at: true, updated_at: true },
+  //     });
+  //   } catch (e: any) {
+  //     if (e.code === 'P2002') {
+  //       throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+  //     }
+  //     throw e;
+  //   }
+  // }
+
   async create(dto: { name: string }) {
-    try {
-      return await this.prisma.competence.create({
-        data: { name: dto.name },
-        select: { id: true, name: true, created_at: true, updated_at: true },
-      });
-    } catch (e: any) {
-      if (e.code === 'P2002') {
-        throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+  const createCall = () =>
+    this.prisma.competence.create({
+      data: { name: dto.name },
+      select: { id: true, name: true, created_at: true, updated_at: true },
+    });
+
+  try {
+    return await createCall();
+  } catch (e: any) {
+    if (e.code === 'P2002') {
+      const tgt = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target ?? '');
+      if (tgt.includes('id')) {
+        await this.prisma.$executeRaw`
+          SELECT setval(
+            pg_get_serial_sequence('"Competence"', 'id'),
+            (SELECT COALESCE(MAX(id), 0) + 1 FROM "Competence"),
+            false
+          );
+        `;
+        return await createCall();
       }
-      throw e;
+      throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
     }
+    throw e;
   }
+}
+
 
   async findOne(id: number) {
     const row = await this.prisma.competence.findUnique({

@@ -124,19 +124,48 @@ export class DomainesService {
     return { total, items };
   }
 
-  async create(data: { nom: string; nom_en?: string; code?: string; }) {
-    try {
-      return await this.prisma.domaine.create({
-        data,
-        select: { id: true, nom: true, nom_en: true, code: true },
-      });
-    } catch (e: any) {
-      if (e.code === 'P2002') {
-        throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+  // async create(data: { nom: string; nom_en?: string; code?: string; }) {
+  //   try {
+  //     return await this.prisma.domaine.create({
+  //       data,
+  //       select: { id: true, nom: true, nom_en: true, code: true },
+  //     });
+  //   } catch (e: any) {
+  //     if (e.code === 'P2002') {
+  //       throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+  //     }
+  //     throw e;
+  //   }
+  // }
+
+  async create(data: { nom: string; nom_en?: string; code?: string }) {
+  const createCall = () =>
+    this.prisma.domaine.create({
+      data,
+      select: { id: true, nom: true, nom_en: true, code: true },
+    });
+
+  try {
+    return await createCall();
+  } catch (e: any) {
+    if (e.code === 'P2002') {
+      const tgt = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target ?? '');
+      if (tgt.includes('id')) {
+        await this.prisma.$executeRaw`
+          SELECT setval(
+            pg_get_serial_sequence('"Domaine"', 'id'),
+            (SELECT COALESCE(MAX(id), 0) + 1 FROM "Domaine"),
+            false
+          );
+        `;
+        return await createCall();
       }
-      throw e;
+      throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
     }
+    throw e;
   }
+}
+
 
   async findOne(id: number) {
     const row = await this.prisma.domaine.findUnique({

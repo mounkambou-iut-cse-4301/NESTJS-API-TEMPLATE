@@ -512,137 +512,126 @@ export class CommunesService {
     return { total, items };
   }
 
-  // async create(dto: CreateCommuneDto) {
-  //   const arr = await this.prisma.arrondissement.findUnique({
-  //     where: { id: dto.arrondissementId },
-  //     select: {
-  //       id: true,
-  //       departementId: true,
-  //       departement: { select: { regionId: true } },
-  //     },
-  //   });
-  //   if (!arr) {
-  //     throw new BadRequestException({
-  //       message: 'Arrondissement inconnu.',
-  //       messageE: 'Unknown sub-division.',
-  //     });
-  //   }
+  
+// async create(dto: CreateCommuneDto) {
+//   const arr = await this.prisma.arrondissement.findUnique({
+//     where: { id: dto.arrondissementId },
+//     select: {
+//       id: true,
+//       departementId: true,
+//       departement: { select: { regionId: true } },
+//     },
+//   });
+//   if (!arr) {
+//     throw new BadRequestException({
+//       message: 'Arrondissement inconnu.',
+//       messageE: 'Unknown sub-division.',
+//     });
+//   }
 
-  //   try {
-  //     const created = await this.prisma.commune.create({
-  //       data: {
-  //         nom: dto.nom,
-  //         nom_en: dto.nom_en,
-  //         nom_maire: dto.nom_maire,
-  //         longitude: dto.longitude,
-  //         latitude: dto.latitude,
-  //         code: dto.code,
-  //         typeCommuneId: dto.typeCommuneId ?? null,
-  //         arrondissementId: arr.id,
-  //         departementId: arr.departementId,
-  //         regionId: arr.departement.regionId,
-  //         is_verified: dto.is_verified ?? false,
-  //         is_block: dto.is_block ?? false,
-  //       },
-  //       select: {
-  //         id: true,
-  //         nom: true,
-  //         nom_en: true,
-  //         nom_maire: true,
-  //         longitude: true,
-  //         latitude: true,
-  //         code: true,
-  //         arrondissementId: true,
-  //         departementId: true,
-  //         typeCommune: true,
-  //         regionId: true,
-  //         is_verified: true,
-  //         is_block: true,
-  //       },
-  //     });
-  //     return created;
-  //   } catch (e: any) {
-  //     if (e.code === 'P2002') {
-  //       throw new BadRequestException({
-  //         message: 'Contrainte d’unicité (code).',
-  //         messageE: 'Unique constraint (code).',
-  //       });
-  //     }
-  //     throw e;
-  //   }
-  // }
+//   try {
+//     const created = await this.prisma.commune.create({
+//       data: {
+//         nom: dto.nom,
+//         nom_en: dto.nom_en,
+//         nom_maire: dto.nom_maire,
+//         longitude: dto.longitude,
+//         latitude: dto.latitude,
+//         code: dto.code,
+//         communeUrl: toNullable(dto.communeUrl), // 👈 NEW
+//         typeCommuneId: dto.typeCommuneId ?? null,
+//         arrondissementId: arr.id,
+//         departementId: arr.departementId,
+//         regionId: arr.departement.regionId,
+//         is_verified: dto.is_verified ?? false,
+//         is_block: dto.is_block ?? false,
+//       },
+//       select: {
+//         id: true,
+//         nom: true,
+//         nom_en: true,
+//         nom_maire: true,
+//         longitude: true,
+//         latitude: true,
+//         code: true,
+//         communeUrl: true,           // 👈 NEW
+//         arrondissementId: true,
+//         departementId: true,
+//         typeCommune: true,
+//         regionId: true,
+//         is_verified: true,
+//         is_block: true,
+//       },
+//     });
+//     return created;
+//   } catch (e: any) {
+//     if (e.code === 'P2002') {
+//       const tgt = Array.isArray(e.meta?.target)
+//         ? e.meta.target.join(',')
+//         : String(e.meta?.target ?? '');
+//       if (tgt.includes('communeUrl') || /communeurl/i.test(tgt)) {
+//         throw new BadRequestException({
+//           message: 'Contrainte d’unicité (communeUrl).',
+//           messageE: 'Unique constraint (communeUrl).',
+//         });
+//       }
+//       if (tgt.includes('code') || /code/i.test(tgt)) {
+//         throw new BadRequestException({
+//           message: 'Contrainte d’unicité (code).',
+//           messageE: 'Unique constraint (code).',
+//         });
+//       }
+//     }
+//     throw e;
+//   }
+// }
+
 async create(dto: CreateCommuneDto) {
   const arr = await this.prisma.arrondissement.findUnique({
     where: { id: dto.arrondissementId },
-    select: {
-      id: true,
-      departementId: true,
-      departement: { select: { regionId: true } },
-    },
+    select: { id: true, departementId: true, departement: { select: { regionId: true } } },
   });
   if (!arr) {
-    throw new BadRequestException({
-      message: 'Arrondissement inconnu.',
-      messageE: 'Unknown sub-division.',
-    });
+    throw new BadRequestException({ message: 'Arrondissement inconnu.', messageE: 'Unknown sub-division.' });
   }
 
+  const data = {
+    nom: dto.nom,
+    nom_en: dto.nom_en,
+    nom_maire: dto.nom_maire,
+    longitude: dto.longitude,
+    latitude: dto.latitude,
+    code: dto.code,
+    communeUrl: toNullable(dto.communeUrl),
+    typeCommuneId: dto.typeCommuneId ?? null,
+    arrondissementId: arr.id,
+    departementId: arr.departementId,
+    regionId: arr.departement.regionId,
+    is_verified: dto.is_verified ?? false,
+    is_block: dto.is_block ?? false,
+  };
+
   try {
-    const created = await this.prisma.commune.create({
-      data: {
-        nom: dto.nom,
-        nom_en: dto.nom_en,
-        nom_maire: dto.nom_maire,
-        longitude: dto.longitude,
-        latitude: dto.latitude,
-        code: dto.code,
-        communeUrl: toNullable(dto.communeUrl), // 👈 NEW
-        typeCommuneId: dto.typeCommuneId ?? null,
-        arrondissementId: arr.id,
-        departementId: arr.departementId,
-        regionId: arr.departement.regionId,
-        is_verified: dto.is_verified ?? false,
-        is_block: dto.is_block ?? false,
-      },
-      select: {
-        id: true,
-        nom: true,
-        nom_en: true,
-        nom_maire: true,
-        longitude: true,
-        latitude: true,
-        code: true,
-        communeUrl: true,           // 👈 NEW
-        arrondissementId: true,
-        departementId: true,
-        typeCommune: true,
-        regionId: true,
-        is_verified: true,
-        is_block: true,
-      },
-    });
-    return created;
+    return await this.prisma.commune.create({ data });
   } catch (e: any) {
-    if (e.code === 'P2002') {
-      const tgt = Array.isArray(e.meta?.target)
-        ? e.meta.target.join(',')
-        : String(e.meta?.target ?? '');
-      if (tgt.includes('communeUrl') || /communeurl/i.test(tgt)) {
-        throw new BadRequestException({
-          message: 'Contrainte d’unicité (communeUrl).',
-          messageE: 'Unique constraint (communeUrl).',
-        });
-      }
-      if (tgt.includes('code') || /code/i.test(tgt)) {
-        throw new BadRequestException({
-          message: 'Contrainte d’unicité (code).',
-          messageE: 'Unique constraint (code).',
-        });
-      }
+    // P2002 sur id => séquence out-of-sync
+    const tgt = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target ?? '');
+    if (e.code === 'P2002' && tgt.includes('id')) {
+      // 🔧 resynchronise la séquence puis retente une fois
+      await this.prisma.$executeRaw`
+        SELECT setval(
+          pg_get_serial_sequence('"Commune"', 'id'),
+          (SELECT COALESCE(MAX(id), 0) + 1 FROM "Commune"),
+          false
+        );
+      `;
+      return await this.prisma.commune.create({ data });
     }
+
     throw e;
   }
 }
+
 
   async findOne(id: number) {
     const commune = await this.prisma.commune.findUnique({

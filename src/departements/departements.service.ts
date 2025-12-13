@@ -128,19 +128,48 @@ export class DepartementsService {
     return { total, items };
   }
 
-  async create(dto: CreateDepartementDto) {
-    await this.ensureRegion(dto.regionId);
-    try {
-      return await this.prisma.departement.create({
-        data: { nom: dto.nom, nom_en: dto.nom_en, code: dto.code, regionId: dto.regionId },
-        select: { id: true, nom: true, nom_en: true, code: true, regionId: true },
-      });
-    } catch (e: any) {
-      if (e.code === 'P2002')
-        throw new BadRequestException({ message: 'Contrainte d’unicité (code).', messageE: 'Unique constraint (code).' });
-      throw e;
+  // async create(dto: CreateDepartementDto) {
+  //   await this.ensureRegion(dto.regionId);
+  //   try {
+  //     return await this.prisma.departement.create({
+  //       data: { nom: dto.nom, nom_en: dto.nom_en, code: dto.code, regionId: dto.regionId },
+  //       select: { id: true, nom: true, nom_en: true, code: true, regionId: true },
+  //     });
+  //   } catch (e: any) {
+  //     if (e.code === 'P2002')
+  //       throw new BadRequestException({ message: 'Contrainte d’unicité (code).', messageE: 'Unique constraint (code).' });
+  //     throw e;
+  //   }
+  // }
+async create(dto: CreateDepartementDto) {
+  await this.ensureRegion(dto.regionId);
+
+  const createCall = () =>
+    this.prisma.departement.create({
+      data: { nom: dto.nom, nom_en: dto.nom_en, code: dto.code, regionId: dto.regionId },
+      select: { id: true, nom: true, nom_en: true, code: true, regionId: true },
+    });
+
+  try {
+    return await createCall();
+  } catch (e: any) {
+    if (e.code === 'P2002') {
+      const tgt = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target ?? '');
+      if (tgt.includes('id')) {
+        await this.prisma.$executeRaw`
+          SELECT setval(
+            pg_get_serial_sequence('"Departement"', 'id'),
+            (SELECT COALESCE(MAX(id), 0) + 1 FROM "Departement"),
+            false
+          );
+        `;
+        return await createCall();
+      }
+      throw new BadRequestException({ message: 'Contrainte d’unicité (code).', messageE: 'Unique constraint (code).' });
     }
+    throw e;
   }
+}
 
   async findOne(id: number) {
     const row = await this.prisma.departement.findUnique({

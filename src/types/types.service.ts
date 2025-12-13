@@ -743,48 +743,103 @@ export class TypesService {
   }
 
   /* ===================== CREATE ===================== */
-  async create(dto: CreateTypeDto) {
-    if (typeof dto.domaineId === 'number') {
-      const exists = await this.prisma.domaine.count({ where: { id: dto.domaineId } });
-      if (!exists) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
-    }
-    if (typeof dto.sousdomaineId === 'number') {
-      const exists = await this.prisma.sousDomaine.count({ where: { id: dto.sousdomaineId } });
-      if (!exists) throw new BadRequestException({ message: 'Sous-domaine invalide.', messageE: 'Invalid subdomain.' });
-    }
+  // async create(dto: CreateTypeDto) {
+  //   if (typeof dto.domaineId === 'number') {
+  //     const exists = await this.prisma.domaine.count({ where: { id: dto.domaineId } });
+  //     if (!exists) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
+  //   }
+  //   if (typeof dto.sousdomaineId === 'number') {
+  //     const exists = await this.prisma.sousDomaine.count({ where: { id: dto.sousdomaineId } });
+  //     if (!exists) throw new BadRequestException({ message: 'Sous-domaine invalide.', messageE: 'Invalid subdomain.' });
+  //   }
 
-    const normalized = normalizeTypePayload({
-      ...dto,
-      location: dto.location ?? {},
-      images: dto.images ?? [],
-      attribus: dto.attribus ?? [],
-      composant: dto.composant ?? [],
+  //   const normalized = normalizeTypePayload({
+  //     ...dto,
+  //     location: dto.location ?? {},
+  //     images: dto.images ?? [],
+  //     attribus: dto.attribus ?? [],
+  //     composant: dto.composant ?? [],
+  //   });
+
+  //   try {
+  //     const created = await this.prisma.typeInfrastructure.create({
+  //       data: {
+  //         name: normalized.name,
+  //         description: normalized.description ?? null,
+  //         type: normalized.type,
+  //         location: normalized.location,
+  //         images: normalized.images,
+  //         attribus: normalized.attribus,
+  //         composant: normalized.composant,
+  //         domaineId: dto.domaineId ?? null,
+  //         sousdomaineId: dto.sousdomaineId ?? null,
+  //         competenceId: dto.competenceId ?? null,
+  //       },
+  //       select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true, competenceId: true },
+  //     });
+  //     return created;
+  //   } catch (e: any) {
+  //     if (e.code === 'P2002') {
+  //       throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+  //     }
+  //     throw e;
+  //   }
+  // }
+async create(dto: CreateTypeDto) {
+  if (typeof dto.domaineId === 'number') {
+    const exists = await this.prisma.domaine.count({ where: { id: dto.domaineId } });
+    if (!exists) throw new BadRequestException({ message: 'Domaine invalide.', messageE: 'Invalid domain.' });
+  }
+  if (typeof dto.sousdomaineId === 'number') {
+    const exists = await this.prisma.sousDomaine.count({ where: { id: dto.sousdomaineId } });
+    if (!exists) throw new BadRequestException({ message: 'Sous-domaine invalide.', messageE: 'Invalid subdomain.' });
+  }
+
+  const normalized = normalizeTypePayload({
+    ...dto,
+    location: dto.location ?? {},
+    images: dto.images ?? [],
+    attribus: dto.attribus ?? [],
+    composant: dto.composant ?? [],
+  });
+
+  const createCall = () =>
+    this.prisma.typeInfrastructure.create({
+      data: {
+        name: normalized.name,
+        description: normalized.description ?? null,
+        type: normalized.type,
+        location: normalized.location,
+        images: normalized.images,
+        attribus: normalized.attribus,
+        composant: normalized.composant,
+        domaineId: dto.domaineId ?? null,
+        sousdomaineId: dto.sousdomaineId ?? null,
+        competenceId: dto.competenceId ?? null,
+      },
+      select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true, competenceId: true },
     });
 
-    try {
-      const created = await this.prisma.typeInfrastructure.create({
-        data: {
-          name: normalized.name,
-          description: normalized.description ?? null,
-          type: normalized.type,
-          location: normalized.location,
-          images: normalized.images,
-          attribus: normalized.attribus,
-          composant: normalized.composant,
-          domaineId: dto.domaineId ?? null,
-          sousdomaineId: dto.sousdomaineId ?? null,
-          competenceId: dto.competenceId ?? null,
-        },
-        select: { id: true, name: true, description: true, type: true, domaineId: true, sousdomaineId: true, competenceId: true },
-      });
-      return created;
-    } catch (e: any) {
-      if (e.code === 'P2002') {
-        throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
+  try {
+    return await createCall();
+  } catch (e: any) {
+    if (e.code === 'P2002') {
+      const tgt = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target ?? '');
+      if (tgt.includes('id')) {
+        await this.prisma.$executeRaw`
+          SELECT setval(
+            pg_get_serial_sequence('"TypeInfrastructure"', 'id'),
+            (SELECT COALESCE(MAX(id), 0) + 1 FROM "TypeInfrastructure"),
+            false
+          );
+        `;
+        return await createCall();
       }
-      throw e;
+      throw new BadRequestException({ message: 'Nom déjà utilisé.', messageE: 'Name already in use.' });
     }
+    throw e;
   }
+}
 
   /* ===================== FIND ONE (avec composants développés) ===================== */
   async findOne(id: number, depth = 10) {

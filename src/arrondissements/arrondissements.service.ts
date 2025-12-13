@@ -124,19 +124,50 @@ export class ArrondissementsService {
     return { total, items };
   }
 
+  // async create(dto: CreateArrondissementDto) {
+  //   await this.ensureDepartement(dto.departementId);
+  //   try {
+  //     return await this.prisma.arrondissement.create({
+  //       data: { nom: dto.nom, nom_en: dto.nom_en, code: dto.code, departementId: dto.departementId },
+  //       select: { id: true, nom: true, nom_en: true, code: true, departementId: true },
+  //     });
+  //   } catch (e: any) {
+  //     if (e.code === 'P2002')
+  //       throw new BadRequestException({ message: 'Contrainte d’unicité (code).', messageE: 'Unique constraint (code).' });
+  //     throw e;
+  //   }
+  // }
+
   async create(dto: CreateArrondissementDto) {
-    await this.ensureDepartement(dto.departementId);
-    try {
-      return await this.prisma.arrondissement.create({
-        data: { nom: dto.nom, nom_en: dto.nom_en, code: dto.code, departementId: dto.departementId },
-        select: { id: true, nom: true, nom_en: true, code: true, departementId: true },
-      });
-    } catch (e: any) {
-      if (e.code === 'P2002')
-        throw new BadRequestException({ message: 'Contrainte d’unicité (code).', messageE: 'Unique constraint (code).' });
-      throw e;
+  await this.ensureDepartement(dto.departementId);
+
+  const createCall = () =>
+    this.prisma.arrondissement.create({
+      data: { nom: dto.nom, nom_en: dto.nom_en, code: dto.code, departementId: dto.departementId },
+      select: { id: true, nom: true, nom_en: true, code: true, departementId: true },
+    });
+
+  try {
+    return await createCall();
+  } catch (e: any) {
+    if (e.code === 'P2002') {
+      const tgt = Array.isArray(e.meta?.target) ? e.meta.target.join(',') : String(e.meta?.target ?? '');
+      if (tgt.includes('id')) {
+        await this.prisma.$executeRaw`
+          SELECT setval(
+            pg_get_serial_sequence('"Arrondissement"', 'id'),
+            (SELECT COALESCE(MAX(id), 0) + 1 FROM "Arrondissement"),
+            false
+          );
+        `;
+        return await createCall();
+      }
+      throw new BadRequestException({ message: 'Contrainte d’unicité (code).', messageE: 'Unique constraint (code).' });
     }
+    throw e;
   }
+}
+
 
   async findOne(id: number) {
     const row = await this.prisma.arrondissement.findUnique({
