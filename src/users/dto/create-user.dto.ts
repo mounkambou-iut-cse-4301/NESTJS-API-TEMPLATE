@@ -1,58 +1,91 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min, MinLength } from 'class-validator';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { Genre, TypeUtilisateur } from '@prisma/client';
+import {
+  IsArray,
+  IsDateString,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
+import { CreateAddressDto } from './create-address.dto';
+import { CreateDocumentDto } from './create-document.dto';
 
 export class CreateUserDto {
-  @ApiProperty({ example: 'Jean Dupont' })
-  @IsString() @IsNotEmpty()
+  @ApiProperty({ example: 'Institut Élégance Plus' })
+  @IsString()
   nom: string;
 
-  @ApiProperty({ example: 'jean.dupont@example.com' })
+  @ApiProperty({ example: 'contact@dezoumay.com' })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: 'StrongP@ssw0rd!' })
-  @IsString() @MinLength(8)
-  mot_de_passe: string;
-
-  @ApiProperty({
-    description: 'Numéro au format international Cameroun. Ex: +237699001122',
-    example: '+237699001122',
-  })
-  @IsString() @IsNotEmpty()
-  // Tolérant : +237 suivi de 8 à 9 chiffres (selon écriture locale)
-  @Matches(/^\+237\d{8,9}$/, { message: 'Numéro de téléphone invalide (doit commencer par +237 et contenir 8 à 9 chiffres après).' })
+  @ApiProperty({ example: '+237690000000' })
+  @IsString()
   telephone: string;
 
-  @ApiPropertyOptional({ example: 1 })
-  @IsOptional() @IsInt()
-  communeId?: number;
-
- @ApiPropertyOptional({ example: 3, description: 'ID du rôle à associer au nouvel utilisateur' })
-  @Transform(({ value }) => value === undefined ? undefined : Number(value))
-  @IsOptional() @IsInt() @Min(1)
-  roleId?: number;
-
-    @ApiPropertyOptional({ example: "yaounde" })
-  @IsOptional() @IsString()
-  ville?: string;
-
-  @ApiPropertyOptional({ example: "bastos" })
-  @IsOptional() @IsString()
-  adresse?: string;
-
-  @ApiPropertyOptional({ example: false })
-  @IsOptional()
-  is_verified?: boolean;
-
-  @ApiPropertyOptional({ example: false })
-  @IsOptional()
-  is_block?: boolean;
+  @ApiProperty({
+    example: 'MotDePasse@123',
+    minLength: 8,
+  })
+  @IsString()
+  @MinLength(8)
+  mot_de_passe: string;
 
   @ApiPropertyOptional({
-    description: 'Image base64 (ou URL http). Sera envoyée à Cloudinary.',
-    example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...'
+    example: '1998-04-15',
   })
-  @IsOptional() @IsString()
-  photoBase64?: string;
+  @IsOptional()
+  @IsDateString()
+  date_naissance?: string;
+
+  @ApiPropertyOptional({
+    enum: Genre,
+    example: Genre.F,
+  })
+  @IsOptional()
+  @IsEnum(Genre)
+  genre?: Genre;
+
+  @ApiProperty({
+    enum: TypeUtilisateur,
+    example: TypeUtilisateur.CLIENT,
+  })
+  @IsEnum(TypeUtilisateur)
+  type: TypeUtilisateur;
+
+  @ApiPropertyOptional({
+    example: 'data:image/jpeg;base64,/9j/4AAQSk...',
+    description: 'Photo de profil base64 ou URL',
+  })
+  @IsOptional()
+  @IsString()
+  photo_url?: string;
+
+  @ApiPropertyOptional({
+    type: [CreateAddressDto],
+    description: 'Adresses initiales',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateAddressDto)
+  adresses?: CreateAddressDto[];
+
+  @ApiPropertyOptional({
+    type: [CreateDocumentDto],
+    description:
+      'Documents/images. Obligatoire si type = INSTITUT',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateDocumentDto)
+  documents?: CreateDocumentDto[];
 }

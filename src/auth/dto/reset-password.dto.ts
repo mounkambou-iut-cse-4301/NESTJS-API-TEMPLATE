@@ -1,19 +1,29 @@
-// src/auth/dto/reset-password.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsJWT, IsNotEmpty, MinLength } from 'class-validator';
+import { IsJWT, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class ResetPasswordDto {
-  @ApiProperty({ description: 'Token de réinitialisation reçu par email (JWT)', example: 'eyJhbGciOi...'})
+  @ApiProperty({
+    description: 'Token de réinitialisation',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
   @IsJWT()
   @IsNotEmpty()
-  token!: string;
+  token: string;
 
-  @ApiProperty({ description: 'Code de vérification à 6 chiffres reçu par email', example: '123456' })
+  @ApiProperty({
+    description: 'Code de vérification à 6 chiffres',
+    example: '123456',
+  })
+  @IsString()
   @IsNotEmpty()
-  code!: string;
+  code: string;
 
-  @ApiProperty({ description: 'Nouveau mot de passe (min. 8 caractères)', example: 'MonNouveauMDP!234' })
-  @IsNotEmpty()
+  @ApiProperty({
+    description: 'Nouveau mot de passe',
+    example: 'MonNouveauMotDePasse@2026',
+    minLength: 8,
+  })
+  @IsString()
   @MinLength(8)
-  new_password!: string;
+  new_password: string;
 }

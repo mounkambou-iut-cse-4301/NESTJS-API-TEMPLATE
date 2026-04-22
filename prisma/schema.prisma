@@ -14,78 +14,6 @@ datasource db {
 
 /**
  * =========================
- * Territoire
- * =========================
- */
-
-model Region {
-  id              Int              @id @default(autoincrement())
-  nom             String
-  nom_en          String?
-  code            String?          @unique
-  departements    Departement[]
-  communes        Commune[]
-  infrastructures Infrastructure[]
-}
-
-model Departement {
-  id       Int     @id @default(autoincrement())
-  regionId Int
-  nom      String
-  nom_en   String?
-  code     String? @unique
-
-  region          Region           @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  arrondissements Arrondissement[]
-  communes        Commune[]
-  infrastructures Infrastructure[]
-}
-
-model Arrondissement {
-  id            Int     @id @default(autoincrement())
-  departementId Int
-  nom           String
-  nom_en        String?
-  code          String? @unique
-
-  departement     Departement      @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  communes        Commune[]
-  infrastructures Infrastructure[]
-}
-
-model Commune {
-  id               Int     @id @default(autoincrement())
-  arrondissementId Int?
-  departementId    Int
-  regionId         Int
-  nom              String
-  nom_en           String?
-  nom_maire        String?
-  longitude        Float?
-  latitude         Float?
-  code             String? @unique
-  typeCommuneId    Int?
-  communeUrl       String? @unique
-
-  /// Commune vérifiée ?
-  is_verified Boolean @default(false)
-  /// Commune bloquée ?
-  is_block    Boolean @default(false)
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  arrondissement Arrondissement? @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  departement    Departement     @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  region         Region          @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  typeCommune    TypeCommune?    @relation(fields: [typeCommuneId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-
-  utilisateurs    Utilisateur[]
-  infrastructures Infrastructure[]
-}
-
-/**
- * =========================
  * Auth & rôles
  * =========================
  */
@@ -93,38 +21,45 @@ model Commune {
 model Utilisateur {
   id                 Int       @id @default(autoincrement())
   nom                String
-  email              String    @unique
+  email              String    
   mot_de_passe       String
-  communeId          Int?
-  telephone          String    @unique
+  telephone          String    
+  date_naissance     DateTime?
+  genre              Genre?
+  type               TypeUtilisateur @default(CLIENT)
   /// Compte vérifié (email / validation admin)
   is_verified        Boolean   @default(false)
   photo_url          String?
-  ville              String?
-  adresse            String?
   /// Compte bloqué (accès refusé)
   is_block           Boolean   @default(false)
+  /// Nombre de tentatives de connexion échouées
+  nombre_attempts    Int       @default(0)
   derniere_connexion DateTime?
   created_at         DateTime  @default(now())
   updated_at         DateTime  @updatedAt
 
-  commune         Commune?          @relation(fields: [communeId], references: [id], onUpdate: Cascade, onDelete: SetNull)
   roles           UtilisateurRole[]
-  infrastructures Infrastructure[]
-
-  Parcour Parcour[]
+  adresses        Adresse[]
+  documents       Document[]
+  portfolios      Portfolio[]
+  modelProposes   Model[]       @relation("prestatairePropose")
+  institutModels  InstitutModel[]
+  reservations    Reservation[] @relation("client")
+  prestations     Reservation[] @relation("prestataire")
+  propositions    Proposition[]
+  transactions    Transaction[]
 }
 
 model Role {
   id    Int               @id @default(autoincrement())
-  nom   String            @unique // SUPER_ADMIN | MINISTERE | COMMUNE
+  nom   String            @unique // SUPER_ADMIN | ADMIN | CLIENT | PROFESSIONEL | INSTITUT
   perms RolePermission[]
   users UtilisateurRole[]
 }
 
 model Permission {
   id    Int              @id @default(autoincrement())
-  code  String           @unique // MODELES_GERER, INFRA_ECRIRE, ...
+  code  String           @unique
   roles RolePermission[]
 }
 
@@ -146,218 +81,212 @@ model RolePermission {
   @@id([roleId, permissionId])
 }
 
-model Domaine {
-  id         Int      @id @default(autoincrement())
-  nom        String   @unique
-  nom_en     String?
-  code       String?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  sousDomaines    SousDomaine[]
-  types           TypeInfrastructure[]
-  infrastructures Infrastructure[]
-}
-
-model SousDomaine {
-  id        Int     @id @default(autoincrement())
-  domaineId Int
-  domaine   Domaine @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-
-  nom        String
-  nom_en     String?
-  code       String?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  types           TypeInfrastructure[]
-  infrastructures Infrastructure[]
-
-  Competence Competence[]
-}
-
-/// Points collectés sur le terrain (trace GPS)
-model Parcour {
-  id           BigInt       @id @default(autoincrement())
-  collecteurId Int?
-  collecteur   Utilisateur? @relation(fields: [collecteurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-
-  latitude   Float
-  longitude  Float
-  recordedAt DateTime
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@index([collecteurId], name: "idx_parcour_collecteur")
-  @@index([recordedAt], name: "idx_parcour_recordedAt")
-}
-
-/// Typologie administrative d’une commune (ex: URBAINE / RURALE)
-model TypeCommune {
-  id         Int      @id @default(autoincrement())
-  name       String   @unique
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  Commune Commune[]
-}
-
-/// Référentiel de compétences (ex: SANTÉ, ÉDUCATION…)
-model Competence {
-  id            Int          @id @default(autoincrement())
-  name          String       @unique
-  sousDomaineId Int?
-  sousDomaine   SousDomaine? @relation(fields: [sousDomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  created_at    DateTime     @default(now())
-  updated_at    DateTime     @updatedAt
-
-  Infrastructure     Infrastructure[]
-  TypeInfrastructure TypeInfrastructure[]
-}
-
-/**
- * =========================
- * Types d'infrastructure (modèles)
- * =========================
- */
-
-model TypeInfrastructure {
-  id          Int     @id @default(autoincrement())
-  /// Nom du type (ex: "hopital")
-  name        String  @unique
-  /// Nature du type: "simple" ou "complexe"
-  type        String
-  /// Localisation par défaut (JSON libre)
-  location    Json?
-  /// Description textuelle du type
-  description String?
-  /// Images par défaut (JSON libre)
-  images      Json?
-  /// Déclaration des attributs (JSON array)
-  attribus    Json
-  /// Déclaration des composants (JSON array) (récursif)
-  composant   Json?
-
-  /// Classification
-  domaineId     Int?
-  sousdomaineId Int?
-  competenceId  Int?
-  domaine       Domaine?     @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  sousdomaine   SousDomaine? @relation(fields: [sousdomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  competence    Competence?  @relation(fields: [competenceId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  infrastructures Infrastructure[]
-}
-
-/**
- * =========================
- * Infrastructures réelles (records)
- * =========================
- */
-
-model Infrastructure {
-  id BigInt @id @default(autoincrement())
-
-  id_parent BigInt?
-  parent    Infrastructure?  @relation("InfrastructureParent", fields: [id_parent], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  children  Infrastructure[] @relation("InfrastructureParent")
-
-  /// Référence du type (modèle)
-  id_type_infrastructure Int
-  typeRef                TypeInfrastructure @relation(fields: [id_type_infrastructure], references: [id], onUpdate: Cascade, onDelete: Restrict)
-
-  /// Nom lisible (ex: "Hopital de djongolo")
-  name        String
-  /// Description textuelle du record communal
-  description String?
-
-  /// Infrastructure déjà existante ? (1/0)
-  existing_infrastructure Boolean @default(true)
-  is_synchronized         Boolean @default(false)
-  /// "simple" | "complexe"
-  type                    String
-
-  /**
-   * Liens territoriaux (FK)
-   */
-  regionId         Int
-  departementId    Int
-  arrondissementId Int
-  communeId        Int
-  utilisateurId    Int?
-  competenceId     Int?
-
-  region         Region         @relation(fields: [regionId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  departement    Departement    @relation(fields: [departementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  arrondissement Arrondissement @relation(fields: [arrondissementId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  commune        Commune        @relation(fields: [communeId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  utilisateur    Utilisateur?   @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  competence     Competence?    @relation(fields: [competenceId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-
-  /// Localisation réelle (JSON libre)
-  location Json?
-  /// Photos réelles (JSON libre)
-  images   Json?
-  /// Attributs réels (JSON objet)
-  attribus Json
-
-  /// Classification
-  domaineId     Int?
-  sousdomaineId Int?
-  domaine       Domaine?     @relation(fields: [domaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  sousdomaine   SousDomaine? @relation(fields: [sousdomaineId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-
-  /// Composants réels (JSON array)
-  composant Json?
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@index([communeId], name: "idx_infra_commune")
-  @@index([id_type_infrastructure], name: "idx_infra_type")
-}
-
-model DeletedInfrastructure {
-  /// On conserve le même id que l’infrastructure d’origine
-  id                      BigInt   @id
-  id_parent               BigInt?
-  id_type_infrastructure  Int
-  name                    String
-  description             String?
-  existing_infrastructure Boolean  @default(true)
-  type                    String
-  regionId                Int
-  departementId           Int
-  arrondissementId        Int
-  communeId               Int
-  domaineId               Int?
-  sousdomaineId           Int?
-  competenceId            Int?
-  utilisateurId           Int?
-  location                Json?
-  images                  Json?
-  attribus                Json?
-  composant               Json?
-  created_at              DateTime
-  updated_at              DateTime
-
-  /// Colonnes additionnelles
-  reason  String
-  fileURL String
-
-  @@map("DeletedInfrastructure")
-}
-
 model Setting {
-  id               Int     @id @default(1) // une seule ligne (id=1)
-  centralServerUrl String? // nullable
-    maxActivatedCommunes  Int      @default(10)
+  id                           Int            @id @default(1)
+  commission_domicile          Float          @default(0)
+  commission_domicile_type     TypeCommission @default(POURCENTAGE)
+  commission_institut          Float          @default(0)
+  commission_institut_type     TypeCommission @default(POURCENTAGE)
+  created_at                   DateTime       @default(now())
+  updated_at                   DateTime       @updatedAt
+}
 
+/**
+ * =========================
+ * Nouvelles tables pour Dezoumay
+ * =========================
+ */
 
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+enum Genre {
+  F
+  M
+}
+
+enum TypeUtilisateur {
+  SUPERADMIN
+  ADMIN
+  CLIENT
+  PROFESSIONEL
+  INSTITUT
+}
+
+enum StatutModele {
+  PENDING
+  CONFIRM
+}
+
+enum StatutReservation {
+  PROPOSE
+  EN_ATTENTE_PAIEMENT
+  EN_ATTENTE_PRESTATION
+  CANCEL
+  COMPLETED
+}
+
+enum StatutPaiement {
+  PENDING
+  CONFIRM
+  CANCEL
+}
+
+enum ModePaiement {
+  CARTE
+  MOBILE_MONEY
+  ESPECES
+}
+
+enum TypeReservation {
+  A_DOMICILE
+  A_INSTITUT
+}
+
+enum TypeCommission {
+  POURCENTAGE
+  FIXE
+}
+
+model Adresse {
+  id            Int         @id @default(autoincrement())
+  country       String
+  city          String
+  address       String
+  longitude     Float?
+  latitude      Float?
+  utilisateurId Int
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  reservations  Reservation[]
+
+  @@map("adresses")
+}
+
+model Document {
+  id            Int         @id @default(autoincrement())
+  nom           String?
+  images        String[]
+  utilisateurId Int
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model Categorie {
+  id       Int       @id @default(autoincrement())
+  nom      String    @unique
+  image    String?
+  services Service[]
+
+  @@map("categories")
+}
+
+model Service {
+  id          Int       @id @default(autoincrement())
+  nom         String    @unique
+  image       String?
+  categorieId Int
+  categorie   Categorie @relation(fields: [categorieId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  modeles     Model[]
+
+  @@map("services")
+}
+
+model Model {
+  id                    Int              @id @default(autoincrement())
+  nom                   String
+  images                String[]
+  statut                StatutModele     @default(PENDING)
+  prestataireProposeId  Int?
+  serviceId             Int
+  prestatairePropose    Utilisateur?     @relation("prestatairePropose", fields: [prestataireProposeId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  service               Service          @relation(fields: [serviceId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  tarifs                Tarif[]
+  institutModels        InstitutModel[]
+  portfolios            Portfolio[]
+  reservations          Reservation[]
+
+  @@map("modeles")
+}
+
+model Tarif {
+  id           Int    @id @default(autoincrement())
+  prix         Float
+  duree_estime Int
+  age_min      Int
+  age_max      Int
+  modelId      Int
+  model        Model  @relation(fields: [modelId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("tarifs")
+}
+
+model InstitutModel {
+  id            Int         @id @default(autoincrement())
+  utilisateurId Int
+  modelId       Int
+  prix          Float
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  model         Model       @relation(fields: [modelId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@unique([utilisateurId, modelId])
+  @@map("institut_modeles")
+}
+
+model Portfolio {
+  id            Int         @id @default(autoincrement())
+  images        String[]
+  utilisateurId Int
+  modelId       Int?
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  model         Model?      @relation(fields: [modelId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+
+  @@map("portfolios")
+}
+
+model Reservation {
+  id                Int               @id @default(autoincrement())
+  heure_debut       DateTime
+  heure_fin         DateTime
+  date_reservation  DateTime
+  type              TypeReservation   @default(A_DOMICILE)
+  statut            StatutReservation @default(PROPOSE)
+  age               Int?
+  sexe              Genre?
+  nom_client        String
+  numero_client     String
+  clientId          Int
+  modelId           Int
+  adresseId         Int
+  prestataireId     Int?
+  client            Utilisateur       @relation("client", fields: [clientId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  model             Model             @relation(fields: [modelId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  adresse           Adresse           @relation(fields: [adresseId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  prestataire       Utilisateur?      @relation("prestataire", fields: [prestataireId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  propositions      Proposition[]
+  transactions      Transaction[]
+
+  @@map("reservations")
+}
+
+model Proposition {
+  id            Int         @id @default(autoincrement())
+  prestataireId Int
+  reservationId Int
+  prestataire   Utilisateur @relation(fields: [prestataireId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@unique([prestataireId, reservationId])
+  @@map("propositions")
+}
+
+model Transaction {
+  id               Int            @id @default(autoincrement())
+  montant          Float
+  date_paiement    DateTime?
+  mode_paiement    ModePaiement?
+  statut_paiement  StatutPaiement @default(PENDING)
+  reservationId    Int?
+  reservation      Reservation?   @relation(fields: [reservationId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  utilisateurId    Int
+  utilisateur      Utilisateur    @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("transactions")
 }

@@ -1,248 +1,285 @@
-import { Controller, Get, Post, Body, Param, Query, Patch, Delete, UseGuards, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ListUsersQueryDto } from './dto/list-users.query.dto';
-import { UserIdParamDto } from './dto/user-id.param.dto';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
-
-function parseSortLocal(sort?: string): Record<string, 'asc' | 'desc'> | undefined {
-  if (!sort) return undefined;
-  const orders: Record<string, 'asc' | 'desc'> = {};
-  for (const token of sort.split(',').map((s) => s.trim()).filter(Boolean)) {
-    if (token.startsWith('-')) orders[token.slice(1)] = 'desc';
-    else orders[token] = 'asc';
-  }
-  return orders;
-}
-
-function buildMetaLocal(page: number, pageSize: number, total: number) {
-  const totalPages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
-  return { page, pageSize, total, totalPages };
-}
-
-
- @ApiBearerAuth('JWT-auth')
-@UseGuards(JwtAuthGuard, NotBlockedGuard) // 👈 tu mets ça seulement ici si tu le veux
+import { QueryUserDto } from './dto/query-user.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
+import { UpdateUserDocumentsDto } from './dto/update-user-documents.dto';
+import {
+  AddressListResponseDto,
+  AddressSingleResponseDto,
+  DocumentListResponseDto,
+  ErrorResponseDto,
+  GenericMessageResponseDto,
+  UserSingleResponseDto,
+  UsersListResponseDto,
+} from './dto/user-response.dto';
 
 @ApiTags('Users')
 @Controller('api/v1/users')
 export class UsersController {
-  constructor(private readonly service: UsersService) {}
+  constructor(private readonly usersService: UsersService) {}
 
-  /** GET /api/v1/users — liste + filtres + pagination */
-  @ApiOperation({ summary:'api pour avoir tous les utilisateurs par filtre et par pagination'})
-  @Get()
-  async list(@Query() q: ListUsersQueryDto,@Req() req: any) {
-    const page = Math.max(1, Number(q.page ?? 1));
-    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
-    const sort = parseSortLocal(q.sort);
-
-    const { total, items } = await this.service.list({
-      page,
-      pageSize,
-      sort,
-      communeId: q.communeId,
-      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
-      is_block: q.is_block === undefined ? undefined : q.is_block === 'true',
-      q: q.q,
-      req, // pour le logging
-    });
-
-    return {
-      message: 'Liste des utilisateurs chargée avec succès.',
-      messageE: 'Users list loaded successfully.',
-      data: items,
-      meta: buildMetaLocal(page, pageSize, total),
-    };
-  }
-
-  /** POST /api/v1/users — création (upload base64 + email texte) */
-  @ApiOperation({ summary:'api pour créer un utilisateur' })
   @Post()
-  async create(@Body() dto: CreateUserDto) {
-    const created = await this.service.create(dto);
-    return {
-      message: 'Utilisateur créé avec succès. Un email de bienvenue a été envoyé.',
-      messageE: 'User created successfully. A welcome email has been sent.',
-      data: created,
-    };
-  }
-
-  
-
-  /** PATCH /api/v1/users/:id — mise à jour (upload base64 possible) */
-  @ApiOperation({ summary:'api pour mettre à jour un utilisateur' })
-  @Patch(':id')
-  async update(@Param() params: UserIdParamDto, @Body() dto: UpdateUserDto) {
-    const user = await this.service.update(params.id, dto);
-    return {
-      message: 'Utilisateur mis à jour avec succès.',
-      messageE: 'User updated successfully.',
-      data: user,
-    };
-  }
-
-  /** DELETE /api/v1/users/:id — suppression */
-  @ApiOperation({ summary:'api pour supprimer un utilisateur' })
-  @Delete(':id')
-  async remove(@Param() params: UserIdParamDto) {
-    await this.service.remove(params.id);
-    return {
-      message: 'Utilisateur supprimé avec succès.',
-      messageE: 'User deleted successfully.',
-      data: { id: params.id },
-    };
-  }
-
-
   @ApiOperation({
-    summary: 'Dashboard utilisateur',
+    summary:
+      'Créer un utilisateur / inscription',
     description:
-      `Retourne:
-- total_infrastructures: nombre total d'infras créées par l’utilisateur,
-- last_day: dernier jour (YYYY-MM-DD) où il a créé une infra,
-- last_day_count: combien ce jour-là.`,
+      'Crée un utilisateur. Si le type est INSTITUT, les documents/images de l’institut sont obligatoires. Les images/documents sont optimisés et limités à 500 Ko maximum.',
   })
-  @Get(':id/dashboard')
-  async dashboard(@Param() params: UserIdParamDto) {
-    const data = await this.service.dashboard(params.id);
-    return {
-      message: 'Tableau de bord utilisateur.',
-      messageE: 'User dashboard.',
-      data,
-    };
+  @ApiCreatedResponse({
+    description: 'Utilisateur créé avec succès',
+    type: UserSingleResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Données invalides ou documents requis',
+    type: ErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description: 'Téléphone ou email déjà utilisé pour ce type',
+    type: ErrorResponseDto,
+  })
+  async create(@Body() dto: CreateUserDto) {
+    return await this.usersService.create(dto);
   }
 
-   /* === ADMIN === */
-  @Get('admins')
-  @UseGuards(JwtAuthGuard, NotBlockedGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Lister les utilisateurs avec le rôle ADMIN (filtré sur la commune du user connecté si présente)' })
-  async listAdmins(@Query() q: ListUsersQueryDto, @Req() req: any) {
-    console.log("ed");
-    
-    const page = Math.max(1, Number(q.page ?? 1));
-    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
-    const sort = parseSortLocal(q.sort);
-
-    const { total, items } = await this.service.listByRole('ADMIN', {
-      page,
-      pageSize,
-      sort,
-      communeId: q.communeId,
-      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
-      is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
-      q: q.q,
-      req,
-    });
-
-    return {
-      message: 'Liste des ADMIN chargée avec succès.',
-      messageE: 'ADMIN users list loaded successfully.',
-      data: items,
-      meta: buildMetaLocal(page, pageSize, total),
-    };
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Mettre à jour un utilisateur',
+    description:
+      'Met à jour les informations principales d’un utilisateur. Si le type change, le rôle principal est resynchronisé.',
+  })
+  @ApiOkResponse({
+    description: 'Utilisateur mis à jour',
+    type: UserSingleResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Données invalides',
+    type: ErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description: 'Téléphone ou email déjà utilisé pour ce type',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur introuvable',
+    type: ErrorResponseDto,
+  })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDto,
+  ) {
+    return await this.usersService.update(id, dto);
   }
 
-  /* === MINDEVEL === */
-  @Get('mindevel')
-  @UseGuards(JwtAuthGuard, NotBlockedGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Lister les utilisateurs avec le rôle MINDEVEL (filtré sur la commune du user connecté si présente)' })
-  async listMindevel(@Query() q: ListUsersQueryDto, @Req() req: any) {
-    const page = Math.max(1, Number(q.page ?? 1));
-    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
-    const sort = parseSortLocal(q.sort);
-
-    const { total, items } = await this.service.listByRole('MINDEVEL', {
-      page,
-      pageSize,
-      sort,
-      communeId: q.communeId,
-      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
-      is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
-      q: q.q,
-      req,
-    });
-
-    return {
-      message: 'Liste des MINDEVEL chargée avec succès.',
-      messageE: 'MINDEVEL users list loaded successfully.',
-      data: items,
-      meta: buildMetaLocal(page, pageSize, total),
-    };
+  @Get()
+  @ApiOperation({
+    summary: 'Lister les utilisateurs',
+    description:
+      'Retourne la liste paginée des utilisateurs avec filtres optionnels.',
+  })
+  @ApiOkResponse({
+    description: 'Liste des utilisateurs',
+    type: UsersListResponseDto,
+  })
+  async getAll(@Query() query: QueryUserDto) {
+    return await this.usersService.getAll(query);
   }
 
-  /* === AGENT === */
-  @Get('agents')
-  @UseGuards(JwtAuthGuard, NotBlockedGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Lister les utilisateurs avec le rôle AGENT (filtré sur la commune du user connecté si présente)' })
-  async listAgents(@Query() q: ListUsersQueryDto, @Req() req: any) {
-    const page = Math.max(1, Number(q.page ?? 1));
-    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
-    const sort = parseSortLocal(q.sort);
-
-    const { total, items } = await this.service.listByRole('AGENT', {
-      page,
-      pageSize,
-      sort,
-      communeId: q.communeId,
-      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
-      is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
-      q: q.q,
-      req,
-    });
-
-    return {
-      message: 'Liste des AGENT chargée avec succès.',
-      messageE: 'AGENT users list loaded successfully.',
-      data: items,
-      meta: buildMetaLocal(page, pageSize, total),
-    };
-  }
-
-  /* === SUPER ADMIN === */
-  @Get('super-admins')
-  @UseGuards(JwtAuthGuard, NotBlockedGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Lister les utilisateurs avec le rôle SUPER_ADMIN (filtré sur la commune du user connecté si présente)' })
-  async listSuperAdmins(@Query() q: ListUsersQueryDto, @Req() req: any) {
-    const page = Math.max(1, Number(q.page ?? 1));
-    const pageSize = Math.min(Math.max(1, Number(q.pageSize ?? 20)), 100);
-    const sort = parseSortLocal(q.sort);
-
-    const { total, items } = await this.service.listByRole('SUPER ADMIN', {
-      page,
-      pageSize,
-      sort,
-      communeId: q.communeId,
-      is_verified: q.is_verified === undefined ? undefined : q.is_verified === 'true',
-      is_block:    q.is_block    === undefined ? undefined : q.is_block    === 'true',
-      q: q.q,
-      req,
-    });
-
-    return {
-      message: 'Liste des SUPER_ADMIN chargée avec succès.',
-      messageE: 'SUPER_ADMIN users list loaded successfully.',
-      data: items,
-      meta: buildMetaLocal(page, pageSize, total),
-    };
-  }
-
-  /** GET /api/v1/users/:id — détail */
-  @ApiOperation({ summary:'api pour récupérer un utilisateur par ID' })
   @Get(':id')
-  async getOne(@Param() params: UserIdParamDto) {
-    const user = await this.service.findOne(params.id);
-    return {
-      message: 'Utilisateur récupéré avec succès.',
-      messageE: 'User fetched successfully.',
-      data: user,
-    };
+  @ApiOperation({
+    summary: 'Récupérer un utilisateur',
+    description:
+      'Retourne les informations complètes d’un utilisateur avec rôles, adresses et documents.',
+  })
+  @ApiOkResponse({
+    description: 'Utilisateur trouvé',
+    type: UserSingleResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur introuvable',
+    type: ErrorResponseDto,
+  })
+  async getOne(@Param('id', ParseIntPipe) id: number) {
+    return await this.usersService.getOne(id);
+  }
+
+  @Patch(':id/block')
+  @ApiOperation({
+    summary: 'Bloquer un utilisateur',
+    description: 'Passe is_block à true.',
+  })
+  @ApiOkResponse({
+    description: 'Utilisateur bloqué',
+    type: GenericMessageResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur introuvable',
+    type: ErrorResponseDto,
+  })
+  async block(@Param('id', ParseIntPipe) id: number) {
+    return await this.usersService.block(id);
+  }
+
+  @Patch(':id/unblock')
+  @ApiOperation({
+    summary: 'Débloquer un utilisateur',
+    description:
+      'Passe is_block à false et remet nombre_attempts à 0.',
+  })
+  @ApiOkResponse({
+    description: 'Utilisateur débloqué',
+    type: GenericMessageResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur introuvable',
+    type: ErrorResponseDto,
+  })
+  async unblock(@Param('id', ParseIntPipe) id: number) {
+    return await this.usersService.unblock(id);
+  }
+
+  @Patch(':id/verify')
+  @ApiOperation({
+    summary: 'Vérifier un utilisateur',
+    description: 'Passe is_verified à true.',
+  })
+  @ApiOkResponse({
+    description: 'Utilisateur vérifié',
+    type: GenericMessageResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur introuvable',
+    type: ErrorResponseDto,
+  })
+  async verify(@Param('id', ParseIntPipe) id: number) {
+    return await this.usersService.verify(id);
+  }
+
+  @Put(':id/documents')
+  @ApiOperation({
+    summary: 'Remplacer les documents d’un utilisateur',
+    description:
+      'Supprime les anciens documents et remplace par les nouveaux. Pour INSTITUT, au moins un document est requis.',
+  })
+  @ApiOkResponse({
+    description: 'Documents mis à jour',
+    type: DocumentListResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Données invalides ou document trop lourd',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur introuvable',
+    type: ErrorResponseDto,
+  })
+  async replaceDocuments(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDocumentsDto,
+  ) {
+    return await this.usersService.replaceDocuments(id, dto);
+  }
+
+  @Post(':id/addresses')
+  @ApiOperation({
+    summary: 'Ajouter une adresse à un utilisateur',
+    description: 'Crée une nouvelle adresse liée à l’utilisateur.',
+  })
+  @ApiCreatedResponse({
+    description: 'Adresse créée',
+    type: AddressSingleResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur introuvable',
+    type: ErrorResponseDto,
+  })
+  async addAddress(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateAddressDto,
+  ) {
+    return await this.usersService.addAddress(id, dto);
+  }
+
+  @Get(':id/addresses')
+  @ApiOperation({
+    summary: 'Lister toutes les adresses d’un utilisateur',
+    description: 'Retourne toutes les adresses liées à un utilisateur.',
+  })
+  @ApiOkResponse({
+    description: 'Liste des adresses',
+    type: AddressListResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur introuvable',
+    type: ErrorResponseDto,
+  })
+  async getAddresses(@Param('id', ParseIntPipe) id: number) {
+    return await this.usersService.getAddresses(id);
+  }
+
+  @Patch(':userId/addresses/:addressId')
+  @ApiOperation({
+    summary: 'Mettre à jour une adresse',
+    description:
+      'Met à jour une adresse existante appartenant à l’utilisateur.',
+  })
+  @ApiOkResponse({
+    description: 'Adresse mise à jour',
+    type: AddressSingleResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur ou adresse introuvable',
+    type: ErrorResponseDto,
+  })
+  async updateAddress(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('addressId', ParseIntPipe) addressId: number,
+    @Body() dto: UpdateAddressDto,
+  ) {
+    return await this.usersService.updateAddress(
+      userId,
+      addressId,
+      dto,
+    );
+  }
+
+  @Get(':id/documents')
+  @ApiOperation({
+    summary: 'Lister tous les documents d’un utilisateur',
+    description:
+      'Retourne tous les documents liés à l’utilisateur.',
+  })
+  @ApiOkResponse({
+    description: 'Liste des documents',
+    type: DocumentListResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilisateur introuvable',
+    type: ErrorResponseDto,
+  })
+  async getDocuments(@Param('id', ParseIntPipe) id: number) {
+    return await this.usersService.getDocuments(id);
   }
 }

@@ -1,23 +1,50 @@
-// src/auth/auth.controller.ts
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+
 import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { NotBlockedGuard } from './guards/not-blocked.guard';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { LoginDto } from './dto/login.dto';
+import {
+  ErrorResponseDto,
+  ForgotPasswordResponseDto,
+  GenericMessageResponseDto,
+  LoginResponseDto,
+} from './dto/auth-response.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { NotBlockedGuard } from './guards/not-blocked.guard';
 
 @ApiTags('Auth')
 @Controller('api/v1/auth')
 export class AuthController {
   constructor(private readonly service: AuthService) {}
 
-    @Post('login')
+  @Post('login')
   @ApiOperation({
-    summary: 'Connexion : email + mot de passe → JWT signé (payload lisible : user, rôles, permissions).',
-    description: `Vérifie les identifiants, refuse si le compte est bloqué. Le JWT est signé avec JWT_SECRET (pas chiffré).`,
+    summary: 'Connexion par téléphone, type et mot de passe',
+    description:
+      'Authentifie un utilisateur avec telephone + type + mot_de_passe et retourne un JWT avec user, rôles et permissions.',
+  })
+  @ApiOkResponse({
+    description: 'Connexion réussie',
+    type: LoginResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Identifiants invalides',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Compte bloqué',
+    type: ErrorResponseDto,
   })
   async login(@Body() dto: LoginDto) {
     return await this.service.login(dto);
@@ -25,24 +52,35 @@ export class AuthController {
 
   @Post('forgot-password')
   @ApiOperation({
-    summary: 'Mot de passe oublié — Étape 1 : envoi du code + token',
+    summary: 'Mot de passe oublié',
     description:
-      "Envoie ton email. Si le compte existe, on envoie **un code à 6 chiffres** et **un token de réinitialisation** (JWT de courte durée) par email.",
+      'Recherche un compte via type + (email ou téléphone), puis génère un token et un code de réinitialisation.',
+  })
+  @ApiOkResponse({
+    description: 'Réinitialisation générée',
+    type: ForgotPasswordResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Téléphone ou email requis',
+    type: ErrorResponseDto,
   })
   async forgot(@Body() dto: ForgotPasswordDto) {
-    const res = await this.service.forgotPassword(dto);
-    return {
-      message: 'Si le compte existe, un email a été envoyé.',
-      messageE: 'If the account exists, an email has been sent.',
-      ...res, // { data: { token, expires_in } }
-    };
+    return await this.service.forgotPassword(dto);
   }
 
   @Post('reset-password')
   @ApiOperation({
-    summary: 'Mot de passe oublié — Étape 2 : réinitialiser avec token + code',
+    summary: 'Réinitialiser le mot de passe',
     description:
-      "Fournis **token**, **code** reçu par email, et **nouveau mot de passe**. Aucun ancien mot de passe n’est requis.",
+      'Valide le token et le code, puis remplace le mot de passe hashé.',
+  })
+  @ApiOkResponse({
+    description: 'Mot de passe réinitialisé',
+    type: GenericMessageResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Token ou code invalide',
+    type: ErrorResponseDto,
   })
   async reset(@Body() dto: ResetPasswordDto) {
     await this.service.resetPassword(dto);
@@ -52,14 +90,29 @@ export class AuthController {
     };
   }
 
-   @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard, NotBlockedGuard)
   @Post('change-password')
-  @UseGuards(JwtAuthGuard, NotBlockedGuard) // protège pour l’utilisateur connecté
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({
-    summary: 'Changer son mot de passe (authentifié)',
+    summary: 'Changer son mot de passe',
     description:
-      "Endpoint protégé. Fournis **ancien mot de passe** et **nouveau mot de passe**. Si l’ancien est correct, on remplace par le nouveau.",
+      'Endpoint protégé. Vérifie l’ancien mot de passe puis enregistre le nouveau.',
+  })
+  @ApiOkResponse({
+    description: 'Mot de passe modifié',
+    type: GenericMessageResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Ancien mot de passe incorrect',
+    type: ErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Non authentifié',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Compte bloqué',
+    type: ErrorResponseDto,
   })
   async change(@Req() req: any, @Body() dto: ChangePasswordDto) {
     await this.service.changePassword(req.user.id, dto);

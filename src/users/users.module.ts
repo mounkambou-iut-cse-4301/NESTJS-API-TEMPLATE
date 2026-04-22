@@ -1,15 +1,17 @@
-// src/users/users.module.ts
 import { Module } from '@nestjs/common';
-import { UsersController } from './users.controller';
-import { UsersService } from './users.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { AuthModule } from '../auth/auth.module'; // ✅
-import { EmailService } from 'src/utils/email.service';
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service'; // Fixed: added 'from'
+import { JwtModule } from '@nestjs/jwt';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Module({
-  imports: [PrismaModule, AuthModule], // ✅ nécessaire pour résoudre JwtService via AuthModule
+  imports: [
+    JwtModule.register({}),
+    PrismaModule
+  ],
   controllers: [UsersController],
-  providers: [UsersService,EmailService],           // ❌ ne pas mettre JwtAuthGuard ici
+  providers: [UsersService, JwtAuthGuard],
   exports: [UsersService],
 })
 export class UsersModule {}

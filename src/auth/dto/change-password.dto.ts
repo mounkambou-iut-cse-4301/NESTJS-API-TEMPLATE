@@ -1,14 +1,22 @@
-// src/auth/dto/change-password.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class ChangePasswordDto {
-  @ApiProperty({ description: 'Ancien mot de passe', example: 'AncienMDP!234' })
+  @ApiProperty({
+    description: 'Ancien mot de passe',
+    example: 'AncienMDP!234',
+  })
+  @IsString()
   @IsNotEmpty()
-  old_password!: string;
+  old_password: string;
 
-  @ApiProperty({ description: 'Nouveau mot de passe (min. 8 caractères)', example: 'NouveauMDP!234' })
+  @ApiProperty({
+    description: 'Nouveau mot de passe',
+    example: 'NouveauMDP!234',
+    minLength: 8,
+  })
+  @IsString()
   @IsNotEmpty()
   @MinLength(8)
-  new_password!: string;
+  new_password: string;
 }

@@ -1,1081 +1,460 @@
-// import * as bcrypt from 'bcryptjs';
-// import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-// import { PrismaService } from '../prisma/prisma.service';
-// import * as argon2 from 'argon2';
-// import { CreateUserDto } from './dto/create-user.dto';
-// import { UpdateUserDto } from './dto/update-user.dto';
-// import { uploadImageToCloudinary } from '../utils/cloudinary';
-// import { EmailService } from 'src/utils/email.service';
-
-
-// type Order = Record<string, 'asc' | 'desc'>;
-// @Injectable()
-// export class UsersService {
-//   constructor(
-//     private readonly prisma: PrismaService,
-//     private readonly email: EmailService,
-    
-//   ) {}
-
-//   /** Liste paginée des utilisateurs avec filtres. */
-// //   async list(params: {
-// //     page: number;
-// //     pageSize: number;
-// //     sort?: Record<string, 'asc' | 'desc'>;
-// //     communeId?: number;
-// //     is_verified?: boolean;
-// //     is_block?: boolean;
-// //     q?: string;
-// //     req?: any; // pour le logging
-// //   }) {
-// //     const { page, pageSize, sort, communeId, is_verified, is_block, q, req } = params;
-// //     const currentUserId = req?.sub as number | undefined;
-// //     const userCommuneId = req?.user.communeId as number | undefined;
-
-// //     const where: any = {};
-// //     if (typeof communeId === 'number') where.communeId = communeId;
-// //     if (typeof is_verified === 'boolean') where.is_verified = is_verified;
-// //     if (typeof is_block === 'boolean') where.is_block = is_block;
-// //     if (q) {
-// //       where.OR = [
-// //         { nom:       { contains: q, mode: 'insensitive' } },
-// //         { email:     { contains: q, mode: 'insensitive' } },
-// //         { telephone: { contains: q, mode: 'insensitive' } },
-// //       ];
-// //     }
-
-// //     const [total, items] = await this.prisma.$transaction([
-// //       this.prisma.utilisateur.count({ where }),
-// //       this.prisma.utilisateur.findMany({
-// //         where,
-// //         orderBy: (sort as any) ?? { created_at: 'desc' },
-// //         skip: (page - 1) * pageSize,
-// //         take: pageSize,
-// //         select: {
-// //           id: true,
-// //           nom: true,
-// //           email: true,
-// //           telephone: true,
-// //           communeId: true,
-// //           is_verified: true,
-// //           is_block: true,
-// //           created_at: true,
-// //           updated_at: true,
-// //           // Rôles si relation présente
-// //           roles: { select: { role: { select: { id: true, nom: true } } } },
-// //         },
-// //       }),
-// //     ]);
-
-// //     return { total, items };
-// //   }
-// async list(params: {
-//   page: number;
-//   pageSize: number;
-//   sort?: Record<string, 'asc' | 'desc'>;
-//   communeId?: number;
-//   is_verified?: boolean;
-//   is_block?: boolean;
-//   q?: string;
-//   req?: any; // pour le logging
-// }) {
-//   const { page, pageSize, sort, communeId, is_verified, is_block, q, req } = params;
-//   const currentUserId = req?.sub as number | undefined;
-//   const userCommuneId = req?.user.communeId as number | undefined;
-
-//   const where: any = {};
-
-//   // Filtrage par commune
-//   if (userCommuneId !== undefined && userCommuneId !== null) {
-//     where.communeId = userCommuneId;
-//   } else if (typeof communeId === 'number') {
-//     where.communeId = communeId;
-//   }
-
-//   // Autres filtres
-//   if (typeof is_verified === 'boolean') where.is_verified = is_verified;
-//   if (typeof is_block === 'boolean') where.is_block = is_block;
-//   if (q) {
-//     where.OR = [
-//       { nom: { contains: q, mode: 'insensitive' } },
-//       { email: { contains: q, mode: 'insensitive' } },
-//       { telephone: { contains: q, mode: 'insensitive' } },
-//     ];
-//   }
-
-//   const [total, items] = await this.prisma.$transaction([
-//     this.prisma.utilisateur.count({ where }),
-//     this.prisma.utilisateur.findMany({
-//       where,
-//       orderBy: (sort as any) ?? { created_at: 'desc' },
-//       skip: (page - 1) * pageSize,
-//       take: pageSize,
-//       select: {
-//         id: true,
-//         nom: true,
-//         email: true,
-//         telephone: true,
-//         communeId: true,
-//         is_verified: true,
-//         is_block: true,
-//         created_at: true,
-//         updated_at: true,
-//         // Rôles si relation présente
-//         roles: { select: { role: { select: { id: true, nom: true } } } },
-//       },
-//     }),
-//   ]);
-
-//   return { total, items };
-// }
-//   /**
-//    * Création d'un utilisateur.
-//    * - téléphone OBLIGATOIRE & UNIQUE, commence par +237
-//    * - hash du mot de passe (argon2)
-//    * - upload image Cloudinary si base64
-//    * - email texte FR/EN
-//    */
-
-// // async create(dto: CreateUserDto) {
-// //   // Téléphone : obligatoire +237 + unicité
-// //   if (!dto.telephone) {
-// //     throw new BadRequestException({
-// //       message: 'Le numéro de téléphone est obligatoire.',
-// //       messageE: 'Phone number is required.',
-// //     });
-// //   }
-// //   if (!dto.telephone.startsWith('+237')) {
-// //     throw new BadRequestException({
-// //       message: 'Numéro de téléphone invalide (doit commencer par +237).',
-// //       messageE: 'Invalid phone number (must start with +237).',
-// //     });
-// //   }
-// //   const telExists = await this.prisma.utilisateur.findUnique({
-// //     where: { telephone: dto.telephone },
-// //     select: { id: true },
-// //   });
-// //   if (telExists) {
-// //     throw new BadRequestException({
-// //       message: 'Numéro de téléphone déjà utilisé.',
-// //       messageE: 'Phone number already in use.',
-// //     });
-// //   }
-
-// //   // Email unique
-// //   const emailExists = await this.prisma.utilisateur.findUnique({
-// //     where: { email: dto.email },
-// //     select: { id: true },
-// //   });
-// //   if (emailExists) {
-// //     throw new BadRequestException({
-// //       message: 'Adresse email déjà utilisée.',
-// //       messageE: 'Email already in use.',
-// //     });
-// //   }
-
-// //   let photoUrl: string | undefined;
-// //   if (dto.photoBase64) {
-// //     photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
-// //   }
-
-// //   // ✅ bcrypt
-// //   const hash = await bcrypt.hash(dto.mot_de_passe, 10);
-
-// //   try {
-// //     const data: any = {
-// //       nom: dto.nom,
-// //       email: dto.email,
-// //       mot_de_passe: hash,
-// //       telephone: dto.telephone,
-// //       communeId: dto.communeId ?? null,
-// //       ville: dto.ville ?? null,
-// //       adresse: dto.adresse ?? null,
-// //       is_verified: dto.is_verified ?? false,
-// //       is_block: dto.is_block ?? false,
-// //     };
-// //     if (photoUrl) data.photo_url = photoUrl;
-
-// //     const created = await this.prisma.utilisateur.create({
-// //       data,
-// //       select: { id: true, nom: true, email: true, telephone: true },
-// //     });
-
-// //     const subject = 'SIGCOM - Compte créé / Account created';
-// //     const message =
-// // `SIGCOM — Compte créé
-
-// // Bonjour ${created.nom},
-// // Votre compte a été créé avec succès sur SIGCOM.
-// // Email : ${created.email}
-// // Téléphone : ${created.telephone}
-// // Merci de changer votre mot de passe à la première connexion.
-
-// // ---
-// // Account created
-
-// // Hello ${created.nom},
-// // Your account has been successfully created on SIGCOM.
-// // Email: ${created.email}
-// // Phone: ${created.telephone}
-// // Please change your password at first login.
-// // `;
-// //     await this.email.sendEmail(subject, message, created.email);
-
-// //     return created;
-// //   } catch (e: any) {
-// //     if (e.code === 'P2002') {
-// //       throw new BadRequestException({
-// //         message: 'Contrainte d’unicité violée (email ou téléphone).',
-// //         messageE: 'Unique constraint failed (email or phone).',
-// //       });
-// //     }
-// //     throw e;
-// //   }}
-
-// async create(dto: CreateUserDto) {
-//     // 1) Vérifs téléphone
-//     if (!dto.telephone) {
-//       throw new BadRequestException({
-//         message: 'Le numéro de téléphone est obligatoire.',
-//         messageE: 'Phone number is required.',
-//       });
-//     }
-//     if (!dto.telephone.startsWith('+237')) {
-//       throw new BadRequestException({
-//         message: 'Numéro de téléphone invalide (doit commencer par +237).',
-//         messageE: 'Invalid phone number (must start with +237).',
-//       });
-//     }
-//     const telExists = await this.prisma.utilisateur.findUnique({
-//       where: { telephone: dto.telephone },
-//       select: { id: true },
-//     });
-//     if (telExists) {
-//       throw new BadRequestException({
-//         message: 'Numéro de téléphone déjà utilisé.',
-//         messageE: 'Phone number already in use.',
-//       });
-//     }
-
-//     // 2) Email unique
-//     const emailExists = await this.prisma.utilisateur.findUnique({
-//       where: { email: dto.email },
-//       select: { id: true },
-//     });
-//     if (emailExists) {
-//       throw new BadRequestException({
-//         message: 'Adresse email déjà utilisée.',
-//         messageE: 'Email already in use.',
-//       });
-//     }
-
-//     // 3) Upload éventuel de la photo
-//     let photoUrl: string | undefined;
-//     if (dto.photoBase64) {
-//       photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
-//     }
-
-//     // 4) Hash bcrypt
-//     const hash = await bcrypt.hash(dto.mot_de_passe, 10);
-
-//     // 5) Transaction: create user (+ user-role si roleId fourni)
-//     try {
-//       const created = await this.prisma.$transaction(async (tx) => {
-//         const user = await tx.utilisateur.create({
-//           data: {
-//             nom: dto.nom,
-//             email: dto.email,
-//             mot_de_passe: hash,
-//             telephone: dto.telephone,
-//             communeId: dto.communeId ?? null,
-//             // champs libres si présents en DB
-//             ville: dto.ville ?? null,
-//             adresse: dto.adresse ?? null,
-//             is_verified: dto.is_verified ?? false,
-//             is_block: dto.is_block ?? false,
-//             ...(photoUrl ? { photo_url: photoUrl } : {}),
-//           },
-//           select: { id: true, nom: true, email: true, telephone: true },
-//         });
-
-//         // 👉 Si roleId est fourni: vérifier qu’il existe puis créer UtilisateurRole
-//         if (dto.roleId !== undefined && dto.roleId !== null) {
-//           const roleExists = await tx.role.count({ where: { id: dto.roleId } });
-//           if (!roleExists) {
-//             throw new BadRequestException({
-//               message: 'Rôle invalide.',
-//               messageE: 'Invalid role.',
-//             });
-//           }
-//           await tx.utilisateurRole.create({
-//             data: { utilisateurId: user.id, roleId: dto.roleId },
-//           });
-//         }
-
-//         return user;
-//       });
-
-//       // 6) Email d’info (hors transaction)
-//       const subject = 'SIGCOM - Compte créé / Account created';
-//       const message =
-// `SIGCOM — Compte créé
-
-// Bonjour ${created.nom},
-// Votre compte a été créé avec succès sur SIGCOM.
-// Email : ${created.email}
-// Téléphone : ${created.telephone}
-// Merci de changer votre mot de passe à la première connexion.
-
-// ---
-// Account created
-
-// Hello ${created.nom},
-// Your account has been successfully created on SIGCOM.
-// Email: ${created.email}
-// Phone: ${created.telephone}
-// Please change your password at first login.
-// `;
-//       await this.email.sendEmail(subject, message, created.email);
-
-//       return created;
-//     } catch (e: any) {
-//       if (e?.code === 'P2002') {
-//         // unique index fail (email ou téléphone)
-//         throw new BadRequestException({
-//           message: 'Contrainte d’unicité violée (email ou téléphone).',
-//           messageE: 'Unique constraint failed (email or phone).',
-//         });
-//       }
-//       throw e;
-//     }
-//   }
-//   /** Récupération d'un utilisateur. */
-//   async findOne(id: number) {
-//     const user = await this.prisma.utilisateur.findUnique({
-//       where: { id },
-//       select: {
-//         id: true,
-//         nom: true,
-//         email: true,
-//         telephone: true,
-//         communeId: true,
-//         commune: { select: { id: true, nom: true,nom_en:true,arrondissement:true,departement:true,region:true,typeCommune:true } },
-//         ville: true,
-//         adresse: true,
-//         is_verified: true,
-//         is_block: true,
-//         created_at: true,
-//         updated_at: true,
-//         roles: { select: { role: { select: { id: true, nom: true } } } },
-//       },
-//     });
-//     if (!user) {
-//       throw new NotFoundException({
-//         message: 'Utilisateur introuvable.',
-//         messageE: 'User not found.',
-//       });
-//     }
-//     return user;
-//   }
-
-//   /**
-//    * Mise à jour d'un utilisateur.
-//    * - si telephone fourni : format + unicité (hors lui-même)
-//    * - re-hash si mot_de_passe fourni
-//    * - upload image Cloudinary si base64
-//    */
-//   async update(id: number, dto: UpdateUserDto) {
-//     await this.ensureExists(id);
-
-//     if (dto.telephone) {
-//       if (!dto.telephone.startsWith('+237')) {
-//         throw new BadRequestException({
-//           message: 'Numéro de téléphone invalide (doit commencer par +237).',
-//           messageE: 'Invalid phone number (must start with +237).',
-//         });
-//       }
-//       const telOwner = await this.prisma.utilisateur.findUnique({
-//         where: { telephone: dto.telephone },
-//         select: { id: true },
-//       });
-//       if (telOwner && telOwner.id !== id) {
-//         throw new BadRequestException({
-//           message: 'Numéro de téléphone déjà utilisé.',
-//           messageE: 'Phone number already in use.',
-//         });
-//       }
-//     }
-
-//     if (dto.email) {
-//       const mailOwner = await this.prisma.utilisateur.findUnique({
-//         where: { email: dto.email },
-//         select: { id: true },
-//       });
-//       if (mailOwner && mailOwner.id !== id) {
-//         throw new BadRequestException({
-//           message: 'Adresse email déjà utilisée.',
-//           messageE: 'Email already in use.',
-//         });
-//       }
-//     }
-
-//     let photoUrl: string | undefined;
-//     if (dto.photoBase64) {
-//       photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
-//     }
-
-//     const data: any = {
-//       nom: dto.nom,
-//       email: dto.email,
-//       telephone: dto.telephone,
-//       communeId: dto.communeId,
-//       ville: dto.ville,
-//       adresse:dto.adresse,
-//       is_verified: dto.is_verified,
-//       is_block: dto.is_block,
-//     };
-//     if (dto.mot_de_passe) data.mot_de_passe = await argon2.hash(dto.mot_de_passe);
-//     if (photoUrl) data.photo_url = photoUrl;
-
-//     try {
-//       const updated = await this.prisma.utilisateur.update({
-//         where: { id },
-//         data,
-//         select: {
-//           id: true,
-//           nom: true,
-//           email: true,
-//           telephone: true,
-//           communeId: true,
-//           is_verified: true,
-//           is_block: true,
-//           updated_at: true,
-//         },
-//       });
-//       return updated;
-//     } catch (e: any) {
-//       if (e.code === 'P2002') {
-//         throw new BadRequestException({
-//           message: 'Contrainte d’unicité violée (email ou téléphone).',
-//           messageE: 'Unique constraint failed (email or phone).',
-//         });
-//       }
-//       throw e;
-//     }
-//   }
-
-//   /** Suppression d'un utilisateur. */
-//   async remove(id: number) {
-//     await this.ensureExists(id);
-//     await this.prisma.utilisateur.delete({ where: { id } });
-//   }
-
-//   private async ensureExists(id: number) {
-//     const count = await this.prisma.utilisateur.count({ where: { id } });
-//     if (!count) {
-//       throw new NotFoundException({
-//         message: 'Utilisateur introuvable.',
-//         messageE: 'User not found.',
-//       });
-//     }
-//   }
-
-//   /** Dashboard pour l'utilisateur courant (via req.user / req.sub) */
-//   async dashboard(id: number) {
-
-//     const userId = id;
-//     console.log("userId:", userId);
-
-//     if (!userId) {
-//       throw new BadRequestException({
-//         message: 'Utilisateur non identifié.',
-//         messageE: 'User not identified.',
-//       });
-//     }
-
-//     // 1) Total créé par cet utilisateur
-//     const total = await this.prisma.infrastructure.count({
-//       where: { utilisateurId: userId },
-//     });
-
-//     if (!total) {
-//       // Aucun enregistrement → pas de dernier jour
-//       return {
-//         total_infrastructures: 0,
-//         last_day: null,
-//         last_day_count: 0,
-//       };
-//     }
-
-//     // 2) Dernier created_at
-//     const lastRow = await this.prisma.infrastructure.findFirst({
-//       where: { utilisateurId: userId },
-//       orderBy: { created_at: 'desc' },
-//       select: { created_at: true },
-//     });
-
-//     if (!lastRow?.created_at) {
-//       return {
-//         total_infrastructures: total,
-//         last_day: null,
-//         last_day_count: 0,
-//       };
-//     }
-
-//     // On calcule le "jour" (YYYY-MM-DD) du dernier enregistrement
-//     const lastDay = lastRow.created_at.toISOString().slice(0, 10);
-
-//     // 3) Combien ce jour-là — on fait le comptage au niveau SQL par DATE() pour éviter les surprises de timezone
-//     const rows: any[] = await this.prisma.$queryRawUnsafe(`
-//       SELECT COUNT(*) AS c
-//       FROM Infrastructure
-//       WHERE utilisateurId = ${Number(userId)}
-//         AND DATE(created_at) = DATE('${lastDay}')
-//     `);
-//     const lastDayCount = Number(rows?.[0]?.c ?? 0);
-
-//     return {
-//       total_infrastructures: total,
-//       last_day: lastDay,
-//       last_day_count: lastDayCount,
-//     };
-//   }
-
-//   async listByRole(
-//     roleName: 'ADMIN' | 'MINDEVEL' | 'AGENT' | 'SUPER ADMIN',
-//     params: {
-//       page: number;
-//       pageSize: number;
-//       sort?: Order;
-//       communeId?: number;
-//       is_verified?: boolean;
-//       is_block?: boolean;
-//       q?: string;
-//       req?: any;
-//     },
-//   ) {
-//     const { page, pageSize, sort, communeId, is_verified, is_block, q, req } = params;
-
-//     const userCommuneId = req?.user?.communeId as number | undefined;
-
-//     const where: any = {
-//       // filtre par rôle (liaison Utilisateur.roles -> Role.nom)
-//       roles: { some: { role: { is: { nom: roleName } } } },
-//     };
-
-//     // Portée de commune : d’abord celle du user connecté (si définie), sinon communeId de la query
-//     if (typeof userCommuneId === 'number') where.communeId = userCommuneId;
-//     else if (typeof communeId === 'number') where.communeId = communeId;
-
-//     if (typeof is_verified === 'boolean') where.is_verified = is_verified;
-//     if (typeof is_block === 'boolean') where.is_block = is_block;
-
-//     if (q) {
-//       where.OR = [
-//         { nom: { contains: q, mode: 'insensitive' } },
-//         { email: { contains: q, mode: 'insensitive' } },
-//         { telephone: { contains: q, mode: 'insensitive' } },
-//       ];
-//     }
-
-//     const [total, items] = await this.prisma.$transaction([
-//       this.prisma.utilisateur.count({ where }),
-//       this.prisma.utilisateur.findMany({
-//         where,
-//         orderBy: (sort as any) ?? { created_at: 'desc' },
-//         skip: (page - 1) * pageSize,
-//         take: pageSize,
-//         select: {
-//           id: true,
-//           nom: true,
-//           email: true,
-//           telephone: true,
-//           communeId: true,
-//           is_verified: true,
-//           is_block: true,
-//           created_at: true,
-//           updated_at: true,
-//           roles: { select: { role: { select: { id: true, nom: true } } } },
-//         },
-//       }),
-//     ]);
-
-//     return { total, items };
-//   }
-// }
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  Prisma,
+  TypeUtilisateur,
+} from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+
 import { PrismaService } from '../prisma/prisma.service';
-import * as argon2 from 'argon2';
+import { uploadImageToCloudinary } from '../utils/cloudinary';
+import { optimizeDocument } from '../utils/document-optimizer';
+
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { uploadImageToCloudinary } from '../utils/cloudinary';
-import { EmailService } from 'src/utils/email.service';
-
-type Order = Record<string, 'asc' | 'desc'>;
+import { QueryUserDto } from './dto/query-user.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
+import { UpdateUserDocumentsDto } from './dto/update-user-documents.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly email: EmailService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async list(params: {
-    page: number;
-    pageSize: number;
-    sort?: Record<string, 'asc' | 'desc'>;
-    communeId?: number;
-    is_verified?: boolean;
-    is_block?: boolean;
-    q?: string;
-    req?: any;
-  }) {
-    const { page, pageSize, sort, communeId, is_verified, is_block, q, req } = params;
-    const userCommuneId = req?.user?.communeId as number | undefined;
+  private readonly MAX_FILE_SIZE = 500 * 1024; // 500 KB
 
-    const where: any = {};
-
-    if (typeof userCommuneId === 'number') {
-      where.communeId = userCommuneId;
-    } else if (typeof communeId === 'number') {
-      where.communeId = communeId;
-    }
-
-    if (typeof is_verified === 'boolean') where.is_verified = is_verified;
-    if (typeof is_block === 'boolean') where.is_block = is_block;
-    if (q) {
-      where.OR = [
-        { nom: { contains: q, mode: 'insensitive' } },
-        { email: { contains: q, mode: 'insensitive' } },
-        { telephone: { contains: q, mode: 'insensitive' } },
-      ];
-    }
-
-    const [total, items] = await this.prisma.$transaction([
-      this.prisma.utilisateur.count({ where }),
-      this.prisma.utilisateur.findMany({
-        where,
-        orderBy: (sort as any) ?? { created_at: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          nom: true,
-          email: true,
-          telephone: true,
-          communeId: true,
-          is_verified: true,
-          is_block: true,
-          created_at: true,
-          updated_at: true,
-          roles: { select: { role: { select: { id: true, nom: true } } } },
-        },
-      }),
-    ]);
-
-    return { total, items };
+  private normalizePhone(phone: string): string {
+    return (phone || '').trim();
   }
 
-//  async create(dto: CreateUserDto) {
-//   if (!dto.telephone) {
-//     throw new BadRequestException({
-//       message: 'Le numéro de téléphone est obligatoire.',
-//       messageE: 'Phone number is required.',
-//     });
-//   }
-//   if (!dto.telephone.startsWith('+237')) {
-//     throw new BadRequestException({
-//       message: 'Numéro de téléphone invalide (doit commencer par +237).',
-//       messageE: 'Invalid phone number (must start with +237).',
-//     });
-//   }
-//   const telExists = await this.prisma.utilisateur.findUnique({
-//     where: { telephone: dto.telephone },
-//     select: { id: true },
-//   });
-//   if (telExists) {
-//     throw new BadRequestException({
-//       message: 'Numéro de téléphone déjà utilisé.',
-//       messageE: 'Phone number already in use.',
-//     });
-//   }
+  private normalizeEmail(email: string): string {
+    return (email || '').trim().toLowerCase();
+  }
 
-//   const emailExists = await this.prisma.utilisateur.findUnique({
-//     where: { email: dto.email },
-//     select: { id: true },
-//   });
-//   if (emailExists) {
-//     throw new BadRequestException({
-//       message: 'Adresse email déjà utilisée.',
-//       messageE: 'Email already in use.',
-//     });
-//   }
-
-//   let photoUrl: string | undefined;
-//   if (dto.photoBase64) {
-//     // ---------- Cloudinary disabled ----------
-//     // Avant : photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
-//     // Pour désactiver Cloudinary sans supprimer le code, la ligne ci-dessus est commentée.
-//     // Comportement actuel : on sauvegarde la valeur fournie telle quelle (ex: URL ou string).
-//     photoUrl = dto.photoBase64 as unknown as string;
-//   }
-
-//   const hash = await bcrypt.hash(dto.mot_de_passe, 10);
-
-//   try {
-//     const created = await this.prisma.$transaction(async (tx) => {
-//       const user = await tx.utilisateur.create({
-//         data: {
-//           nom: dto.nom,
-//           email: dto.email,
-//           mot_de_passe: hash,
-//           telephone: dto.telephone,
-//           communeId: dto.communeId ?? null,
-//           ville: dto.ville ?? null,
-//           adresse: dto.adresse ?? null,
-//           is_verified: dto.is_verified ?? false,
-//           is_block: dto.is_block ?? false,
-//           ...(photoUrl ? { photo_url: photoUrl } : {}),
-//         },
-//         select: { id: true, nom: true, email: true, telephone: true },
-//       });
-
-//       if (dto.roleId !== undefined && dto.roleId !== null) {
-//         const roleExists = await tx.role.count({ where: { id: dto.roleId } });
-//         if (!roleExists) {
-//           throw new BadRequestException({
-//             message: 'Rôle invalide.',
-//             messageE: 'Invalid role.',
-//           });
-//         }
-//         await tx.utilisateurRole.create({
-//           data: { utilisateurId: user.id, roleId: dto.roleId },
-//         });
-//       }
-
-//       return user;
-//     });
-
-//     const subject = 'SIGCOM - Compte créé / Account created';
-//     const message =
-// `SIGCOM — Compte créé
-
-// Bonjour ${created.nom},
-// Votre compte a été créé avec succès sur SIGCOM.
-// Email : ${created.email}
-// Téléphone : ${created.telephone}
-// Merci de changer votre mot de passe à la première connexion.
-
-// ---
-// Account created
-
-// Hello ${created.nom},
-// Your account has been successfully created on SIGCOM.
-// Email: ${created.email}
-// Phone: ${created.telephone}
-// Please change your password at first login.
-// `;
-//     await this.email.sendEmail(subject, message, created.email);
-
-//     return created;
-//   } catch (e: any) {
-//     if (e?.code === 'P2002') {
-//       throw new BadRequestException({
-//         message: 'Contrainte d’unicité violée (email ou téléphone).',
-//         messageE: 'Unique constraint failed (email or phone).',
-//       });
-//     }
-//     throw e;
-//   }
-// }
-
-async create(dto: CreateUserDto) {
-    if (!dto.telephone) {
-      throw new BadRequestException({ message: 'Le numéro de téléphone est obligatoire.' });
-    }
-    if (!dto.telephone.startsWith('+237')) {
-      throw new BadRequestException({ message: 'Numéro de téléphone invalide (doit commencer par +237).' });
-    }
-
-    const telExists = await this.prisma.utilisateur.findUnique({
-      where: { telephone: dto.telephone },
-      select: { id: true },
-    });
-    if (telExists) throw new BadRequestException({ message: 'Numéro de téléphone déjà utilisé.' });
-
-    const emailExists = await this.prisma.utilisateur.findUnique({
-      where: { email: dto.email },
-      select: { id: true },
-    });
-    if (emailExists) throw new BadRequestException({ message: 'Adresse email déjà utilisée.' });
-
-    const hash = await bcrypt.hash(dto.mot_de_passe, 10);
-    const photoUrl = dto.photoBase64 ? (dto.photoBase64 as unknown as string) : undefined;
-
-    try {
-      const created = await this.prisma.$transaction(async (tx) => {
-        // Advisory lock (transaction-scoped) - choose a stable numeric key.
-        // Change 987654321 to any integer unique to this lock in your app.
-        await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock($1)', 987654321);
-
-        // Find last id in transaction
-        const last = await tx.utilisateur.findFirst({
-          orderBy: { id: 'desc' },
-          select: { id: true },
-        });
-        const nextId = (last?.id ?? 0) + 1;
-
-        // Create user forcing id
-        const user = await tx.utilisateur.create({
-          data: {
-            id: nextId,
-            nom: dto.nom,
-            email: dto.email,
-            mot_de_passe: hash,
-            telephone: dto.telephone,
-            communeId: dto.communeId ?? null,
-            ville: dto.ville ?? null,
-            adresse: dto.adresse ?? null,
-            is_verified: dto.is_verified ?? false,
-            is_block: dto.is_block ?? false,
-            ...(photoUrl ? { photo_url: photoUrl } : {}),
-          },
-          select: { id: true, nom: true, email: true, telephone: true },
-        });
-
-        if (dto.roleId !== undefined && dto.roleId !== null) {
-          const roleExists = await tx.role.count({ where: { id: dto.roleId } });
-          if (!roleExists) throw new BadRequestException({ message: 'Rôle invalide.' });
-          await tx.utilisateurRole.create({ data: { utilisateurId: user.id, roleId: dto.roleId } });
-        }
-
-        return user;
+  private toDate(value?: string): Date | undefined {
+    if (!value) return undefined;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) {
+      throw new BadRequestException({
+        message: 'Date invalide.',
+        messageE: 'Invalid date.',
       });
-
-      // send email (optionnel)
-      const subject = 'SIGCOM - Compte créé / Account created';
-      const message = `Bonjour ${created.nom},\nVotre compte a été créé. Email: ${created.email}`;
-      await this.email.sendEmail(subject, message, created.email);
-
-      return created;
-    } catch (e: any) {
-      if (e?.code === 'P2002') {
-        throw new BadRequestException({ message: 'Contrainte d’unicité violée (email ou téléphone).' });
-      }
-      throw e;
     }
+    return d;
   }
 
-  async findOne(id: number) {
-    const user = await this.prisma.utilisateur.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        nom: true,
-        email: true,
-        telephone: true,
-        communeId: true,
-        commune: { select: { id: true, nom: true, nom_en: true, arrondissement: true, departement: true, region: true, typeCommune: true } },
-        ville: true,
-        adresse: true,
-        is_verified: true,
-        is_block: true,
-        created_at: true,
-        updated_at: true,
-        roles: { select: { role: { select: { id: true, nom: true } } } },
+  private getBase64Size(dataUrl: string): number {
+    const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) return 0;
+    return Buffer.from(matches[2], 'base64').length;
+  }
+
+  private async normalizeAndUploadAsset(
+    input: string,
+    folder: string,
+  ): Promise<string> {
+    if (!input) {
+      throw new BadRequestException({
+        message: 'Fichier vide.',
+        messageE: 'Empty file.',
+      });
+    }
+
+    if (input.startsWith('http://') || input.startsWith('https://')) {
+      return input;
+    }
+
+    const optimized = await optimizeDocument(input);
+    const finalSize = this.getBase64Size(optimized);
+
+    if (finalSize > this.MAX_FILE_SIZE) {
+      throw new BadRequestException({
+        message:
+          'Le fichier dépasse 500 Ko après optimisation.',
+        messageE:
+          'The file exceeds 500 KB after optimization.',
+      });
+    }
+
+    return await uploadImageToCloudinary(optimized, folder);
+  }
+
+  private async normalizeAndUploadMany(
+    files: string[],
+    folder: string,
+  ): Promise<string[]> {
+    return await Promise.all(
+      files.map((file) => this.normalizeAndUploadAsset(file, folder)),
+    );
+  }
+
+  private async resolveRoleForType(type: TypeUtilisateur) {
+    const roleNameCandidates =
+      type === TypeUtilisateur.SUPERADMIN
+        ? ['SUPER_ADMIN', 'SUPERADMIN']
+        : [type];
+
+    const role = await this.prisma.role.findFirst({
+      where: {
+        nom: {
+          in: roleNameCandidates,
+        },
       },
     });
+
+    if (!role) {
+      throw new BadRequestException({
+        message: `Aucun rôle trouvé pour le type ${type}.`,
+        messageE: `No role found for type ${type}.`,
+      });
+    }
+
+    return role;
+  }
+
+  private async validateCreateUniqueness(dto: CreateUserDto) {
+    const normalizedPhone = this.normalizePhone(dto.telephone);
+    const normalizedEmail = this.normalizeEmail(dto.email);
+
+    const existingPhone = await this.prisma.utilisateur.findFirst({
+      where: {
+        telephone: normalizedPhone,
+        type: dto.type,
+      },
+      select: { id: true },
+    });
+
+    if (existingPhone) {
+      throw new ConflictException({
+        message:
+          'Un utilisateur de ce type existe déjà avec ce téléphone.',
+        messageE:
+          'A user of this type already exists with this phone number.',
+      });
+    }
+
+    const existingEmail = await this.prisma.utilisateur.findFirst({
+      where: {
+        type: dto.type,
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existingEmail) {
+      throw new ConflictException({
+        message:
+          'Un utilisateur de ce type existe déjà avec cet email.',
+        messageE:
+          'A user of this type already exists with this email.',
+      });
+    }
+  }
+
+  private async validateUpdateUniqueness(id: number, dto: UpdateUserDto) {
+    if (dto.telephone && dto.type) {
+      const existingPhone = await this.prisma.utilisateur.findFirst({
+        where: {
+          id: { not: id },
+          telephone: this.normalizePhone(dto.telephone),
+          type: dto.type,
+        },
+        select: { id: true },
+      });
+
+      if (existingPhone) {
+        throw new ConflictException({
+          message:
+            'Un utilisateur de ce type existe déjà avec ce téléphone.',
+          messageE:
+            'A user of this type already exists with this phone number.',
+        });
+      }
+    }
+
+    if (dto.email && dto.type) {
+      const existingEmail = await this.prisma.utilisateur.findFirst({
+        where: {
+          id: { not: id },
+          type: dto.type,
+          email: {
+            equals: this.normalizeEmail(dto.email),
+            mode: 'insensitive',
+          },
+        },
+        select: { id: true },
+      });
+
+      if (existingEmail) {
+        throw new ConflictException({
+          message:
+            'Un utilisateur de ce type existe déjà avec cet email.',
+          messageE:
+            'A user of this type already exists with this email.',
+        });
+      }
+    }
+  }
+
+  private async ensureUser(id: number) {
+    const user = await this.prisma.utilisateur.findUnique({
+      where: { id },
+      include: {
+        roles: { include: { role: true } },
+        adresses: true,
+        documents: true,
+      },
+    });
+
     if (!user) {
       throw new NotFoundException({
         message: 'Utilisateur introuvable.',
         messageE: 'User not found.',
       });
     }
+
     return user;
   }
 
- async update(id: number, dto: UpdateUserDto) {
-  await this.ensureExists(id);
+  private mapUser(user: any) {
+    return {
+      id: user.id,
+      nom: user.nom,
+      email: user.email,
+      telephone: user.telephone,
+      date_naissance: user.date_naissance
+        ? user.date_naissance.toISOString()
+        : null,
+      genre: user.genre ?? null,
+      type: user.type,
+      is_verified: user.is_verified,
+      is_block: user.is_block,
+      nombre_attempts: user.nombre_attempts,
+      photo_url: user.photo_url ?? null,
+      derniere_connexion: user.derniere_connexion
+        ? user.derniere_connexion.toISOString()
+        : null,
+      created_at: user.created_at.toISOString(),
+      updated_at: user.updated_at.toISOString(),
+      roles: Array.isArray(user.roles)
+        ? user.roles.map((r: any) => r.role?.nom).filter(Boolean)
+        : [],
+      adresses: Array.isArray(user.adresses)
+        ? user.adresses.map((a: any) => ({
+            id: a.id,
+            country: a.country,
+            city: a.city,
+            address: a.address,
+            longitude: a.longitude ?? null,
+            latitude: a.latitude ?? null,
+          }))
+        : [],
+      documents: Array.isArray(user.documents)
+        ? user.documents.map((d: any) => ({
+            id: d.id,
+            nom: d.nom ?? null,
+            images: d.images ?? [],
+          }))
+        : [],
+    };
+  }
 
-  if (dto.telephone) {
-    if (!dto.telephone.startsWith('+237')) {
-      throw new BadRequestException({
-        message: 'Numéro de téléphone invalide (doit commencer par +237).',
-        messageE: 'Invalid phone number (must start with +237).',
-      });
-    }
-    const telOwner = await this.prisma.utilisateur.findUnique({
-      where: { telephone: dto.telephone },
-      select: { id: true },
+private async prepareDocuments(
+  documents: { nom?: string; images: string[] }[],
+  userId?: number,
+): Promise<Array<{ nom: string | null; images: string[] }>> {
+  const prepared: Array<{ nom: string | null; images: string[] }> = [];
+
+  for (let i = 0; i < documents.length; i++) {
+    const doc = documents[i];
+    const uploadedImages = await this.normalizeAndUploadMany(
+      doc.images,
+      `dezoumay/users/${userId ?? 'new-user'}/documents/${i + 1}`,
+    );
+
+    prepared.push({
+      nom: doc.nom ?? null,
+      images: uploadedImages,
     });
-    if (telOwner && telOwner.id !== id) {
-      throw new BadRequestException({
-        message: 'Numéro de téléphone déjà utilisé.',
-        messageE: 'Phone number already in use.',
-      });
-    }
   }
 
-  if (dto.email) {
-    const mailOwner = await this.prisma.utilisateur.findUnique({
-      where: { email: dto.email },
-      select: { id: true },
-    });
-    if (mailOwner && mailOwner.id !== id) {
-      throw new BadRequestException({
-        message: 'Adresse email déjà utilisée.',
-        messageE: 'Email already in use.',
-      });
-    }
-  }
-
-  let photoUrl: string | undefined;
-  if (dto.photoBase64) {
-    // ---------- Cloudinary disabled ----------
-    // Avant : photoUrl = await uploadImageToCloudinary(dto.photoBase64, 'users');
-    // La ligne Cloudinary est commentée ci-dessus.
-    // Désormais : on sauvegarde directement la valeur reçue (URL ou string) dans photoUrl.
-    photoUrl = dto.photoBase64 as unknown as string;
-  }
-
-  const data: any = {
-    nom: dto.nom,
-    email: dto.email,
-    telephone: dto.telephone,
-    communeId: dto.communeId,
-    ville: dto.ville,
-    adresse: dto.adresse,
-    is_verified: dto.is_verified,
-    is_block: dto.is_block,
-  };
-  if (dto.mot_de_passe) data.mot_de_passe = await argon2.hash(dto.mot_de_passe);
-  if (photoUrl) data.photo_url = photoUrl;
-
-  try {
-    const updated = await this.prisma.utilisateur.update({
-      where: { id },
-      data,
-      select: {
-        id: true,
-        nom: true,
-        email: true,
-        telephone: true,
-        communeId: true,
-        is_verified: true,
-        is_block: true,
-        updated_at: true,
-      },
-    });
-    return updated;
-  } catch (e: any) {
-    if (e.code === 'P2002') {
-      throw new BadRequestException({
-        message: 'Contrainte d’unicité violée (email ou téléphone).',
-        messageE: 'Unique constraint failed (email or phone).',
-      });
-    }
-    throw e;
-  }
+  return prepared;
 }
 
-  async remove(id: number) {
-    await this.ensureExists(id);
-    await this.prisma.utilisateur.delete({ where: { id } });
-  }
+  async create(dto: CreateUserDto) {
+    await this.validateCreateUniqueness(dto);
 
-  private async ensureExists(id: number) {
-    const count = await this.prisma.utilisateur.count({ where: { id } });
-    if (!count) {
-      throw new NotFoundException({
-        message: 'Utilisateur introuvable.',
-        messageE: 'User not found.',
-      });
-    }
-  }
-
-  /** Dashboard pour l'utilisateur courant */
-   async dashboard(id: number) {
-    const userId = id;
-    if (!userId) {
+    if (
+      dto.type === TypeUtilisateur.INSTITUT &&
+      (!dto.documents || !dto.documents.length)
+    ) {
       throw new BadRequestException({
-        message: 'Utilisateur non identifié.',
-        messageE: 'User not identified.',
+        message:
+          'Les images/documents de l’institut sont obligatoires.',
+        messageE:
+          'Institute images/documents are required.',
       });
     }
 
-    const total = await this.prisma.infrastructure.count({
-      where: { utilisateurId: userId,id_parent:null },
+    const hashedPassword = await bcrypt.hash(dto.mot_de_passe, 10);
+
+    const photoUrl = dto.photo_url
+      ? await this.normalizeAndUploadAsset(
+          dto.photo_url,
+          'dezoumay/users/profile',
+        )
+      : null;
+
+    const preparedDocuments = dto.documents?.length
+      ? await this.prepareDocuments(dto.documents)
+      : [];
+
+    const role = await this.resolveRoleForType(dto.type);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.utilisateur.create({
+        data: {
+          nom: dto.nom.trim(),
+          email: this.normalizeEmail(dto.email),
+          telephone: this.normalizePhone(dto.telephone),
+          mot_de_passe: hashedPassword,
+          date_naissance: this.toDate(dto.date_naissance),
+          genre: dto.genre,
+          type: dto.type,
+          photo_url: photoUrl,
+          adresses: dto.adresses?.length
+            ? {
+                create: dto.adresses.map((a) => ({
+                  country: a.country,
+                  city: a.city,
+                  address: a.address,
+                  longitude: a.longitude,
+                  latitude: a.latitude,
+                })),
+              }
+            : undefined,
+          documents: preparedDocuments.length
+            ? {
+                create: preparedDocuments.map((d) => ({
+                  nom: d.nom,
+                  images: d.images,
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          adresses: true,
+          documents: true,
+          roles: { include: { role: true } },
+        },
+      });
+
+      await tx.utilisateurRole.create({
+        data: {
+          utilisateurId: user.id,
+          roleId: role.id,
+        },
+      });
+
+      const finalUser = await tx.utilisateur.findUnique({
+        where: { id: user.id },
+        include: {
+          roles: { include: { role: true } },
+          adresses: true,
+          documents: true,
+        },
+      });
+
+      return finalUser!;
     });
-
-    if (!total) {
-      return {
-        total_infrastructures: 0,
-        last_day: null,
-        last_day_count: 0,
-      };
-    }
-
-    const lastRow = await this.prisma.infrastructure.findFirst({
-      where: { utilisateurId: userId },
-      orderBy: { created_at: 'desc' },
-      select: { created_at: true },
-    });
-
-    if (!lastRow?.created_at) {
-      return {
-        total_infrastructures: total,
-        last_day: null,
-        last_day_count: 0,
-      };
-    }
-
-    const lastDay = lastRow.created_at.toISOString().slice(0, 10);
-
-    // PostgreSQL paramétré et identifiants quotés
-    const rows: any[] = await this.prisma.$queryRaw`
-      SELECT COUNT(*) AS c
-      FROM "Infrastructure"
-      WHERE "utilisateurId" = ${Number(userId)}
-        AND DATE("created_at") = DATE(${lastDay})
-        AND "id_parent" IS NULL
-    `;
-    const lastDayCount = Number(rows?.[0]?.c ?? 0);
 
     return {
-      total_infrastructures: total,
-      last_day: lastDay,
-      last_day_count: lastDayCount,
+      message: 'Utilisateur créé avec succès.',
+      messageE: 'User created successfully.',
+      data: this.mapUser(created),
     };
   }
 
-  async listByRole(
-    roleName: 'ADMIN' | 'MINDEVEL' | 'AGENT' | 'SUPER ADMIN',
-    params: {
-      page: number;
-      pageSize: number;
-      sort?: Order;
-      communeId?: number;
-      is_verified?: boolean;
-      is_block?: boolean;
-      q?: string;
-      req?: any;
-    },
-  ) {
-    const { page, pageSize, sort, communeId, is_verified, is_block, q, req } = params;
-    const userCommuneId = req?.user?.communeId as number | undefined;
+  async update(id: number, dto: UpdateUserDto) {
+    await this.ensureUser(id);
 
-    const where: any = {
-      roles: { some: { role: { is: { nom: roleName } } } },
+    await this.validateUpdateUniqueness(id, dto);
+
+    const photoUrl = dto.photo_url
+      ? await this.normalizeAndUploadAsset(
+          dto.photo_url,
+          `dezoumay/users/${id}/profile`,
+        )
+      : undefined;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.utilisateur.update({
+        where: { id },
+        data: {
+          nom: dto.nom?.trim(),
+          email: dto.email ? this.normalizeEmail(dto.email) : undefined,
+          telephone: dto.telephone
+            ? this.normalizePhone(dto.telephone)
+            : undefined,
+          date_naissance: dto.date_naissance
+            ? this.toDate(dto.date_naissance)
+            : undefined,
+          genre: dto.genre,
+          type: dto.type,
+          photo_url: photoUrl,
+        },
+      });
+
+      if (dto.type) {
+        const role = await this.resolveRoleForType(dto.type);
+
+        await tx.utilisateurRole.deleteMany({
+          where: { utilisateurId: id },
+        });
+
+        await tx.utilisateurRole.create({
+          data: {
+            utilisateurId: id,
+            roleId: role.id,
+          },
+        });
+      }
+
+      const finalUser = await tx.utilisateur.findUnique({
+        where: { id },
+        include: {
+          roles: { include: { role: true } },
+          adresses: true,
+          documents: true,
+        },
+      });
+
+      return finalUser!;
+    });
+
+    return {
+      message: 'Utilisateur mis à jour avec succès.',
+      messageE: 'User updated successfully.',
+      data: this.mapUser(updated),
     };
+  }
 
-    if (typeof userCommuneId === 'number') where.communeId = userCommuneId;
-    else if (typeof communeId === 'number') where.communeId = communeId;
+  async getAll(query: QueryUserDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
 
-    if (typeof is_verified === 'boolean') where.is_verified = is_verified;
-    if (typeof is_block === 'boolean') where.is_block = is_block;
+    const where: Prisma.UtilisateurWhereInput = {};
 
-    if (q) {
+    if (query.q?.trim()) {
+      const q = query.q.trim();
       where.OR = [
         { nom: { contains: q, mode: 'insensitive' } },
         { email: { contains: q, mode: 'insensitive' } },
@@ -1083,28 +462,260 @@ async create(dto: CreateUserDto) {
       ];
     }
 
-    const [total, items] = await this.prisma.$transaction([
+    if (query.type) where.type = query.type;
+    if (query.genre) where.genre = query.genre;
+    if (typeof query.is_block === 'boolean') where.is_block = query.is_block;
+    if (typeof query.is_verified === 'boolean') {
+      where.is_verified = query.is_verified;
+    }
+
+    const [total, users] = await Promise.all([
       this.prisma.utilisateur.count({ where }),
       this.prisma.utilisateur.findMany({
         where,
-        orderBy: (sort as any) ?? { created_at: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          nom: true,
-          email: true,
-          telephone: true,
-          communeId: true,
-          is_verified: true,
-          is_block: true,
-          created_at: true,
-          updated_at: true,
-          roles: { select: { role: { select: { id: true, nom: true } } } },
+        skip,
+        take: limit,
+        orderBy: { created_at: 'desc' },
+        include: {
+          roles: { include: { role: true } },
+          adresses: true,
+          documents: true,
         },
       }),
     ]);
 
-    return { total, items };
+    return {
+      message: 'Liste des utilisateurs récupérée avec succès.',
+      messageE: 'Users fetched successfully.',
+      data: users.map((u) => this.mapUser(u)),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  async getOne(id: number) {
+    const user = await this.ensureUser(id);
+
+    return {
+      message: 'Utilisateur récupéré avec succès.',
+      messageE: 'User fetched successfully.',
+      data: this.mapUser(user),
+    };
+  }
+
+  async block(id: number) {
+    await this.ensureUser(id);
+
+    await this.prisma.utilisateur.update({
+      where: { id },
+      data: { is_block: true },
+    });
+
+    return {
+      message: 'Utilisateur bloqué avec succès.',
+      messageE: 'User blocked successfully.',
+    };
+  }
+
+  async unblock(id: number) {
+    await this.ensureUser(id);
+
+    await this.prisma.utilisateur.update({
+      where: { id },
+      data: {
+        is_block: false,
+        nombre_attempts: 0,
+      },
+    });
+
+    return {
+      message: 'Utilisateur débloqué avec succès.',
+      messageE: 'User unblocked successfully.',
+    };
+  }
+
+  async verify(id: number) {
+    await this.ensureUser(id);
+
+    await this.prisma.utilisateur.update({
+      where: { id },
+      data: { is_verified: true },
+    });
+
+    return {
+      message: 'Utilisateur vérifié avec succès.',
+      messageE: 'User verified successfully.',
+    };
+  }
+
+  async replaceDocuments(id: number, dto: UpdateUserDocumentsDto) {
+    const user = await this.ensureUser(id);
+
+    if (
+      user.type === TypeUtilisateur.INSTITUT &&
+      (!dto.documents || !dto.documents.length)
+    ) {
+      throw new BadRequestException({
+        message:
+          'Un institut doit toujours avoir au moins un document.',
+        messageE:
+          'An institute must always have at least one document.',
+      });
+    }
+
+    const preparedDocuments = await this.prepareDocuments(
+      dto.documents,
+      id,
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.document.deleteMany({
+        where: { utilisateurId: id },
+      });
+
+      for (const doc of preparedDocuments) {
+        await tx.document.create({
+          data: {
+            utilisateurId: id,
+            nom: doc.nom,
+            images: doc.images,
+          },
+        });
+      }
+    });
+
+    const documents = await this.prisma.document.findMany({
+      where: { utilisateurId: id },
+      orderBy: { id: 'desc' },
+    });
+
+    return {
+      message: 'Documents mis à jour avec succès.',
+      messageE: 'Documents updated successfully.',
+      data: documents.map((d) => ({
+        id: d.id,
+        nom: d.nom ?? null,
+        images: d.images,
+      })),
+    };
+  }
+
+  async addAddress(userId: number, dto: CreateAddressDto) {
+    await this.ensureUser(userId);
+
+    const address = await this.prisma.adresse.create({
+      data: {
+        utilisateurId: userId,
+        country: dto.country,
+        city: dto.city,
+        address: dto.address,
+        longitude: dto.longitude,
+        latitude: dto.latitude,
+      },
+    });
+
+    return {
+      message: 'Adresse enregistrée avec succès.',
+      messageE: 'Address saved successfully.',
+      data: {
+        id: address.id,
+        country: address.country,
+        city: address.city,
+        address: address.address,
+        longitude: address.longitude ?? null,
+        latitude: address.latitude ?? null,
+      },
+    };
+  }
+
+  async getAddresses(userId: number) {
+    await this.ensureUser(userId);
+
+    const addresses = await this.prisma.adresse.findMany({
+      where: { utilisateurId: userId },
+      orderBy: { id: 'desc' },
+    });
+
+    return {
+      message: 'Adresses récupérées avec succès.',
+      messageE: 'Addresses fetched successfully.',
+      data: addresses.map((a) => ({
+        id: a.id,
+        country: a.country,
+        city: a.city,
+        address: a.address,
+        longitude: a.longitude ?? null,
+        latitude: a.latitude ?? null,
+      })),
+    };
+  }
+
+  async updateAddress(
+    userId: number,
+    addressId: number,
+    dto: UpdateAddressDto,
+  ) {
+    await this.ensureUser(userId);
+
+    const existing = await this.prisma.adresse.findFirst({
+      where: {
+        id: addressId,
+        utilisateurId: userId,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({
+        message: 'Adresse introuvable.',
+        messageE: 'Address not found.',
+      });
+    }
+
+    const updated = await this.prisma.adresse.update({
+      where: { id: addressId },
+      data: {
+        country: dto.country,
+        city: dto.city,
+        address: dto.address,
+        longitude: dto.longitude,
+        latitude: dto.latitude,
+      },
+    });
+
+    return {
+      message: 'Adresse mise à jour avec succès.',
+      messageE: 'Address updated successfully.',
+      data: {
+        id: updated.id,
+        country: updated.country,
+        city: updated.city,
+        address: updated.address,
+        longitude: updated.longitude ?? null,
+        latitude: updated.latitude ?? null,
+      },
+    };
+  }
+
+  async getDocuments(userId: number) {
+    await this.ensureUser(userId);
+
+    const documents = await this.prisma.document.findMany({
+      where: { utilisateurId: userId },
+      orderBy: { id: 'desc' },
+    });
+
+    return {
+      message: 'Documents récupérés avec succès.',
+      messageE: 'Documents fetched successfully.',
+      data: documents.map((d) => ({
+        id: d.id,
+        nom: d.nom ?? null,
+        images: d.images,
+      })),
+    };
   }
 }
