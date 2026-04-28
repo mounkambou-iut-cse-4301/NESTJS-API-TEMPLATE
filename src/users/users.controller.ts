@@ -8,9 +8,11 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -35,7 +37,11 @@ import {
   UserSingleResponseDto,
   UsersListResponseDto,
 } from './dto/user-response.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { NotBlockedGuard } from 'src/auth/guards/not-blocked.guard';
 
+ @ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard, NotBlockedGuard)
 @ApiTags('Users')
 @Controller('api/v1/users')
 export class UsersController {
@@ -46,7 +52,7 @@ export class UsersController {
     summary:
       'Créer un utilisateur / inscription',
     description:
-      'Crée un utilisateur. Si le type est INSTITUT, les documents/images de l’institut sont obligatoires. Les images/documents sont optimisés et limités à 500 Ko maximum.',
+      'Crée un utilisateur. Si le type est INSTITUT, les documents/images de l’institut sont obligatoires. Les images/documents sont optimisés et limités à 500 Ko maximum. on a plusieurs type (CLIENT, INSTITUT, PROFESSIONEL)',
   })
   @ApiCreatedResponse({
     description: 'Utilisateur créé avec succès',

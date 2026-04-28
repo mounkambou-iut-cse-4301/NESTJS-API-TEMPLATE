@@ -92,30 +92,6 @@ export class UsersService {
     );
   }
 
-  private async resolveRoleForType(type: TypeUtilisateur) {
-    const roleNameCandidates =
-      type === TypeUtilisateur.SUPERADMIN
-        ? ['SUPER_ADMIN', 'SUPERADMIN']
-        : [type];
-
-    const role = await this.prisma.role.findFirst({
-      where: {
-        nom: {
-          in: roleNameCandidates,
-        },
-      },
-    });
-
-    if (!role) {
-      throw new BadRequestException({
-        message: `Aucun rôle trouvé pour le type ${type}.`,
-        messageE: `No role found for type ${type}.`,
-      });
-    }
-
-    return role;
-  }
-
   private async validateCreateUniqueness(dto: CreateUserDto) {
     const normalizedPhone = this.normalizePhone(dto.telephone);
     const normalizedEmail = this.normalizeEmail(dto.email);
@@ -207,7 +183,6 @@ export class UsersService {
     const user = await this.prisma.utilisateur.findUnique({
       where: { id },
       include: {
-        roles: { include: { role: true } },
         adresses: true,
         documents: true,
       },
@@ -243,9 +218,6 @@ export class UsersService {
         : null,
       created_at: user.created_at.toISOString(),
       updated_at: user.updated_at.toISOString(),
-      roles: Array.isArray(user.roles)
-        ? user.roles.map((r: any) => r.role?.nom).filter(Boolean)
-        : [],
       adresses: Array.isArray(user.adresses)
         ? user.adresses.map((a: any) => ({
             id: a.id,
@@ -266,31 +238,88 @@ export class UsersService {
     };
   }
 
-private async prepareDocuments(
-  documents: { nom?: string; images: string[] }[],
-  userId?: number,
-): Promise<Array<{ nom: string | null; images: string[] }>> {
-  const prepared: Array<{ nom: string | null; images: string[] }> = [];
+  private async prepareDocuments(
+    documents: { nom?: string; images: string[] }[],
+    userId?: number,
+  ): Promise<Array<{ nom: string | null; images: string[] }>> {
+    const prepared: Array<{ nom: string | null; images: string[] }> = [];
 
-  for (let i = 0; i < documents.length; i++) {
-    const doc = documents[i];
-    const uploadedImages = await this.normalizeAndUploadMany(
-      doc.images,
-      `dezoumay/users/${userId ?? 'new-user'}/documents/${i + 1}`,
-    );
+    for (let i = 0; i < documents.length; i++) {
+      const doc = documents[i];
+      const uploadedImages = await this.normalizeAndUploadMany(
+        doc.images,
+        `dezoumay/users/${userId ?? 'new-user'}/documents/${i + 1}`,
+      );
 
-    prepared.push({
-      nom: doc.nom ?? null,
-      images: uploadedImages,
-    });
+      prepared.push({
+        nom: doc.nom ?? null,
+        images: uploadedImages,
+      });
+    }
+
+    return prepared;
   }
 
-  return prepared;
-}
+  private async processUserMedia(userId: number, dto: CreateUserDto) {
+    try {
+      console.log(`📤 Début du traitement des médias pour l'utilisateur ${userId}...`);
+      
+      // Upload de la photo de profil
+      let photoUrl: string | null = null;
+      if (dto.photo_url) {
+        console.log(`📸 Upload de la photo de profil...`);
+        photoUrl = await this.normalizeAndUploadAsset(
+          dto.photo_url,
+          `dezoumay/users/${userId}/profile`,
+        );
+      }
+
+      // Upload des documents
+      let preparedDocuments: Array<{ nom: string | null; images: string[] }> = [];
+      if (dto.documents && dto.documents.length > 0) {
+        console.log(`📄 Upload de ${dto.documents.length} document(s)...`);
+        preparedDocuments = await this.prepareDocuments(dto.documents, userId);
+      }
+
+      // Mise à jour de l'utilisateur avec les médias traités
+      await this.prisma.utilisateur.update({
+        where: { id: userId },
+        data: {
+          photo_url: photoUrl,
+          documents: preparedDocuments.length
+            ? {
+                create: preparedDocuments.map((d) => ({
+                  nom: d.nom,
+                  images: d.images,
+                })),
+              }
+            : undefined,
+        },
+      });
+
+      console.log(`✅ Médias traités avec succès pour l'utilisateur ${userId}`);
+    } catch (error) {
+      console.error(`❌ Erreur de traitement des médias pour l'utilisateur ${userId}:`, error);
+      
+      // Optionnel: Marquer l'utilisateur comme ayant besoin d'un retraitement
+      // ou ajouter une entrée dans une table de logs d'erreurs
+      await this.prisma.utilisateur.update({
+        where: { id: userId },
+        data: {
+          // Vous pouvez ajouter un champ `media_processing_error` à votre schéma Prisma
+          // ou simplement logger l'erreur
+        },
+      });
+      
+      throw error;
+    }
+  }
 
   async create(dto: CreateUserDto) {
+    // Validation des données
     await this.validateCreateUniqueness(dto);
 
+    // Vérification des documents obligatoires pour les instituts
     if (
       dto.type === TypeUtilisateur.INSTITUT &&
       (!dto.documents || !dto.documents.length)
@@ -303,81 +332,48 @@ private async prepareDocuments(
       });
     }
 
+    // Hashage du mot de passe
     const hashedPassword = await bcrypt.hash(dto.mot_de_passe, 10);
 
-    const photoUrl = dto.photo_url
-      ? await this.normalizeAndUploadAsset(
-          dto.photo_url,
-          'dezoumay/users/profile',
-        )
-      : null;
+    // Création de l'utilisateur sans les médias (pour éviter le timeout)
+    const created = await this.prisma.utilisateur.create({
+      data: {
+        nom: dto.nom.trim(),
+        email: this.normalizeEmail(dto.email),
+        telephone: this.normalizePhone(dto.telephone),
+        mot_de_passe: hashedPassword,
+        date_naissance: this.toDate(dto.date_naissance),
+        genre: dto.genre,
+        type: dto.type,
+        photo_url: null, // Sera mis à jour plus tard par le traitement asynchrone
+        adresses: dto.adresses?.length
+          ? {
+              create: dto.adresses.map((a) => ({
+                country: a.country,
+                city: a.city,
+                address: a.address,
+                longitude: a.longitude,
+                latitude: a.latitude,
+              })),
+            }
+          : undefined,
+        // Ne pas inclure les documents ici
+      },
+      include: {
+        adresses: true,
+        documents: true,
+      },
+    });
 
-    const preparedDocuments = dto.documents?.length
-      ? await this.prepareDocuments(dto.documents)
-      : [];
-
-    const role = await this.resolveRoleForType(dto.type);
-
-    const created = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.utilisateur.create({
-        data: {
-          nom: dto.nom.trim(),
-          email: this.normalizeEmail(dto.email),
-          telephone: this.normalizePhone(dto.telephone),
-          mot_de_passe: hashedPassword,
-          date_naissance: this.toDate(dto.date_naissance),
-          genre: dto.genre,
-          type: dto.type,
-          photo_url: photoUrl,
-          adresses: dto.adresses?.length
-            ? {
-                create: dto.adresses.map((a) => ({
-                  country: a.country,
-                  city: a.city,
-                  address: a.address,
-                  longitude: a.longitude,
-                  latitude: a.latitude,
-                })),
-              }
-            : undefined,
-          documents: preparedDocuments.length
-            ? {
-                create: preparedDocuments.map((d) => ({
-                  nom: d.nom,
-                  images: d.images,
-                })),
-              }
-            : undefined,
-        },
-        include: {
-          adresses: true,
-          documents: true,
-          roles: { include: { role: true } },
-        },
-      });
-
-      await tx.utilisateurRole.create({
-        data: {
-          utilisateurId: user.id,
-          roleId: role.id,
-        },
-      });
-
-      const finalUser = await tx.utilisateur.findUnique({
-        where: { id: user.id },
-        include: {
-          roles: { include: { role: true } },
-          adresses: true,
-          documents: true,
-        },
-      });
-
-      return finalUser!;
+    // Traitement asynchrone des médias (photo et documents)
+    // Cela ne bloque pas la réponse et évite les timeouts
+    this.processUserMedia(created.id, dto).catch((error) => {
+      console.error(`Erreur lors du traitement asynchrone des médias pour l'utilisateur ${created.id}:`, error);
     });
 
     return {
-      message: 'Utilisateur créé avec succès.',
-      messageE: 'User created successfully.',
+      message: 'Utilisateur créé avec succès. Les photos et documents sont en cours de traitement.',
+      messageE: 'User created successfully. Media is being processed.',
       data: this.mapUser(created),
     };
   }
@@ -387,63 +383,96 @@ private async prepareDocuments(
 
     await this.validateUpdateUniqueness(id, dto);
 
-    const photoUrl = dto.photo_url
-      ? await this.normalizeAndUploadAsset(
-          dto.photo_url,
-          `dezoumay/users/${id}/profile`,
-        )
-      : undefined;
+    // Si des médias sont fournis, les traiter de manière asynchrone
+    const hasMediaToProcess = dto.photo_url || (dto.documents && dto.documents.length > 0);
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.utilisateur.update({
-        where: { id },
-        data: {
-          nom: dto.nom?.trim(),
-          email: dto.email ? this.normalizeEmail(dto.email) : undefined,
-          telephone: dto.telephone
-            ? this.normalizePhone(dto.telephone)
-            : undefined,
-          date_naissance: dto.date_naissance
-            ? this.toDate(dto.date_naissance)
-            : undefined,
-          genre: dto.genre,
-          type: dto.type,
-          photo_url: photoUrl,
-        },
+    // Mise à jour des informations de base sans les médias
+    const updated = await this.prisma.utilisateur.update({
+      where: { id },
+      data: {
+        nom: dto.nom?.trim(),
+        email: dto.email ? this.normalizeEmail(dto.email) : undefined,
+        telephone: dto.telephone
+          ? this.normalizePhone(dto.telephone)
+          : undefined,
+        date_naissance: dto.date_naissance
+          ? this.toDate(dto.date_naissance)
+          : undefined,
+        genre: dto.genre,
+        type: dto.type,
+        // Ne pas mettre à jour photo_url ici si elle est fournie
+        photo_url: dto.photo_url ? null : undefined,
+      },
+      include: {
+        adresses: true,
+        documents: true,
+      },
+    });
+
+    // Traitement asynchrone des nouveaux médias
+    if (hasMediaToProcess) {
+      this.processUserMediaUpdate(id, dto).catch((error) => {
+        console.error(`Erreur lors du traitement asynchrone des médias pour la mise à jour de l'utilisateur ${id}:`, error);
       });
+    }
 
-      if (dto.type) {
-        const role = await this.resolveRoleForType(dto.type);
+    return {
+      message: 'Utilisateur mis à jour avec succès. Les nouveaux médias sont en cours de traitement.',
+      messageE: 'User updated successfully. New media is being processed.',
+      data: this.mapUser(updated),
+    };
+  }
 
-        await tx.utilisateurRole.deleteMany({
-          where: { utilisateurId: id },
+  private async processUserMediaUpdate(userId: number, dto: UpdateUserDto) {
+    try {
+      console.log(`📤 Début du traitement des médias pour la mise à jour de l'utilisateur ${userId}...`);
+      
+      const updateData: any = {};
+
+      // Upload de la nouvelle photo de profil
+      if (dto.photo_url) {
+        console.log(`📸 Upload de la nouvelle photo de profil...`);
+        updateData.photo_url = await this.normalizeAndUploadAsset(
+          dto.photo_url,
+          `dezoumay/users/${userId}/profile`,
+        );
+      }
+
+      // Upload des nouveaux documents (remplacement complet)
+      if (dto.documents && dto.documents.length > 0) {
+        console.log(`📄 Upload de ${dto.documents.length} nouveau(x) document(s)...`);
+        
+        // Supprimer les anciens documents
+        await this.prisma.document.deleteMany({
+          where: { utilisateurId: userId },
         });
 
-        await tx.utilisateurRole.create({
-          data: {
-            utilisateurId: id,
-            roleId: role.id,
-          },
+        // Upload des nouveaux documents
+        const preparedDocuments = await this.prepareDocuments(dto.documents, userId);
+        
+        if (preparedDocuments.length) {
+          updateData.documents = {
+            create: preparedDocuments.map((d) => ({
+              nom: d.nom,
+              images: d.images,
+            })),
+          };
+        }
+      }
+
+      // Mise à jour de l'utilisateur avec les nouveaux médias
+      if (Object.keys(updateData).length > 0) {
+        await this.prisma.utilisateur.update({
+          where: { id: userId },
+          data: updateData,
         });
       }
 
-      const finalUser = await tx.utilisateur.findUnique({
-        where: { id },
-        include: {
-          roles: { include: { role: true } },
-          adresses: true,
-          documents: true,
-        },
-      });
-
-      return finalUser!;
-    });
-
-    return {
-      message: 'Utilisateur mis à jour avec succès.',
-      messageE: 'User updated successfully.',
-      data: this.mapUser(updated),
-    };
+      console.log(`✅ Médias mis à jour avec succès pour l'utilisateur ${userId}`);
+    } catch (error) {
+      console.error(`❌ Erreur de traitement des médias pour la mise à jour de l'utilisateur ${userId}:`, error);
+      throw error;
+    }
   }
 
   async getAll(query: QueryUserDto) {
@@ -477,7 +506,6 @@ private async prepareDocuments(
         take: limit,
         orderBy: { created_at: 'desc' },
         include: {
-          roles: { include: { role: true } },
           adresses: true,
           documents: true,
         },
@@ -567,41 +595,51 @@ private async prepareDocuments(
       });
     }
 
-    const preparedDocuments = await this.prepareDocuments(
-      dto.documents,
-      id,
-    );
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.document.deleteMany({
-        where: { utilisateurId: id },
-      });
-
-      for (const doc of preparedDocuments) {
-        await tx.document.create({
-          data: {
-            utilisateurId: id,
-            nom: doc.nom,
-            images: doc.images,
-          },
-        });
-      }
-    });
-
-    const documents = await this.prisma.document.findMany({
-      where: { utilisateurId: id },
-      orderBy: { id: 'desc' },
+    // Traitement asynchrone des documents
+    this.processDocumentReplacement(id, dto).catch((error) => {
+      console.error(`Erreur lors du remplacement asynchrone des documents pour l'utilisateur ${id}:`, error);
     });
 
     return {
-      message: 'Documents mis à jour avec succès.',
-      messageE: 'Documents updated successfully.',
-      data: documents.map((d) => ({
-        id: d.id,
-        nom: d.nom ?? null,
-        images: d.images,
-      })),
+      message: 'Remplacement des documents initié. Les nouveaux documents seront traités en arrière-plan.',
+      messageE: 'Document replacement initiated. New documents will be processed in the background.',
+      data: {
+        status: 'processing',
+        estimated_time: 'quelques secondes',
+      },
     };
+  }
+
+  private async processDocumentReplacement(id: number, dto: UpdateUserDocumentsDto) {
+    try {
+      console.log(`📄 Début du remplacement des documents pour l'utilisateur ${id}...`);
+
+      const preparedDocuments = await this.prepareDocuments(
+        dto.documents,
+        id,
+      );
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.document.deleteMany({
+          where: { utilisateurId: id },
+        });
+
+        for (const doc of preparedDocuments) {
+          await tx.document.create({
+            data: {
+              utilisateurId: id,
+              nom: doc.nom,
+              images: doc.images,
+            },
+          });
+        }
+      });
+
+      console.log(`✅ Documents remplacés avec succès pour l'utilisateur ${id}`);
+    } catch (error) {
+      console.error(`❌ Erreur lors du remplacement des documents pour l'utilisateur ${id}:`, error);
+      throw error;
+    }
   }
 
   async addAddress(userId: number, dto: CreateAddressDto) {
@@ -716,6 +754,23 @@ private async prepareDocuments(
         nom: d.nom ?? null,
         images: d.images,
       })),
+    };
+  }
+
+  // Méthode utilitaire pour vérifier le statut du traitement des médias
+  async getMediaProcessingStatus(userId: number) {
+    const user = await this.ensureUser(userId);
+    
+    return {
+      message: 'Statut des médias récupéré avec succès.',
+      messageE: 'Media status fetched successfully.',
+      data: {
+        has_photo: !!user.photo_url,
+        documents_count: user.documents?.length || 0,
+        is_fully_processed: !!user.photo_url || user.type !== TypeUtilisateur.INSTITUT 
+          ? true 
+          : (user.documents?.length > 0),
+      },
     };
   }
 }
