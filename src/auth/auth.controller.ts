@@ -30,9 +30,24 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({
-    summary: 'Connexion par téléphone, type et mot de passe',
-    description:
-      'Authentifie un utilisateur avec telephone + type + mot_de_passe et retourne un JWT avec user, rôles et permissions.',
+    summary: 'Connexion par téléphone et mot de passe',
+    description: `
+      CONNEXION UTILISATEUR
+
+      Cette API authentifie un utilisateur avec :
+      - telephone
+      - mot_de_passe
+
+      RÉSULTAT :
+      - token JWT
+      - informations de l'utilisateur connecté
+      - rôles
+      - permissions
+
+      IMPORTANT :
+      - Après 5 tentatives échouées, le compte est bloqué.
+      - Un compte bloqué ne peut plus se connecter.
+    `,
   })
   @ApiOkResponse({
     description: 'Connexion réussie',
@@ -53,8 +68,18 @@ export class AuthController {
   @Post('forgot-password')
   @ApiOperation({
     summary: 'Mot de passe oublié',
-    description:
-      'Recherche un compte via type + (email ou téléphone), puis génère un token et un code de réinitialisation.',
+    description: `
+      MOT DE PASSE OUBLIÉ
+
+      Cette API permet de générer un token et un code de réinitialisation.
+
+      PARAMÈTRES :
+      - telephone : optionnel si email fourni
+      - email : optionnel si telephone fourni
+
+      IMPORTANT :
+      La réponse reste neutre pour éviter de révéler si le compte existe ou non.
+    `,
   })
   @ApiOkResponse({
     description: 'Réinitialisation générée',
@@ -71,8 +96,19 @@ export class AuthController {
   @Post('reset-password')
   @ApiOperation({
     summary: 'Réinitialiser le mot de passe',
-    description:
-      'Valide le token et le code, puis remplace le mot de passe hashé.',
+    description: `
+      RÉINITIALISATION DU MOT DE PASSE
+
+      Cette API valide :
+      - le token de réinitialisation
+      - le code de vérification
+
+      Ensuite, elle remplace le mot de passe par le nouveau mot de passe hashé.
+
+      Après succès :
+      - loginAttempt est remis à 0
+      - le compte est débloqué
+    `,
   })
   @ApiOkResponse({
     description: 'Mot de passe réinitialisé',
@@ -83,11 +119,7 @@ export class AuthController {
     type: ErrorResponseDto,
   })
   async reset(@Body() dto: ResetPasswordDto) {
-    await this.service.resetPassword(dto);
-    return {
-      message: 'Mot de passe réinitialisé avec succès.',
-      messageE: 'Password successfully reset.',
-    };
+    return await this.service.resetPassword(dto);
   }
 
   @Post('change-password')
@@ -95,8 +127,20 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, NotBlockedGuard)
   @ApiOperation({
     summary: 'Changer son mot de passe',
-    description:
-      'Endpoint protégé. Vérifie l’ancien mot de passe puis enregistre le nouveau.',
+    description: `
+      CHANGEMENT DE MOT DE PASSE
+
+      Endpoint protégé par JWT.
+
+      Cette API :
+      - vérifie l'ancien mot de passe
+      - hash le nouveau mot de passe
+      - met à jour le compte utilisateur
+
+      CONDITIONS :
+      - utilisateur authentifié
+      - compte non bloqué
+    `,
   })
   @ApiOkResponse({
     description: 'Mot de passe modifié',
@@ -115,10 +159,6 @@ export class AuthController {
     type: ErrorResponseDto,
   })
   async change(@Req() req: any, @Body() dto: ChangePasswordDto) {
-    await this.service.changePassword(req.user.id, dto);
-    return {
-      message: 'Mot de passe modifié avec succès.',
-      messageE: 'Password changed successfully.',
-    };
+    return await this.service.changePassword(req.user.id, dto);
   }
 }

@@ -1,292 +1,1088 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
+  // Génère le client Prisma utilisé par NestJS / Node.js pour accéder à la base de données.
   provider = "prisma-client-js"
 }
 
-// prisma/schema.prisma
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
+  // Type de base de données utilisée.
+  provider = "postgresql"
+
+  // URL principale de connexion à la base de données.
+  url = env("DATABASE_URL")
+
+  // Base shadow utilisée par Prisma pendant les migrations.
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
-/**
- * =========================
- * Auth & rôles
- * =========================
- */
+// ============================================================================
+// STRUCTURE STANDARD DU CHAMP Reponse.reponse
+// ============================================================================
+//
+// La table Reponse stocke toutes les réponses du questionnaire dans le champ
+// `reponse` de type Json.
+//
+// Chaque ligne de la table Reponse correspond à :
+// - une fiche remplie par un agent,
+// - une question du questionnaire,
+// - une valeur de réponse stockée en JSON.
+//
+// La structure du JSON dépend du type de la question défini dans `Question.type`.
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.TEXT
+// -----------------------------------------------------------------------------
+// Exemple de Reponse.reponse :
+// {
+//   "value": "Commerce de céréales"
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.BOOLEAN
+// -----------------------------------------------------------------------------
+// Exemple de Reponse.reponse :
+// {
+//   "value": true
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.NUMBERS
+// -----------------------------------------------------------------------------
+// Exemple de Reponse.reponse :
+// {
+//   "value": 35
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.DECIMAL
+// -----------------------------------------------------------------------------
+// Exemple de Reponse.reponse :
+// {
+//   "value": 1500000
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.DATE
+// -----------------------------------------------------------------------------
+// Exemple de Reponse.reponse :
+// {
+//   "value": "2026-05-04"
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.PHONE
+// -----------------------------------------------------------------------------
+// Exemple de Reponse.reponse :
+// {
+//   "value": "691955632"
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.REGION
+// -----------------------------------------------------------------------------
+// On stocke uniquement l'identifiant de la région.
+// Le nom doit être récupéré depuis la table Region.
+//
+// Exemple de Reponse.reponse :
+// {
+//   "regionId": 1
+// }
+//
+// IMPORTANT :
+// La valeur officielle reste dans Reponse.reponse.
+// Mais regionId est aussi copié dans Fiche.regionId pour faciliter les filtres,
+// les tableaux de bord, les statistiques et les droits régionaux.
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.DEPARTEMENT
+// -----------------------------------------------------------------------------
+// On stocke uniquement l'identifiant du département.
+// Le nom doit être récupéré depuis la table Departement.
+//
+// Exemple de Reponse.reponse :
+// {
+//   "departementId": 3
+// }
+//
+// IMPORTANT :
+// La valeur officielle reste dans Reponse.reponse.
+// Mais departementId est aussi copié dans Fiche.departementId pour faciliter
+// les requêtes.
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.ARRODISSEMENT
+// -----------------------------------------------------------------------------
+// On stocke uniquement l'identifiant de l'arrondissement.
+// Le nom doit être récupéré depuis la table Arrodissement.
+//
+// Exemple de Reponse.reponse :
+// {
+//   "arrodissementId": 7
+// }
+//
+// IMPORTANT :
+// La valeur officielle reste dans Reponse.reponse.
+// Mais arrodissementId est aussi copié dans Fiche.arrodissementId pour faciliter
+// les requêtes.
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.GPS
+// -----------------------------------------------------------------------------
+// Les coordonnées GPS sont stockées comme une réponse normale du questionnaire.
+//
+// Exemple de Reponse.reponse :
+// {
+//   "latitude": 3.848033,
+//   "longitude": 11.502075,
+//   "altitude": 726.50
+// }
+//
+// Champs attendus :
+// - latitude  : latitude GPS
+// - longitude : longitude GPS
+// - altitude  : altitude GPS, facultatif
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.ENUM
+// -----------------------------------------------------------------------------
+// Choix unique.
+// Les choix possibles sont stockés dans Question.defaultValue sous forme de tableau.
+//
+// Exemple de Question.defaultValue :
+// [
+//   { "value": 1, "label": "Oui" },
+//   { "value": 2, "label": "Non" }
+// ]
+//
+// Exemple de Reponse.reponse :
+// {
+//   "value": 2
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.MULTI_SELECT
+// -----------------------------------------------------------------------------
+// Choix multiples.
+// Les choix possibles sont stockés dans Question.defaultValue sous forme de tableau.
+//
+// Exemple de Question.defaultValue :
+// [
+//   { "value": 1, "label": "Fonds propres" },
+//   { "value": 2, "label": "Crédit bancaire" },
+//   { "value": 3, "label": "Tontine" }
+// ]
+//
+// Exemple de Reponse.reponse :
+// {
+//   "values": [1, 3]
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.OBJECT
+// -----------------------------------------------------------------------------
+// Réponse complexe sous forme d'objet.
+//
+// Exemple de Reponse.reponse :
+// {
+//   "nomStructure": "ETS Exemple",
+//   "activitePrincipale": "Commerce"
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.TABLE
+// -----------------------------------------------------------------------------
+// Réponse sous forme de tableau dynamique.
+//
+// Exemple de Reponse.reponse :
+// {
+//   "rows": [
+//     {
+//       "annee": 2024,
+//       "chiffreAffaires": 1000000,
+//       "effectifEmploye": 3
+//     }
+//   ]
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.FILE
+// -----------------------------------------------------------------------------
+// Fichier attaché au questionnaire.
+//
+// Exemple de Reponse.reponse :
+// {
+//   "url": "uploads/fiches/document.pdf",
+//   "filename": "document.pdf",
+//   "mimeType": "application/pdf",
+//   "size": 230000
+// }
+//
+// -----------------------------------------------------------------------------
+// TypeQuestion.PHOTO
+// -----------------------------------------------------------------------------
+// Photo attachée au questionnaire.
+//
+// Exemple de Reponse.reponse :
+// {
+//   "url": "uploads/fiches/photo.jpg",
+//   "filename": "photo.jpg",
+//   "mimeType": "image/jpeg",
+//   "size": 120000
+// }
+//
+// -----------------------------------------------------------------------------
+// RÈGLE GÉNÉRALE
+// -----------------------------------------------------------------------------
+// Si une réponse pointe vers une table existante, on stocke seulement l'ID.
+//
+// Bon exemple :
+// {
+//   "regionId": 1
+// }
+//
+// Mauvais exemple :
+// {
+//   "regionId": 1,
+//   "name": "Nord"
+// }
+//
+// ============================================================================
+
+// =====================
+// ENUMS
+// =====================
+
+enum TypeQuestion {
+  // Réponse texte simple ou texte long.
+  TEXT
+
+  // Réponse oui / non.
+  BOOLEAN
+
+  // Réponse numérique entière : âge, nombre d'enfants, effectif, année.
+  NUMBERS
+
+  // Réponse numérique décimale ou montant : chiffre d'affaires, bénéfice, pourcentage.
+  DECIMAL
+
+  // Réponse de type date.
+  DATE
+
+  // Réponse de type numéro de téléphone.
+  PHONE
+
+  // Réponse liée à une région. Dans Reponse.reponse, on stocke { "regionId": 1 }.
+  REGION
+
+  // Réponse liée à un département. Dans Reponse.reponse, on stocke { "departementId": 1 }.
+  DEPARTEMENT
+
+  // Réponse liée à un arrondissement. Dans Reponse.reponse, on stocke { "arrodissementId": 1 }.
+  ARRODISSEMENT
+
+  // Réponse GPS. Dans Reponse.reponse, on stocke latitude, longitude et altitude.
+  GPS
+
+  // Réponse complexe sous forme d'objet JSON.
+  OBJECT
+
+  // Réponse à choix unique.
+  ENUM
+
+  // Réponse à choix multiples.
+  MULTI_SELECT
+
+  // Réponse sous forme de tableau dynamique.
+  TABLE
+
+  // Réponse contenant un fichier.
+  FILE
+
+  // Réponse contenant une photo.
+  PHOTO
+}
+
+enum StatutFiche {
+  // Fiche enregistrée par l'agent et en attente de validation.
+  PENDING
+
+  // Fiche validée par le point focal, le superviseur ou la coordination.
+  VALID
+
+  // Fiche rejetée à cause d'erreurs, d'incohérences ou de données insuffisantes.
+  REJECTED
+}
+
+enum PhotoType {
+  // Photo du visage ou portrait de la bénéficiaire.
+  PORTRAIT
+
+  // Photo de l'activité économique.
+  ACTIVITE
+
+  // Photo de l'habitat ou de l'environnement de vie.
+  HABITAT
+
+  // Photo d'une pièce justificative.
+  PIECE_JUSTIFICATIVE
+
+  // Autre type de photo.
+  AUTRE
+}
+
+// =====================
+// TABLES GEOGRAPHIQUES
+// =====================
+
+model Region {
+  // Identifiant unique de la région.
+  id Int @id @default(autoincrement())
+
+  // Nom français de la région.
+  name String
+
+  // Nom anglais de la région, facultatif.
+  nameEn String?
+
+  // Date de création de l'enregistrement.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de l'enregistrement.
+  updatedAt DateTime @updatedAt
+
+  // Liste des départements rattachés à cette région.
+  departements Departement[]
+
+  // Liste des groupes rattachés à cette région.
+  groupes Groupe[]
+
+  // Liste des utilisateurs affectés à cette région.
+  utilisateurs Utilisateur[]
+
+  // Liste des fiches localisées dans cette région.
+  fiches Fiche[]
+
+  // Empêche de créer deux régions avec le même nom français.
+  @@unique([name])
+  // Empêche de créer deux régions avec le même nom anglais.
+  @@unique([nameEn])
+}
+
+model Departement {
+  // Identifiant unique du département.
+  id Int @id @default(autoincrement())
+
+  // Nom français du département.
+  name String
+
+  // Nom anglais du département, facultatif.
+  nameEn String?
+
+  // Identifiant de la région à laquelle appartient le département.
+  regionId Int
+
+  // Date de création de l'enregistrement.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de l'enregistrement.
+  updatedAt DateTime @updatedAt
+
+  // Région à laquelle appartient ce département.
+  region Region @relation(fields: [regionId], references: [id])
+
+  // Liste des arrondissements rattachés à ce département.
+  arrodissements Arrodissement[]
+
+  // Liste des zones de collecte liées à ce département.
+  zones Zone[]
+
+  // Liste des utilisateurs affectés à ce département.
+  utilisateurs Utilisateur[]
+
+  // Liste des fiches localisées dans ce département.
+  fiches Fiche[]
+
+  // Empêche de créer deux départements avec le même nom dans la même région.
+  @@unique([regionId, name])
+  // Empêche de créer deux départements avec le même nom anglais dans la même région.
+  @@unique([regionId, nameEn])
+  // Accélère les recherches par région.
+  @@index([regionId])
+}
+
+model Arrodissement {
+  // Identifiant unique de l'arrondissement.
+  id Int @id @default(autoincrement())
+
+  // Nom français de l'arrondissement.
+  name String
+
+  // Nom anglais de l'arrondissement, facultatif.
+  nameEn String?
+
+  // Identifiant du département auquel appartient l'arrondissement.
+  departementId Int
+
+  // Date de création de l'enregistrement.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de l'enregistrement.
+  updatedAt DateTime @updatedAt
+
+  // Département auquel appartient cet arrondissement.
+  departement Departement @relation(fields: [departementId], references: [id])
+
+  // Liste des fiches localisées dans cet arrondissement.
+  fiches Fiche[]
+
+  // Empêche de créer deux arrondissements avec le même nom dans le même département.
+  @@unique([departementId, name])
+  // Empêche de créer deux arrondissements avec le même nom anglais dans le même département.
+  @@unique([departementId, nameEn])
+  // Accélère les recherches par département.
+  @@index([departementId])
+}
+
+model Groupe {
+  // Identifiant unique du groupe de collecte.
+  id Int @id @default(autoincrement())
+
+  // Nom du groupe, par exemple Groupe 1, Groupe 2.
+  name String
+
+  // Identifiant de la région dans laquelle se trouve ce groupe.
+  regionId Int
+
+  // Date de création de l'enregistrement.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de l'enregistrement.
+  updatedAt DateTime @updatedAt
+
+  // Région à laquelle appartient le groupe.
+  region Region @relation(fields: [regionId], references: [id])
+
+  // Liste des zones couvertes par ce groupe.
+  zones Zone[]
+
+  // Liste des utilisateurs affectés à ce groupe.
+  utilisateurs Utilisateur[]
+
+  // Empêche d'avoir deux groupes avec le même nom dans la même région.
+  @@unique([regionId, name])
+  // Accélère les recherches par région.
+  @@index([regionId])
+}
+
+model Zone {
+  // Identifiant unique de la zone de collecte.
+  id Int @id @default(autoincrement())
+
+  // Nom optionnel de la zone.
+  name String?
+
+  // Identifiant du groupe responsable de cette zone.
+  groupeId Int
+
+  // Identifiant du département couvert par cette zone.
+  departementId Int
+
+  // Date de création de l'enregistrement.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de l'enregistrement.
+  updatedAt DateTime @updatedAt
+
+  // Groupe responsable de cette zone.
+  groupe Groupe @relation(fields: [groupeId], references: [id])
+
+  // Département couvert par cette zone.
+  departement Departement @relation(fields: [departementId], references: [id])
+
+  // Liste des utilisateurs affectés à cette zone.
+  utilisateurs Utilisateur[]
+
+  // Empêche qu'un même département soit affecté deux fois au même groupe.
+  @@unique([groupeId, departementId])
+  // Accélère les recherches par groupe.
+  @@index([groupeId])
+  // Accélère les recherches par département.
+  @@index([departementId])
+}
+
+// =====================
+// TABLES QUESTIONNAIRE
+// =====================
+
+model Questionnaire {
+  // Identifiant unique du questionnaire.
+  id Int @id @default(autoincrement())
+
+  // Nom du questionnaire, par exemple Questionnaire Femme Entrepreneure.
+  name String @unique
+
+  // Description du questionnaire.
+  description String?
+
+  // Indique si ce questionnaire est actif et utilisable.
+  isActive Boolean @default(true)
+
+  // Date de création du questionnaire.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification du questionnaire.
+  updatedAt DateTime @updatedAt
+
+  // Questions directement liées à ce questionnaire, sans section.
+  questions Question[]
+
+  // Sections utilisées par ce questionnaire.
+  sections QuestionSection[]
+
+  // Fiches remplies à partir de ce questionnaire.
+  fiches Fiche[]
+}
+
+model Section {
+  // Identifiant unique de la section.
+  id Int @id @default(autoincrement())
+
+  // Code de la section, par exemple S0, S1, S2.
+  code String?
+
+  // Nom de la section.
+  name String
+
+  // Description de la section.
+  description String?
+
+  // Indique si cette section est active.
+  isActive Boolean @default(true)
+
+  // Ordre global de la section.
+  // Comme QuestionSection n'a pas de order, cet ordre est utilisé partout où la section apparaît.
+  // Exemple : Section 0 = order 0, Section 1 = order 1.
+  order Int @default(0)
+
+  // Date de création de la section.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de la section.
+  updatedAt DateTime @updatedAt
+
+  // Questions qui appartiennent à cette section.
+  questions Question[]
+
+  // Questionnaires qui utilisent cette section.
+  questionnaires QuestionSection[]
+
+  // Empêche de créer deux sections avec le même nom.
+  @@unique([name])
+  // Accélère le tri et la recherche par ordre de section.
+  @@index([order])
+}
+
+model Question {
+  // Identifiant unique de la question.
+  id Int @id @default(autoincrement())
+
+  // Code officiel de la question, par exemple S1Q1, S2Q8, S5Q1.
+  // Ce champ est nullable parce qu'on peut créer une question sans code officiel.
+  code String?
+
+  // Texte de la question affiché à l'agent.
+  question String
+
+  // Type de réponse attendu pour cette question.
+  type TypeQuestion
+
+  // Description ou aide supplémentaire pour expliquer la question.
+  description String?
+
+  // Identifiant de la section à laquelle appartient la question.
+  // Nullable parce qu'une question peut être directement liée à un questionnaire sans section.
+  sectionId Int?
+
+  // Identifiant du questionnaire auquel appartient directement la question.
+  // Nullable parce qu'une question dans une section peut être réutilisée dans plusieurs questionnaires.
+  questionnaireId Int?
+
+  // Ordre d'affichage de la question.
+  // Si sectionId existe, cet ordre est l'ordre de la question dans sa section.
+  // Exemple : Section 1 peut avoir une question order 1, Section 2 peut aussi avoir une question order 1.
+  // Si questionnaireId existe sans sectionId, cet ordre est l'ordre direct dans le questionnaire.
+  // Nullable parce qu'une question peut exister sans être encore ordonnée.
+  order Int?
+
+  // Indique si la question est obligatoire avant enregistrement/validation de la fiche.
+  isRequired Boolean @default(false)
+
+  // Indique si la question est critique.
+  // Une question critique vide peut empêcher la validation de la fiche.
+  isCritical Boolean @default(false)
+
+  // Choix possibles de la question.
+  // Ce champ remplace options.
+  // Il doit toujours être un tableau JSON lorsqu'il est utilisé.
+  //
+  // Exemple pour ENUM :
+  // [
+  //   { "value": 1, "label": "Oui" },
+  //   { "value": 2, "label": "Non" }
+  // ]
+  //
+  // Exemple pour MULTI_SELECT :
+  // [
+  //   { "value": 1, "label": "Fonds propres" },
+  //   { "value": 2, "label": "Crédit bancaire" },
+  //   { "value": 3, "label": "Tontine" }
+  // ]
+  //
+  // Pour les questions sans choix prédéfinis, laisser null.
+  defaultValue Json?
+
+  // Règles de validation de la réponse.
+  // Exemple : { "min": 18, "max": 60 } pour l'âge.
+  validationRules Json?
+
+  // Règles d'affichage conditionnel.
+  // Exemple : afficher cette question seulement si S1Q4 est dans [1, 2, 7].
+  visibilityRules Json?
+
+  // Règles de calcul du score.
+  // Exemple : points à attribuer selon la valeur de la réponse.
+  scoringRules Json?
+
+  // Date de création de la question.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de la question.
+  updatedAt DateTime @updatedAt
+
+  // Section liée à la question, si la question appartient à une section.
+  section Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  // Questionnaire lié à la question, si la question est directement dans un questionnaire.
+  questionnaire Questionnaire? @relation(fields: [questionnaireId], references: [id], onDelete: SetNull)
+
+  // Liste des réponses données à cette question.
+  reponses Reponse[]
+
+  // Accélère les recherches par code de question.
+  @@index([code])
+  // Accélère les recherches des questions d'une section.
+  @@index([sectionId])
+  // Accélère les recherches des questions directement liées à un questionnaire.
+  @@index([questionnaireId])
+  // Accélère l'affichage ordonné des questions dans une section.
+  @@index([sectionId, order])
+  // Accélère l'affichage ordonné des questions directement dans un questionnaire.
+  @@index([questionnaireId, order])
+}
+
+model QuestionSection {
+  // Identifiant unique de la liaison questionnaire-section.
+  id Int @id @default(autoincrement())
+
+  // Identifiant du questionnaire qui utilise la section.
+  questionnaireId Int
+
+  // Identifiant de la section utilisée par le questionnaire.
+  sectionId Int
+
+  // Date de création de la liaison.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de la liaison.
+  updatedAt DateTime @updatedAt
+
+  // Questionnaire concerné par cette liaison.
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+
+  // Section concernée par cette liaison.
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  // Empêche d'ajouter deux fois la même section au même questionnaire.
+  @@unique([questionnaireId, sectionId])
+  // Accélère les recherches des sections d'un questionnaire.
+  @@index([questionnaireId])
+  // Accélère les recherches des questionnaires qui utilisent une section.
+  @@index([sectionId])
+}
+
+// =====================
+// TABLES FICHE ET REPONSE
+// =====================
+
+model Fiche {
+  // Identifiant unique de la fiche.
+  id Int @id @default(autoincrement())
+
+  // Identifiant du questionnaire utilisé pour remplir la fiche.
+  questionnaireId Int
+
+  // Identifiant de l'agent qui remplit et enregistre la fiche.
+  agentId Int
+
+  // Région principale de la fiche.
+  // Ce champ est copié depuis la réponse de type REGION.
+  // Il sert aux filtres rapides, tableaux de bord, statistiques et droits régionaux.
+  regionId Int?
+
+  // Département principal de la fiche.
+  // Ce champ est copié depuis la réponse de type DEPARTEMENT.
+  // Il sert aux filtres rapides et aux statistiques par département.
+  departementId Int?
+
+  // Arrondissement principal de la fiche.
+  // Ce champ est copié depuis la réponse de type ARRODISSEMENT.
+  // Il sert aux filtres rapides et aux statistiques par arrondissement.
+  arrodissementId Int?
+
+  // Statut actuel de la fiche.
+  // Par défaut, dès que l'agent enregistre une fiche, elle est en attente de validation.
+  statut StatutFiche @default(PENDING)
+
+  // Code métier de la fiche, si le projet impose un code d'identification.
+  codeFiche String? @unique
+
+  // Numéro unique du questionnaire rempli.
+  numeroQuestionnaire String? @unique
+
+  // Résultat de la collecte.
+  // Exemple : 1 = enquête complète, 2 = enquête incomplète pour refus, etc.
+  resultatCollecte Int?
+
+  // Score total calculé à partir des réponses.
+  scoreTotal Int? @default(0)
+
+  // Détail du score par dimension.
+  // Exemple : profil entrepreneurial, vulnérabilité, besoin d'appui.
+  scoreDetails Json?
+
+  // Statut de sélection après scoring.
+  // Exemple : PRIORITAIRE, LISTE_ATTENTE, NON_RETENUE.
+  statutSelection String?
+
+  // Signature de l'agent enquêteur.
+  signatureAgent String?
+
+  // Signature de la femme enquêtée ou candidate.
+  signatureFemme String?
+
+  // Date d'enregistrement de la fiche par l'agent.
+  savedAt DateTime?
+
+  // Date de validation ou de rejet de la fiche.
+  validatedAt DateTime?
+
+  // Identifiant de l'utilisateur qui a validé ou rejeté la fiche.
+  validatedById Int?
+
+  // Motif du rejet si la fiche est rejetée.
+  rejectionReason String?
+
+  // Date de création de la fiche.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de la fiche.
+  updatedAt DateTime @updatedAt
+
+  // Questionnaire utilisé par cette fiche.
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id])
+
+  // Agent qui a rempli la fiche.
+  agent Utilisateur @relation("FicheAgent", fields: [agentId], references: [id])
+
+  // Utilisateur qui a validé ou rejeté la fiche.
+  validatedBy Utilisateur? @relation("FicheValidator", fields: [validatedById], references: [id], onDelete: SetNull)
+
+  // Région principale de la fiche.
+  region Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
+
+  // Département principal de la fiche.
+  departement Departement? @relation(fields: [departementId], references: [id], onDelete: SetNull)
+
+  // Arrondissement principal de la fiche.
+  arrodissement Arrodissement? @relation(fields: [arrodissementId], references: [id], onDelete: SetNull)
+
+  // Réponses officielles données dans cette fiche.
+  reponses Reponse[]
+
+  // Photos complémentaires liées à cette fiche.
+  photos FichePhoto[]
+
+  // Accélère les recherches par questionnaire.
+  @@index([questionnaireId])
+  // Accélère les recherches par agent.
+  @@index([agentId])
+  // Accélère les filtres rapides par région.
+  @@index([regionId])
+  // Accélère les filtres rapides par département.
+  @@index([departementId])
+  // Accélère les filtres rapides par arrondissement.
+  @@index([arrodissementId])
+  // Accélère les filtres par statut.
+  @@index([statut])
+  // Accélère les recherches par validateur.
+  @@index([validatedById])
+  // Accélère les recherches chronologiques.
+  @@index([createdAt])
+  // Accélère les recherches par date d'enregistrement.
+  @@index([savedAt])
+}
+
+model Reponse {
+  // Identifiant unique de la réponse.
+  id Int @id @default(autoincrement())
+
+  // Identifiant de la fiche à laquelle appartient cette réponse.
+  ficheId Int
+
+  // Identifiant de la question répondue.
+  questionId Int
+
+  // Valeur de la réponse en JSON.
+  // La structure dépend de Question.type.
+  // Voir le grand commentaire au début du schema.prisma.
+  reponse Json
+
+  // Date de création de la réponse.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de la réponse.
+  updatedAt DateTime @updatedAt
+
+  // Fiche à laquelle appartient cette réponse.
+  fiche Fiche @relation(fields: [ficheId], references: [id], onDelete: Cascade)
+
+  // Question concernée par cette réponse.
+  question Question @relation(fields: [questionId], references: [id])
+
+  // Empêche d'avoir deux réponses pour la même question dans la même fiche.
+  @@unique([ficheId, questionId])
+  // Accélère les recherches des réponses d'une fiche.
+  @@index([ficheId])
+  // Accélère les recherches des réponses liées à une question.
+  @@index([questionId])
+}
+
+model FichePhoto {
+  // Identifiant unique de la photo.
+  id Int @id @default(autoincrement())
+
+  // Identifiant de la fiche à laquelle la photo appartient.
+  ficheId Int
+
+  // Type de photo : portrait, activité, habitat, pièce justificative ou autre.
+  type PhotoType @default(AUTRE)
+
+  // Chemin ou URL du fichier photo.
+  url String
+
+  // Nom original ou technique du fichier.
+  filename String?
+
+  // Type MIME du fichier.
+  // Exemple : image/jpeg, image/png.
+  mimeType String?
+
+  // Taille du fichier en octets.
+  size Int?
+
+  // Date d'ajout de la photo.
+  createdAt DateTime @default(now())
+
+  // Fiche à laquelle cette photo appartient.
+  fiche Fiche @relation(fields: [ficheId], references: [id], onDelete: Cascade)
+
+  // Accélère les recherches des photos d'une fiche.
+  @@index([ficheId])
+  // Accélère les filtres par type de photo.
+  @@index([type])
+}
+
+// =====================
+// TABLE AUTHENTIFICATION
+// =====================
 
 model Utilisateur {
-  id                 Int       @id @default(autoincrement())
-  nom                String
-  email              String    
-  mot_de_passe       String
-  telephone          String    
-  date_naissance     DateTime?
-  genre              Genre?
-  type               TypeUtilisateur @default(CLIENT)
-  /// Compte vérifié (email / validation admin)
-  is_verified        Boolean   @default(false)
-  photo_url          String?
-  /// Compte bloqué (accès refusé)
-  is_block           Boolean   @default(false)
-  /// Nombre de tentatives de connexion échouées
-  nombre_attempts    Int       @default(0)
-  derniere_connexion DateTime?
-  created_at         DateTime  @default(now())
-  updated_at         DateTime  @updatedAt
+  // Identifiant unique de l'utilisateur.
+  id Int @id @default(autoincrement())
 
-  roles           UtilisateurRole[]
-  adresses        Adresse[]
-  documents       Document[]
-  portfolios      Portfolio[]
-  modelProposes   Model[]       @relation("prestatairePropose")
-  institutModels  InstitutModel[]
-  reservations    Reservation[] @relation("client")
-  prestations     Reservation[] @relation("prestataire")
-  propositions    Proposition[]
-  transactions    Transaction[]
+  // Prénom de l'utilisateur.
+  firstName String
+
+  // Nom de l'utilisateur.
+  lastName String
+
+  // Mot de passe hashé de l'utilisateur.
+  password String
+
+  // Adresse email unique de l'utilisateur.
+  email String @unique
+
+  // Numéro de téléphone unique de l'utilisateur.
+  phone String @unique
+
+  // Indique si le compte est bloqué.
+  isBlock Boolean @default(false)
+
+  // Indique si le compte est vérifié.
+  isVerified Boolean @default(false)
+
+  // Photo de profil de l'utilisateur.
+  picture String?
+
+  // Suppression logique de l'utilisateur.
+  isDeleted Boolean @default(false)
+
+  // Nombre de tentatives de connexion échouées.
+  loginAttempt Int @default(0)
+
+  // Région d'affectation de l'utilisateur.
+  regionId Int?
+
+  // Département d'affectation de l'utilisateur.
+  departementId Int?
+
+  // Groupe d'affectation de l'utilisateur.
+  groupeId Int?
+
+  // Zone d'affectation de l'utilisateur.
+  zoneId Int?
+
+  // Date de création de l'utilisateur.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de l'utilisateur.
+  updatedAt DateTime @updatedAt
+
+  // Région d'affectation de l'utilisateur.
+  region Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
+
+  // Département d'affectation de l'utilisateur.
+  departement Departement? @relation(fields: [departementId], references: [id], onDelete: SetNull)
+
+  // Groupe d'affectation de l'utilisateur.
+  groupe Groupe? @relation(fields: [groupeId], references: [id], onDelete: SetNull)
+
+  // Zone d'affectation de l'utilisateur.
+  zone Zone? @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+
+  // Liste des rôles de l'utilisateur.
+  roles UtilisateurRole[]
+
+  // Fiches créées par cet utilisateur lorsqu'il agit comme agent.
+  fiches Fiche[] @relation("FicheAgent")
+
+  // Fiches validées ou rejetées par cet utilisateur.
+  fichesValidees Fiche[] @relation("FicheValidator")
+
+  // Accélère les recherches par région.
+  @@index([regionId])
+  // Accélère les recherches par département.
+  @@index([departementId])
+  // Accélère les recherches par groupe.
+  @@index([groupeId])
+  // Accélère les recherches par zone.
+  @@index([zoneId])
 }
 
 model Role {
-  id    Int               @id @default(autoincrement())
-  nom   String            @unique // SUPER_ADMIN | ADMIN | CLIENT | PROFESSIONEL | INSTITUT
-  perms RolePermission[]
+  // Identifiant unique du rôle.
+  id Int @id @default(autoincrement())
+
+  // Nom unique du rôle.
+  // Exemple : ADMIN, AGENT_COLLECTE, POINT_FOCAL, COORDINATION.
+  name String @unique
+
+  // Description du rôle.
+  description String?
+
+  // Date de création du rôle.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification du rôle.
+  updatedAt DateTime @updatedAt
+
+  // Utilisateurs associés à ce rôle.
   users UtilisateurRole[]
+
+  // Permissions associées à ce rôle.
+  permissionRoles PermissionRole[]
 }
 
 model Permission {
-  id    Int              @id @default(autoincrement())
-  code  String           @unique
-  roles RolePermission[]
+  // Identifiant unique de la permission.
+  id Int @id @default(autoincrement())
+
+  // Code unique de la permission.
+  // Exemple : FICHE_CREATE, FICHE_VALIDATE, USER_MANAGE.
+  code String @unique
+
+  // Description de la permission.
+  description String?
+
+  // Date de création de la permission.
+  createdAt DateTime @default(now())
+
+  // Date de dernière modification de la permission.
+  updatedAt DateTime @updatedAt
+
+  // Rôles qui possèdent cette permission.
+  roles PermissionRole[]
+}
+
+model PermissionRole {
+  // Identifiant unique de la liaison rôle-permission.
+  id Int @id @default(autoincrement())
+
+  // Identifiant du rôle concerné.
+  roleId Int
+
+  // Identifiant de la permission concernée.
+  permissionId Int
+
+  // Date d'attribution de la permission au rôle.
+  createdAt DateTime @default(now())
+
+  // Rôle concerné.
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  // Permission concernée.
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  // Empêche d'attribuer deux fois la même permission au même rôle.
+  @@unique([roleId, permissionId])
+  // Accélère les recherches par rôle.
+  @@index([roleId])
+  // Accélère les recherches par permission.
+  @@index([permissionId])
 }
 
 model UtilisateurRole {
+  // Identifiant unique de la liaison utilisateur-rôle.
+  id Int @id @default(autoincrement())
+
+  // Identifiant de l'utilisateur concerné.
   utilisateurId Int
-  roleId        Int
-  user          Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  role          Role        @relation(fields: [roleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
-  @@id([utilisateurId, roleId])
-}
+  // Identifiant du rôle attribué à l'utilisateur.
+  roleId Int
 
-model RolePermission {
-  roleId       Int
-  permissionId Int
-  role         Role       @relation(fields: [roleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  // Date d'attribution du rôle à l'utilisateur.
+  createdAt DateTime @default(now())
 
-  @@id([roleId, permissionId])
-}
+  // Utilisateur concerné.
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
 
-model Setting {
-  id                           Int            @id @default(1)
-  commission_domicile          Float          @default(0)
-  commission_domicile_type     TypeCommission @default(POURCENTAGE)
-  commission_institut          Float          @default(0)
-  commission_institut_type     TypeCommission @default(POURCENTAGE)
-  created_at                   DateTime       @default(now())
-  updated_at                   DateTime       @updatedAt
-}
+  // Rôle attribué à l'utilisateur.
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-/**
- * =========================
- * Nouvelles tables pour Dezoumay
- * =========================
- */
-
-enum Genre {
-  F
-  M
-}
-
-enum TypeUtilisateur {
-  SUPERADMIN
-  ADMIN
-  CLIENT
-  PROFESSIONEL
-  INSTITUT
-}
-
-enum StatutModele {
-  PENDING
-  CONFIRM
-}
-
-enum StatutReservation {
-  PROPOSE
-  EN_ATTENTE_PAIEMENT
-  EN_ATTENTE_PRESTATION
-  CANCEL
-  COMPLETED
-}
-
-enum StatutPaiement {
-  PENDING
-  CONFIRM
-  CANCEL
-}
-
-enum ModePaiement {
-  CARTE
-  MOBILE_MONEY
-  ESPECES
-}
-
-enum TypeReservation {
-  A_DOMICILE
-  A_INSTITUT
-}
-
-enum TypeCommission {
-  POURCENTAGE
-  FIXE
-}
-
-model Adresse {
-  id            Int         @id @default(autoincrement())
-  country       String
-  city          String
-  address       String
-  longitude     Float?
-  latitude      Float?
-  utilisateurId Int
-  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  reservations  Reservation[]
-
-  @@map("adresses")
-}
-
-model Document {
-  id            Int         @id @default(autoincrement())
-  nom           String?
-  images        String[]
-  utilisateurId Int
-  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-
-  @@map("documents")
-}
-
-model Categorie {
-  id       Int       @id @default(autoincrement())
-  nom      String    @unique
-  image    String?
-  services Service[]
-
-  @@map("categories")
-}
-
-model Service {
-  id          Int       @id @default(autoincrement())
-  nom         String    @unique
-  image       String?
-  categorieId Int
-  categorie   Categorie @relation(fields: [categorieId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  modeles     Model[]
-
-  @@map("services")
-}
-
-model Model {
-  id                    Int              @id @default(autoincrement())
-  nom                   String
-  images                String[]
-  statut                StatutModele     @default(PENDING)
-  prestataireProposeId  Int?
-  serviceId             Int
-  prestatairePropose    Utilisateur?     @relation("prestatairePropose", fields: [prestataireProposeId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  service               Service          @relation(fields: [serviceId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  tarifs                Tarif[]
-  institutModels        InstitutModel[]
-  portfolios            Portfolio[]
-  reservations          Reservation[]
-
-  @@map("modeles")
-}
-
-model Tarif {
-  id           Int    @id @default(autoincrement())
-  prix         Float
-  duree_estime Int
-  age_min      Int
-  age_max      Int
-  modelId      Int
-  model        Model  @relation(fields: [modelId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-
-  @@map("tarifs")
-}
-
-model InstitutModel {
-  id            Int         @id @default(autoincrement())
-  utilisateurId Int
-  modelId       Int
-  prix          Float
-  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  model         Model       @relation(fields: [modelId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-
-  @@unique([utilisateurId, modelId])
-  @@map("institut_modeles")
-}
-
-model Portfolio {
-  id            Int         @id @default(autoincrement())
-  images        String[]
-  utilisateurId Int
-  modelId       Int?
-  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  model         Model?      @relation(fields: [modelId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-
-  @@map("portfolios")
-}
-
-model Reservation {
-  id                Int               @id @default(autoincrement())
-  heure_debut       DateTime
-  heure_fin         DateTime
-  date_reservation  DateTime
-  type              TypeReservation   @default(A_DOMICILE)
-  statut            StatutReservation @default(PROPOSE)
-  age               Int?
-  sexe              Genre?
-  nom_client        String
-  numero_client     String
-  clientId          Int
-  modelId           Int
-  adresseId         Int
-  prestataireId     Int?
-  client            Utilisateur       @relation("client", fields: [clientId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  model             Model             @relation(fields: [modelId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  adresse           Adresse           @relation(fields: [adresseId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  prestataire       Utilisateur?      @relation("prestataire", fields: [prestataireId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  propositions      Proposition[]
-  transactions      Transaction[]
-
-  @@map("reservations")
-}
-
-model Proposition {
-  id            Int         @id @default(autoincrement())
-  prestataireId Int
-  reservationId Int
-  prestataire   Utilisateur @relation(fields: [prestataireId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  reservation   Reservation @relation(fields: [reservationId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-
-  @@unique([prestataireId, reservationId])
-  @@map("propositions")
-}
-
-model Transaction {
-  id               Int            @id @default(autoincrement())
-  montant          Float
-  date_paiement    DateTime?
-  mode_paiement    ModePaiement?
-  statut_paiement  StatutPaiement @default(PENDING)
-  reservationId    Int?
-  reservation      Reservation?   @relation(fields: [reservationId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  utilisateurId    Int
-  utilisateur      Utilisateur    @relation(fields: [utilisateurId], references: [id], onUpdate: Cascade, onDelete: Cascade)
-
-  @@map("transactions")
+  // Empêche d'attribuer deux fois le même rôle au même utilisateur.
+  @@unique([utilisateurId, roleId])
+  // Accélère les recherches par utilisateur.
+  @@index([utilisateurId])
+  // Accélère les recherches par rôle.
+  @@index([roleId])
 }

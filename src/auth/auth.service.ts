@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Prisma, TypeUtilisateur } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -26,230 +26,244 @@ export class AuthService {
     private readonly email: EmailService,
   ) {}
 
-  /**
-   * Normalise le téléphone pour éviter les faux écarts de comparaison.
-   */
-  private normalizePhone(phone: string): string {
+  private normalizePhone(phone?: string): string {
     return (phone || '').trim();
   }
 
+  private normalizeEmail(email?: string): string {
+    return (email || '').trim().toLowerCase();
+  }
+
+  private getFullName(user: { firstName: string; lastName: string }): string {
+    return `${user.firstName || ''} ${user.lastName || ''}`.trim();
+  }
+
   /**
-   * Construit les rôles + permissions à partir des relations Prisma.
+   * Construit les rôles et permissions de l'utilisateur connecté.
+   *
+   * Nouveau schéma :
+   * - Role.name
+   * - Permission.code
+   * - PermissionRole
+   * - UtilisateurRole
    */
   private async buildRolesAndPermissions(userId: number) {
     const userRoles = await this.prisma.utilisateurRole.findMany({
       where: { utilisateurId: userId },
-      include: { role: true },
+      include: {
+        role: true,
+      },
     });
 
     const roles = userRoles.map((ur) => ({
       id: ur.role.id,
-      nom: ur.role.nom,
+      name: ur.role.name,
     }));
 
     const roleIds = userRoles.map((ur) => ur.roleId);
 
-    let permissions: string[] = [];
-
-    const isSuperAdmin = roles.some((r) =>
-      ['SUPER_ADMIN', 'SUPERADMIN'].includes(r.nom),
+    const isSuperAdmin = roles.some((role) =>
+      ['SUPERADMIN', 'SUPER_ADMIN'].includes(role.name),
     );
 
+    let permissions: string[] = [];
+
     if (isSuperAdmin) {
-      const allPerms = await this.prisma.permission.findMany({
-        select: { code: true },
+      const allPermissions = await this.prisma.permission.findMany({
+        select: {
+          code: true,
+        },
       });
-      permissions = allPerms.map((p) => p.code);
+
+      permissions = allPermissions.map((permission) => permission.code);
     } else if (roleIds.length > 0) {
-      const rolePerms = await this.prisma.rolePermission.findMany({
-        where: { roleId: { in: roleIds } },
-        include: { permission: true },
+      const permissionRoles = await this.prisma.permissionRole.findMany({
+        where: {
+          roleId: {
+            in: roleIds,
+          },
+        },
+        include: {
+          permission: true,
+        },
       });
 
       permissions = Array.from(
-        new Set(rolePerms.map((rp) => rp.permission.code)),
+        new Set(permissionRoles.map((pr) => pr.permission.code)),
       );
     }
 
-    return { roles, permissions };
+    return {
+      roles,
+      permissions,
+    };
   }
 
   /**
-   * Incrémente les tentatives échouées pour les comptes ciblés.
-   * À 5 échecs, le compte est bloqué.
+   * Incrémente les tentatives échouées.
+   * À partir de 5 tentatives, le compte est bloqué.
    */
-  private async incrementFailedAttempts(userIds: number[]): Promise<void> {
-    if (!userIds.length) return;
-
-    const users = await this.prisma.utilisateur.findMany({
-      where: { id: { in: userIds } },
+  private async incrementFailedAttempts(userId: number) {
+    const user = await this.prisma.utilisateur.findUnique({
+      where: {
+        id: userId,
+      },
       select: {
         id: true,
-        nombre_attempts: true,
-        is_block: true,
+        loginAttempt: true,
+        isBlock: true,
       },
     });
 
-    const updates = users
-      .filter((u) => !u.is_block)
-      .map((u) => {
-        const nextAttempts = (u.nombre_attempts ?? 0) + 1;
-        const shouldBlock = nextAttempts >= 5;
+    if (!user || user.isBlock) {
+      return;
+    }
 
-        return this.prisma.utilisateur.update({
-          where: { id: u.id },
-          data: {
-            nombre_attempts: nextAttempts,
-            is_block: shouldBlock,
-          },
-        });
+    const nextAttempts = (user.loginAttempt || 0) + 1;
+    const shouldBlock = nextAttempts >= 5;
+
+    await this.prisma.utilisateur.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        loginAttempt: nextAttempts,
+        isBlock: shouldBlock,
+      },
+    });
+
+    if (shouldBlock) {
+      throw new ForbiddenException({
+        message: 'Compte bloqué après 5 tentatives de connexion échouées.',
+        messageE: 'Account blocked after 5 failed login attempts.',
       });
-
-    if (updates.length) {
-      await this.prisma.$transaction(updates);
     }
   }
 
   /**
    * LOGIN
-   * Le login est fait avec telephone + type + mot_de_passe
-   * pour cibler précisément le bon compte.
+   *
+   * Ton nouveau schéma n'a plus TypeUtilisateur.
+   * Donc la connexion se fait simplement avec :
+   * - telephone
+   * - mot_de_passe
    */
   async login(dto: LoginDto) {
-    const telephone = this.normalizePhone(dto.telephone);
+    const phone = this.normalizePhone(dto.telephone);
 
-    const candidates = await this.prisma.utilisateur.findMany({
+    if (!phone) {
+      throw new BadRequestException({
+        message: 'Le numéro de téléphone est obligatoire.',
+        messageE: 'Phone number is required.',
+      });
+    }
+
+    const user = await this.prisma.utilisateur.findUnique({
       where: {
-        telephone,
-        type: dto.type,
+        phone,
       },
-      orderBy: { id: 'asc' },
       select: {
         id: true,
-        nom: true,
+        firstName: true,
+        lastName: true,
         email: true,
-        telephone: true,
-        type: true,
-        mot_de_passe: true,
-        is_verified: true,
-        is_block: true,
-        nombre_attempts: true,
+        phone: true,
+        password: true,
+        picture: true,
+        isVerified: true,
+        isBlock: true,
+        isDeleted: true,
+        loginAttempt: true,
       },
     });
 
-    if (!candidates.length) {
+    if (!user || user.isDeleted) {
       throw new UnauthorizedException({
         message: 'Identifiants invalides.',
         messageE: 'Invalid credentials.',
       });
     }
 
-    const matchedUsers: typeof candidates = [];
-
-    for (const user of candidates) {
-      const ok = await bcrypt.compare(dto.mot_de_passe, user.mot_de_passe);
-      if (ok) {
-        matchedUsers.push(user);
-      }
-    }
-
-    const activeMatch = matchedUsers.find((u) => !u.is_block);
-    if (activeMatch) {
-      await this.prisma.utilisateur.update({
-        where: { id: activeMatch.id },
-        data: {
-          nombre_attempts: 0,
-          derniere_connexion: new Date(),
-        },
-      });
-
-      const { roles, permissions } = await this.buildRolesAndPermissions(
-        activeMatch.id,
-      );
-
-      const payload = {
-        sub: activeMatch.id,
-        user: {
-          id: activeMatch.id,
-          nom: activeMatch.nom,
-          email: activeMatch.email,
-          telephone: activeMatch.telephone,
-          type: activeMatch.type,
-          is_verified: activeMatch.is_verified,
-          is_block: activeMatch.is_block,
-        },
-        roles,
-        permissions,
-      };
-
-      const token = await this.jwt.signAsync(payload, {
-        secret: this.config.get<string>('JWT_SECRET') || 'dev-secret',
-        expiresIn: this.config.get<string>('JWT_EXPIRES_IN') || '365d',
-      });
-
-      return {
-        message: 'Connexion réussie.',
-        messageE: 'Login successful.',
-        token,
-        user: payload.user,
-        roles,
-        permissions,
-      };
-    }
-
-    const blockedMatch = matchedUsers.find((u) => u.is_block);
-    if (blockedMatch) {
+    if (user.isBlock) {
       throw new ForbiddenException({
         message: 'Votre compte est bloqué.',
         messageE: 'Your account is blocked.',
       });
     }
 
-    await this.incrementFailedAttempts(candidates.map((u) => u.id));
+    const passwordOk = await bcrypt.compare(dto.mot_de_passe, user.password);
 
-    const refreshedUsers = await this.prisma.utilisateur.findMany({
-      where: {
-        id: { in: candidates.map((u) => u.id) },
-      },
-      select: {
-        id: true,
-        is_block: true,
-      },
-    });
+    if (!passwordOk) {
+      await this.incrementFailedAttempts(user.id);
 
-    const hasNowBlockedUser = refreshedUsers.some((u) => u.is_block);
-
-    if (hasNowBlockedUser) {
-      throw new ForbiddenException({
-        message:
-          'Compte bloqué après 5 tentatives de connexion échouées.',
-        messageE:
-          'Account blocked after 5 failed login attempts.',
+      throw new UnauthorizedException({
+        message: 'Identifiants invalides.',
+        messageE: 'Invalid credentials.',
       });
     }
 
-    throw new UnauthorizedException({
-      message: 'Identifiants invalides.',
-      messageE: 'Invalid credentials.',
+    await this.prisma.utilisateur.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        loginAttempt: 0,
+      },
     });
+
+    const { roles, permissions } = await this.buildRolesAndPermissions(user.id);
+
+    const payloadUser = {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      fullName: this.getFullName(user),
+      email: user.email,
+      phone: user.phone,
+      picture: user.picture,
+      isVerified: user.isVerified,
+      isBlock: user.isBlock,
+    };
+
+    const payload = {
+      sub: user.id,
+      user: payloadUser,
+      roles,
+      permissions,
+    };
+
+    const token = await this.jwt.signAsync(payload, {
+      secret: this.config.get<string>('JWT_SECRET') || 'dev-secret',
+      expiresIn: this.config.get<string>('JWT_EXPIRES_IN') || '365d',
+    });
+
+    return {
+      message: 'Connexion réussie.',
+      messageE: 'Login successful.',
+      token,
+      user: payloadUser,
+      roles,
+      permissions,
+    };
   }
 
   /**
-   * Recherche d’un compte par type + (email ou téléphone)
+   * Construit la condition de recherche pour mot de passe oublié.
+   * On recherche par email ou téléphone.
    */
   private buildForgotWhere(dto: ForgotPasswordDto): Prisma.UtilisateurWhereInput {
     const or: Prisma.UtilisateurWhereInput[] = [];
 
     if (dto.telephone?.trim()) {
       or.push({
-        telephone: this.normalizePhone(dto.telephone),
+        phone: this.normalizePhone(dto.telephone),
       });
     }
 
     if (dto.email?.trim()) {
       or.push({
         email: {
-          equals: dto.email.trim(),
+          equals: this.normalizeEmail(dto.email),
           mode: 'insensitive',
         },
       });
@@ -263,42 +277,47 @@ export class AuthService {
     }
 
     return {
-      type: dto.type,
+      isDeleted: false,
       ...(or.length === 1 ? or[0] : { OR: or }),
     };
   }
 
   /**
    * FORGOT PASSWORD
-   * On garde une réponse neutre pour éviter l’énumération des comptes.
+   *
+   * Réponse neutre pour éviter de révéler si un compte existe ou non.
    */
   async forgotPassword(dto: ForgotPasswordDto) {
     const where = this.buildForgotWhere(dto);
 
     const user = await this.prisma.utilisateur.findFirst({
       where,
-      orderBy: { id: 'asc' },
+      orderBy: {
+        id: 'asc',
+      },
       select: {
         id: true,
-        nom: true,
+        firstName: true,
+        lastName: true,
         email: true,
-        telephone: true,
-        type: true,
-        is_block: true,
+        phone: true,
+        isBlock: true,
+        isDeleted: true,
       },
     });
 
-    if (!user) {
-      return {
-        message:
-          'Si le compte existe, les informations de réinitialisation ont été générées.',
-        messageE:
-          'If the account exists, reset information has been generated.',
-        data: {
-          token: null,
-          expires_in: null,
-        },
-      };
+    const neutralResponse = {
+      message:
+        'Si le compte existe, les informations de réinitialisation ont été générées.',
+      messageE: 'If the account exists, reset information has been generated.',
+      data: {
+        token: null as string | null,
+        expires_in: null as string | null,
+      },
+    };
+
+    if (!user || user.isDeleted) {
+      return neutralResponse;
     }
 
     const code = Math.floor(Math.random() * 1_000_000)
@@ -310,6 +329,7 @@ export class AuthService {
 
     const resetSecret =
       this.config.get<string>('JWT_RESET_SECRET') || 'dev-reset-secret';
+
     const resetExpires =
       this.config.get<string>('JWT_RESET_EXPIRES') || '15m';
 
@@ -318,9 +338,8 @@ export class AuthService {
         sub: user.id,
         typ: 'reset',
         jti,
-        type: user.type,
         email: user.email,
-        telephone: user.telephone,
+        phone: user.phone,
         codeHash,
       },
       {
@@ -330,19 +349,21 @@ export class AuthService {
     );
 
     if (user.email) {
+      const fullName = this.getFullName(user);
+
       const subject =
-        'Dezoumay — Réinitialisation du mot de passe / Password reset';
+        'Réinitialisation du mot de passe / Password reset';
 
       const message =
-        `Bonjour ${user.nom},\n\n` +
+        `Bonjour ${fullName},\n\n` +
         `Code de vérification : ${code}\n` +
         `Token de réinitialisation :\n${token}\n\n` +
-        `⚠️ Expire dans ${resetExpires}.\n\n` +
+        `Expire dans ${resetExpires}.\n\n` +
         `---\n` +
-        `Hello ${user.nom},\n\n` +
+        `Hello ${fullName},\n\n` +
         `Verification code: ${code}\n` +
         `Reset token:\n${token}\n\n` +
-        `⚠️ Expires in ${resetExpires}.\n`;
+        `Expires in ${resetExpires}.\n`;
 
       await this.email.sendEmail(subject, message, user.email);
     }
@@ -350,8 +371,7 @@ export class AuthService {
     return {
       message:
         'Si le compte existe, les informations de réinitialisation ont été générées.',
-      messageE:
-        'If the account exists, reset information has been generated.',
+      messageE: 'If the account exists, reset information has been generated.',
       data: {
         token,
         expires_in: resetExpires,
@@ -361,9 +381,10 @@ export class AuthService {
 
   /**
    * RESET PASSWORD
+   *
    * Après reset réussi :
-   * - mot de passe hashé
-   * - nombre_attempts remis à 0
+   * - password hashé
+   * - loginAttempt remis à 0
    * - compte débloqué
    */
   async resetPassword(dto: ResetPasswordDto) {
@@ -391,6 +412,7 @@ export class AuthService {
     }
 
     const codeOk = await bcrypt.compare(dto.code, payload.codeHash);
+
     if (!codeOk) {
       throw new BadRequestException({
         message: 'Code de vérification incorrect.',
@@ -398,40 +420,68 @@ export class AuthService {
       });
     }
 
+    const user = await this.prisma.utilisateur.findUnique({
+      where: {
+        id: Number(payload.sub),
+      },
+      select: {
+        id: true,
+        isDeleted: true,
+      },
+    });
+
+    if (!user || user.isDeleted) {
+      throw new BadRequestException({
+        message: 'Utilisateur introuvable.',
+        messageE: 'User not found.',
+      });
+    }
+
     const newHash = await bcrypt.hash(dto.new_password, 10);
 
     await this.prisma.utilisateur.update({
-      where: { id: Number(payload.sub) },
+      where: {
+        id: user.id,
+      },
       data: {
-        mot_de_passe: newHash,
-        nombre_attempts: 0,
-        is_block: false,
+        password: newHash,
+        loginAttempt: 0,
+        isBlock: false,
       },
     });
+
+    return {
+      message: 'Mot de passe réinitialisé avec succès.',
+      messageE: 'Password reset successfully.',
+    };
   }
 
   /**
    * CHANGE PASSWORD
+   *
    * Utilisateur connecté.
    */
   async changePassword(userId: number, dto: ChangePasswordDto) {
     const user = await this.prisma.utilisateur.findUnique({
-      where: { id: userId },
+      where: {
+        id: Number(userId),
+      },
       select: {
         id: true,
-        mot_de_passe: true,
-        is_block: true,
+        password: true,
+        isBlock: true,
+        isDeleted: true,
       },
     });
 
-    if (!user) {
+    if (!user || user.isDeleted) {
       throw new UnauthorizedException({
         message: 'Utilisateur introuvable.',
         messageE: 'User not found.',
       });
     }
 
-    if (user.is_block) {
+    if (user.isBlock) {
       throw new ForbiddenException({
         message: 'Votre compte est bloqué.',
         messageE: 'Your account is blocked.',
@@ -440,7 +490,7 @@ export class AuthService {
 
     const oldPasswordOk = await bcrypt.compare(
       dto.old_password,
-      user.mot_de_passe,
+      user.password,
     );
 
     if (!oldPasswordOk) {
@@ -453,11 +503,18 @@ export class AuthService {
     const newHash = await bcrypt.hash(dto.new_password, 10);
 
     await this.prisma.utilisateur.update({
-      where: { id: user.id },
+      where: {
+        id: user.id,
+      },
       data: {
-        mot_de_passe: newHash,
-        nombre_attempts: 0,
+        password: newHash,
+        loginAttempt: 0,
       },
     });
+
+    return {
+      message: 'Mot de passe modifié avec succès.',
+      messageE: 'Password changed successfully.',
+    };
   }
 }

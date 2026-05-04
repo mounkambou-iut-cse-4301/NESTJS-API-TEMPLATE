@@ -1,32 +1,20 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TypeUtilisateur } from '@prisma/client';
-import { IsEmail, IsEnum, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class ForgotPasswordDto {
-  @ApiProperty({
-    enum: TypeUtilisateur,
-    example: TypeUtilisateur.INSTITUT,
-    description:
-      'Type du compte ciblé. Obligatoire car email/téléphone peuvent exister sur plusieurs comptes.',
-  })
-  @IsEnum(TypeUtilisateur)
-  type: TypeUtilisateur;
-
   @ApiPropertyOptional({
-    example: '+237690000000',
-    description: 'Téléphone du compte',
+    example: '+237692473511',
+    description: 'Téléphone du compte à récupérer.',
   })
-  @ValidateIf((o) => !o.email)
-  @IsString()
   @IsOptional()
+  @IsString()
   telephone?: string;
 
   @ApiPropertyOptional({
-    example: 'contact@dezoumay.com',
-    description: 'Email du compte',
+    example: 'superadmin@collect-femme.com',
+    description: 'Email du compte à récupérer.',
   })
-  @ValidateIf((o) => !o.telephone)
-  @IsEmail()
   @IsOptional()
+  @IsEmail()
   email?: string;
 }

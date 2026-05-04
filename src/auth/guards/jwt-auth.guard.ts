@@ -1,6 +1,9 @@
-
-// src/auth/guards/jwt-auth.guard.ts
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
@@ -13,6 +16,7 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
+
     const header = (req.headers?.authorization || '') as string;
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
 
@@ -28,11 +32,10 @@ export class JwtAuthGuard implements CanActivate {
         secret: this.config.get<string>('JWT_SECRET') || 'dev-secret',
       });
 
-      // On greffe le payload
+      req.sub = payload.sub;
       req.user = payload.user;
       req.roles = payload.roles || [];
       req.permissions = payload.permissions || [];
-      req.sub = payload.sub;
 
       return true;
     } catch {

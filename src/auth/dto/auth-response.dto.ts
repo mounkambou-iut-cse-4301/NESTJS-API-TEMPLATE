@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TypeUtilisateur } from '@prisma/client';
 
 export class ErrorResponseDto {
   @ApiProperty({ example: 'Identifiants invalides.' })
@@ -10,10 +9,10 @@ export class ErrorResponseDto {
 }
 
 export class GenericMessageResponseDto {
-  @ApiProperty({ example: 'Mot de passe modifié avec succès.' })
+  @ApiProperty({ example: 'Opération effectuée avec succès.' })
   message: string;
 
-  @ApiProperty({ example: 'Password changed successfully.' })
+  @ApiProperty({ example: 'Operation completed successfully.' })
   messageE: string;
 }
 
@@ -21,34 +20,40 @@ export class AuthRoleDto {
   @ApiProperty({ example: 1 })
   id: number;
 
-  @ApiProperty({ example: 'CLIENT' })
-  nom: string;
+  @ApiProperty({ example: 'SUPERADMIN' })
+  name: string;
 }
 
 export class AuthUserDto {
-  @ApiProperty({ example: 12 })
+  @ApiProperty({ example: 1 })
   id: number;
 
-  @ApiProperty({ example: 'Jean Dupont' })
-  nom: string;
+  @ApiProperty({ example: 'Super' })
+  firstName: string;
 
-  @ApiProperty({ example: 'jean@demo.com' })
+  @ApiProperty({ example: 'Administrateur' })
+  lastName: string;
+
+  @ApiProperty({ example: 'Super Administrateur' })
+  fullName: string;
+
+  @ApiProperty({ example: 'superadmin@collect-femme.com' })
   email: string;
 
-  @ApiProperty({ example: '+237690000000' })
-  telephone: string;
+  @ApiProperty({ example: '+237692473511' })
+  phone: string;
 
-  @ApiProperty({
-    enum: TypeUtilisateur,
-    example: TypeUtilisateur.CLIENT,
+  @ApiPropertyOptional({
+    example: 'https://cloudinary.com/profile.jpg',
+    nullable: true,
   })
-  type: TypeUtilisateur;
+  picture?: string | null;
+
+  @ApiProperty({ example: true })
+  isVerified: boolean;
 
   @ApiProperty({ example: false })
-  is_verified: boolean;
-
-  @ApiProperty({ example: false })
-  is_block: boolean;
+  isBlock: boolean;
 }
 
 export class LoginResponseDto {
@@ -63,36 +68,37 @@ export class LoginResponseDto {
   })
   token: string;
 
-  @ApiProperty({ type: () => AuthUserDto })
+  @ApiProperty({ type: AuthUserDto })
   user: AuthUserDto;
 
-  @ApiProperty({ type: () => [AuthRoleDto] })
+  @ApiProperty({ type: [AuthRoleDto] })
   roles: AuthRoleDto[];
 
   @ApiProperty({
     type: [String],
-    example: ['RESERVATION_READ', 'PROFILE_UPDATE'],
+    example: ['FICHE_CREATE', 'FICHE_VALIDATE'],
   })
   permissions: string[];
 }
 
 export class ForgotPasswordDataDto {
   @ApiPropertyOptional({
+    example: 'jwt-reset-token',
     nullable: true,
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   token: string | null;
 
   @ApiPropertyOptional({
-    nullable: true,
     example: '15m',
+    nullable: true,
   })
   expires_in: string | null;
 }
 
 export class ForgotPasswordResponseDto {
   @ApiProperty({
-    example: 'Si le compte existe, les informations de réinitialisation ont été générées.',
+    example:
+      'Si le compte existe, les informations de réinitialisation ont été générées.',
   })
   message: string;
 
@@ -101,6 +107,6 @@ export class ForgotPasswordResponseDto {
   })
   messageE: string;
 
-  @ApiProperty({ type: () => ForgotPasswordDataDto })
+  @ApiProperty({ type: ForgotPasswordDataDto })
   data: ForgotPasswordDataDto;
 }

@@ -1,28 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TypeUtilisateur } from '@prisma/client';
-import { IsEnum, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty({
-    example: '+237690000000',
-    description: 'Numéro de téléphone utilisé pour la connexion',
+    example: '+237692473511',
+    description: 'Numéro de téléphone de l’utilisateur.',
   })
   @IsString()
+  @IsNotEmpty()
   telephone: string;
 
   @ApiProperty({
-    enum: TypeUtilisateur,
-    example: TypeUtilisateur.CLIENT,
-    description:
-      'Type de compte à connecter. Obligatoire car le même téléphone peut exister sur plusieurs comptes.',
-  })
-  @IsEnum(TypeUtilisateur)
-  type: TypeUtilisateur;
-
-  @ApiProperty({
-    example: 'P@ssw0rd!',
-    description: 'Mot de passe du compte',
+    example: '1234',
+    description: 'Mot de passe de l’utilisateur.',
   })
   @IsString()
+  @IsNotEmpty()
+  @MinLength(4)
   mot_de_passe: string;
 }

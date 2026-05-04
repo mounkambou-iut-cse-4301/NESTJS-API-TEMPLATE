@@ -1,0 +1,1822 @@
+{
+  "ADAMAOUA": {
+    "name_fr": "ADAMAOUA",
+    "name_en": "Adamawa",
+    "divisions": {
+      "DJEREM": {
+        "name_fr": "DJEREM",
+        "name_en": "Djerem",
+        "councils": [
+          {
+            "name_fr": "TIBATI",
+            "name_en": "TIBATI"
+          },
+          {
+            "name_fr": "NGAOUNDAL",
+            "name_en": "NGAOUNDAL"
+          }
+        ]
+      },
+      "FARO ET DEO": {
+        "name_fr": "FARO ET DEO",
+        "name_en": "Faro and Deo",
+        "councils": [
+          {
+            "name_fr": "TIGNERE",
+            "name_en": "TIGNERE"
+          },
+          {
+            "name_fr": "MAYO-BALEO",
+            "name_en": "MAYO-BALEO"
+          },
+          {
+            "name_fr": "GALIM-TIGNERE",
+            "name_en": "GALIM-TIGNERE"
+          },
+          {
+            "name_fr": "KONTCHA",
+            "name_en": "KONTCHA"
+          }
+        ]
+      },
+      "MAYO BANYO": {
+        "name_fr": "MAYO BANYO",
+        "name_en": "Mayo-Banyo",
+        "councils": [
+          {
+            "name_fr": "BANYO",
+            "name_en": "BANYO"
+          },
+          {
+            "name_fr": "BANKIM",
+            "name_en": "BANKIM"
+          },
+          {
+            "name_fr": "MAYO-DARLE",
+            "name_en": "MAYO-DARLE"
+          }
+        ]
+      },
+      "MBERE": {
+        "name_fr": "MBERE",
+        "name_en": "Mbere",
+        "councils": [
+          {
+            "name_fr": "MEIGANGA",
+            "name_en": "MEIGANGA"
+          },
+          {
+            "name_fr": "DJOHONG",
+            "name_en": "DJOHONG"
+          },
+          {
+            "name_fr": "DIR",
+            "name_en": "DIR"
+          },
+          {
+            "name_fr": "NGAOUI",
+            "name_en": "NGAOUI"
+          }
+        ]
+      },
+      "VINA": {
+        "name_fr": "VINA",
+        "name_en": "Vina",
+        "councils": [
+          {
+            "name_fr": "NGAOUNDERE 1er",
+            "name_en": "NGAOUNDERE 1st"
+          },
+          {
+            "name_fr": "NGAOUNDERE 2e",
+            "name_en": "NGAOUNDERE 2nd"
+          },
+          {
+            "name_fr": "NGAOUNDERE 3e",
+            "name_en": "NGAOUNDERE 3rd"
+          },
+          {
+            "name_fr": "BELEL",
+            "name_en": "BELEL"
+          },
+          {
+            "name_fr": "MBE",
+            "name_en": "MBE"
+          },
+          {
+            "name_fr": "NGANHA",
+            "name_en": "NGANHA"
+          },
+          {
+            "name_fr": "NYAMBAKA",
+            "name_en": "NYAMBAKA"
+          },
+          {
+            "name_fr": "MARTAP",
+            "name_en": "MARTAP"
+          }
+        ]
+      }
+    }
+  },
+  "EST": {
+    "name_fr": "EST",
+    "name_en": "East",
+    "divisions": {
+      "BOUMBA ET NGOKO": {
+        "name_fr": "BOUMBA ET NGOKO",
+        "name_en": "Boumba and Ngoko",
+        "councils": [
+          {
+            "name_fr": "YOKADOUMA",
+            "name_en": "YOKADOUMA"
+          },
+          {
+            "name_fr": "MOLOUNDOU",
+            "name_en": "MOLOUNDOU"
+          },
+          {
+            "name_fr": "SALAPOUMBE",
+            "name_en": "SALAPOUMBE"
+          },
+          {
+            "name_fr": "GARI-GOMBO",
+            "name_en": "GARI-GOMBO"
+          }
+        ]
+      },
+      "HAUT NYONG": {
+        "name_fr": "HAUT NYONG",
+        "name_en": "Upper Nyong",
+        "councils": [
+          {
+            "name_fr": "ABONG-MBANG",
+            "name_en": "ABONG-MBANG"
+          },
+          {
+            "name_fr": "DOUME",
+            "name_en": "DOUME"
+          },
+          {
+            "name_fr": "LOMIE",
+            "name_en": "LOMIE"
+          },
+          {
+            "name_fr": "MESSAMENA",
+            "name_en": "MESSAMENA"
+          },
+          {
+            "name_fr": "NGUELEMENDOUKA",
+            "name_en": "NGUELEMENDOUKA"
+          },
+          {
+            "name_fr": "DIMAKO",
+            "name_en": "DIMAKO"
+          },
+          {
+            "name_fr": "NGOYLA",
+            "name_en": "NGOYLA"
+          },
+          {
+            "name_fr": "ATOK",
+            "name_en": "ATOK"
+          },
+          {
+            "name_fr": "ANGOSSAS",
+            "name_en": "ANGOSSAS"
+          },
+          {
+            "name_fr": "DOUMAINTANG",
+            "name_en": "DOUMAINTANG"
+          },
+          {
+            "name_fr": "MESSOK",
+            "name_en": "MESSOK"
+          },
+          {
+            "name_fr": "SAMALOMO",
+            "name_en": "SAMALOMO"
+          },
+          {
+            "name_fr": "MBOMA",
+            "name_en": "MBOMA"
+          }
+        ]
+      },
+      "KADEY": {
+        "name_fr": "KADEY",
+        "name_en": "Kadey",
+        "councils": [
+          {
+            "name_fr": "BATOURI",
+            "name_en": "BATOURI"
+          },
+          {
+            "name_fr": "NDELELE",
+            "name_en": "NDELELE"
+          },
+          {
+            "name_fr": "KETTE",
+            "name_en": "KANDTE"
+          },
+          {
+            "name_fr": "MBANG",
+            "name_en": "MBANG"
+          },
+          {
+            "name_fr": "NDEM-NAM",
+            "name_en": "NDEM-NAM"
+          },
+          {
+            "name_fr": "BOMBE",
+            "name_en": "BOMBE"
+          },
+          {
+            "name_fr": "MBOTORO",
+            "name_en": "MBOTORO"
+          }
+        ]
+      },
+      "LOM ET DJEREM": {
+        "name_fr": "LOM ET DJEREM",
+        "name_en": "Lom and Djerem",
+        "councils": [
+          {
+            "name_fr": "BERTOUA 1er",
+            "name_en": "BERTOUA 1st"
+          },
+          {
+            "name_fr": "BERTOUA 2e",
+            "name_en": "BERTOUA 2nd"
+          },
+          {
+            "name_fr": "BETARE-OYA",
+            "name_en": "BANDARE-OYA"
+          },
+          {
+            "name_fr": "BELABO",
+            "name_en": "BELABO"
+          },
+          {
+            "name_fr": "GAROUA-BOULAÏ",
+            "name_en": "GAROUA-BOULAÏ"
+          },
+          {
+            "name_fr": "DIANG",
+            "name_en": "DIANG"
+          },
+          {
+            "name_fr": "MANDJOU",
+            "name_en": "MANDJOU"
+          },
+          {
+            "name_fr": "NGOURA",
+            "name_en": "NGOURA"
+          }
+        ]
+      }
+    }
+  },
+  "LITTORAL": {
+    "name_fr": "LITTORAL",
+    "name_en": "Littoral",
+    "divisions": {
+      "MOUNGO": {
+        "name_fr": "MOUNGO",
+        "name_en": "Mungo",
+        "councils": [
+          {
+            "name_fr": "DIBOMBARI",
+            "name_en": "DIBOMBARI"
+          },
+          {
+            "name_fr": "LOUM",
+            "name_en": "LOUM"
+          },
+          {
+            "name_fr": "MANJO",
+            "name_en": "MANJO"
+          },
+          {
+            "name_fr": "MBANGA",
+            "name_en": "MBANGA"
+          },
+          {
+            "name_fr": "MELONG",
+            "name_en": "MELONG"
+          },
+          {
+            "name_fr": "NKONGSAMBA 1er",
+            "name_en": "NKONGSAMBA 1st"
+          },
+          {
+            "name_fr": "NKONGSAMBA 2e",
+            "name_en": "NKONGSAMBA 2nd"
+          },
+          {
+            "name_fr": "NKONGSAMBA 3e",
+            "name_en": "NKONGSAMBA 3rd"
+          },
+          {
+            "name_fr": "BARE-BAKEM",
+            "name_en": "BARE-BAKEM"
+          },
+          {
+            "name_fr": "NJOMBE-PENJA",
+            "name_en": "NJOMBE-PENJA"
+          },
+          {
+            "name_fr": "BONALEA",
+            "name_en": "BONALEA"
+          },
+          {
+            "name_fr": "MOMBO",
+            "name_en": "MOMBO"
+          }
+        ]
+      },
+      "NKAM": {
+        "name_fr": "NKAM",
+        "name_en": "Nkam",
+        "councils": [
+          {
+            "name_fr": "NKONDJOCK",
+            "name_en": "NKONDJOCK"
+          },
+          {
+            "name_fr": "YABASSI",
+            "name_en": "YABASSI"
+          },
+          {
+            "name_fr": "YINGUI",
+            "name_en": "YINGUI"
+          },
+          {
+            "name_fr": "NORD-MAKOMBE",
+            "name_en": "NORD-MAKOMBE"
+          }
+        ]
+      },
+      "SANAGA MARITIME": {
+        "name_fr": "SANAGA MARITIME",
+        "name_en": "Maritime Sanaga",
+        "councils": [
+          {
+            "name_fr": "DIZANGUE",
+            "name_en": "DIZANGUE"
+          },
+          {
+            "name_fr": "EDEA 1er",
+            "name_en": "EDEA 1st"
+          },
+          {
+            "name_fr": "EDEA 2e",
+            "name_en": "EDEA 2nd"
+          },
+          {
+            "name_fr": "NDOM",
+            "name_en": "NDOM"
+          },
+          {
+            "name_fr": "NGAMBE",
+            "name_en": "NGAMBE"
+          },
+          {
+            "name_fr": "POUMA",
+            "name_en": "POUMA"
+          },
+          {
+            "name_fr": "MOUANKO",
+            "name_en": "MOUANKO"
+          },
+          {
+            "name_fr": "DIBAMBA",
+            "name_en": "DIBAMBA"
+          },
+          {
+            "name_fr": "NGWEI",
+            "name_en": "NGWEI"
+          },
+          {
+            "name_fr": "NYANON",
+            "name_en": "NYANON"
+          },
+          {
+            "name_fr": "MASSOCK-SONGLOULOU",
+            "name_en": "MASSOCK-SONGLOULOU"
+          }
+        ]
+      },
+      "WOURI": {
+        "name_fr": "WOURI",
+        "name_en": "Wouri",
+        "councils": [
+          {
+            "name_fr": "DOUALA 1er",
+            "name_en": "DOUALA 1st"
+          },
+          {
+            "name_fr": "DOUALA 2e",
+            "name_en": "DOUALA 2nd"
+          },
+          {
+            "name_fr": "DOUALA 3e",
+            "name_en": "DOUALA 3rd"
+          },
+          {
+            "name_fr": "DOUALA 4e",
+            "name_en": "DOUALA 4th"
+          },
+          {
+            "name_fr": "DOUALA 5e",
+            "name_en": "DOUALA 5th"
+          },
+          {
+            "name_fr": "DOUALA 6",
+            "name_en": "DOUALA 6"
+          },
+          {
+            "name_fr": "MANOKA",
+            "name_en": "MANOKA"
+          }
+        ]
+      }
+    }
+  },
+  "NORD": {
+    "name_fr": "NORD",
+    "name_en": "North",
+    "divisions": {
+      "BENOUE": {
+        "name_fr": "BENOUE",
+        "name_en": "Benue",
+        "councils": [
+          {
+            "name_fr": "GAROUA 1er",
+            "name_en": "GAROUA 1st"
+          },
+          {
+            "name_fr": "GAROUA 2e",
+            "name_en": "GAROUA 2nd"
+          },
+          {
+            "name_fr": "GAROUA 3e",
+            "name_en": "GAROUA 3rd"
+          },
+          {
+            "name_fr": "BIBEMI",
+            "name_en": "BIBEMI"
+          },
+          {
+            "name_fr": "PITOA",
+            "name_en": "PITOA"
+          },
+          {
+            "name_fr": "LAGDO",
+            "name_en": "LAGDO"
+          },
+          {
+            "name_fr": "DEMBO",
+            "name_en": "DEMBO"
+          },
+          {
+            "name_fr": "TCHEBOA",
+            "name_en": "TCHEBOA"
+          },
+          {
+            "name_fr": "TOUROUA",
+            "name_en": "TOUROUA"
+          },
+          {
+            "name_fr": "BASCHEO",
+            "name_en": "BASCHEO"
+          },
+          {
+            "name_fr": "DEMSA",
+            "name_en": "DEMSA"
+          }
+        ]
+      },
+      "FARO": {
+        "name_fr": "FARO",
+        "name_en": "Faro",
+        "councils": [
+          {
+            "name_fr": "POLI",
+            "name_en": "POLI"
+          },
+          {
+            "name_fr": "BEKA",
+            "name_en": "BEKA"
+          }
+        ]
+      },
+      "MAYO LOUTI": {
+        "name_fr": "MAYO LOUTI",
+        "name_en": "Mayo-Louti",
+        "councils": [
+          {
+            "name_fr": "GUIDER",
+            "name_en": "GUIDER"
+          },
+          {
+            "name_fr": "MAYO-OULO",
+            "name_en": "MAYO-OULO"
+          },
+          {
+            "name_fr": "FIGUIL",
+            "name_en": "FIGUIL"
+          }
+        ]
+      },
+      "MAYO REY": {
+        "name_fr": "MAYO REY",
+        "name_en": "Mayo-Rey",
+        "councils": [
+          {
+            "name_fr": "REY-BOUBA",
+            "name_en": "REY-BOUBA"
+          },
+          {
+            "name_fr": "TCHOLLIRE",
+            "name_en": "TCHOLLIRE"
+          },
+          {
+            "name_fr": "TOUBORO",
+            "name_en": "TOUBORO"
+          },
+          {
+            "name_fr": "MADINGRING",
+            "name_en": "MADINGRING"
+          }
+        ]
+      }
+    }
+  },
+  "SUD": {
+    "name_fr": "SUD",
+    "name_en": "South",
+    "divisions": {
+      "DJA ET LOBO": {
+        "name_fr": "DJA ET LOBO",
+        "name_en": "Dja and Lobo",
+        "councils": [
+          {
+            "name_fr": "BENGBIS",
+            "name_en": "BENGBIS"
+          },
+          {
+            "name_fr": "DJOUM",
+            "name_en": "DJOUM"
+          },
+          {
+            "name_fr": "SANGMELIMA",
+            "name_en": "SANGMELIMA"
+          },
+          {
+            "name_fr": "ZOETELE",
+            "name_en": "ZOANDELE"
+          },
+          {
+            "name_fr": "OVENG",
+            "name_en": "OVENG"
+          },
+          {
+            "name_fr": "MINTOM",
+            "name_en": "MINTOM"
+          },
+          {
+            "name_fr": "MEYOMESSALA",
+            "name_en": "MEYOMESSALA"
+          },
+          {
+            "name_fr": "MEYOMESSI",
+            "name_en": "MEYOMESSI"
+          }
+        ]
+      },
+      "VALLEE DU NTEM": {
+        "name_fr": "VALLEE DU NTEM",
+        "name_en": "Ntem Valley",
+        "councils": [
+          {
+            "name_fr": "AMBAM",
+            "name_en": "AMBAM"
+          },
+          {
+            "name_fr": "MA'AN",
+            "name_en": "MA'AN"
+          },
+          {
+            "name_fr": "OLAMZE",
+            "name_en": "OLAMZE"
+          },
+          {
+            "name_fr": "KYE OSSI",
+            "name_en": "KYE OSSI"
+          }
+        ]
+      },
+      "MVILA": {
+        "name_fr": "MVILA",
+        "name_en": "Mvila",
+        "councils": [
+          {
+            "name_fr": "EBOLOWA 1er",
+            "name_en": "EBOLOWA 1st"
+          },
+          {
+            "name_fr": "EBOLOWA 2e",
+            "name_en": "EBOLOWA 2nd"
+          },
+          {
+            "name_fr": "BIWONG-BANE",
+            "name_en": "BIWONG-BANE"
+          },
+          {
+            "name_fr": "MVANGAN",
+            "name_en": "MVANGAN"
+          },
+          {
+            "name_fr": "MENGONG",
+            "name_en": "MENGONG"
+          },
+          {
+            "name_fr": "NGOULEMAKONG",
+            "name_en": "NGOULEMAKONG"
+          },
+          {
+            "name_fr": "EFOULAN",
+            "name_en": "EFOULAN"
+          },
+          {
+            "name_fr": "BIWONG BULU",
+            "name_en": "BIWONG BULU"
+          }
+        ]
+      },
+      "OCEAN": {
+        "name_fr": "OCEAN",
+        "name_en": "Ocean",
+        "councils": [
+          {
+            "name_fr": "AKOM II",
+            "name_en": "AKOM II"
+          },
+          {
+            "name_fr": "CAMPO",
+            "name_en": "CAMPO"
+          },
+          {
+            "name_fr": "KRIBI 1er",
+            "name_en": "KRIBI 1st"
+          },
+          {
+            "name_fr": "KRIBI 2e",
+            "name_en": "KRIBI 2nd"
+          },
+          {
+            "name_fr": "LOLODORF",
+            "name_en": "LOLODORF"
+          },
+          {
+            "name_fr": "MVENGUE",
+            "name_en": "MVENGUE"
+          },
+          {
+            "name_fr": "BIPINDI",
+            "name_en": "BIPINDI"
+          },
+          {
+            "name_fr": "LOKOUNDJE",
+            "name_en": "LOKOUNDJE"
+          },
+          {
+            "name_fr": "NIETE",
+            "name_en": "NIANDE"
+          }
+        ]
+      }
+    }
+  },
+  "SUD-OUEST": {
+    "name_fr": "SUD-OUEST",
+    "name_en": "South West",
+    "divisions": {
+      "FAKO": {
+        "name_fr": "FAKO",
+        "name_en": "Fako",
+        "councils": [
+          {
+            "name_fr": "MUYUKA",
+            "name_en": "MUYUKA"
+          },
+          {
+            "name_fr": "TIKO",
+            "name_en": "TIKO"
+          },
+          {
+            "name_fr": "LIMBE 1er",
+            "name_en": "LIMBE 1st"
+          },
+          {
+            "name_fr": "LIMBE 2e",
+            "name_en": "LIMBE 2nd"
+          },
+          {
+            "name_fr": "LIMBE 3e",
+            "name_en": "LIMBE 3rd"
+          },
+          {
+            "name_fr": "BUEA",
+            "name_en": "BUEA"
+          },
+          {
+            "name_fr": "IDENAU",
+            "name_en": "IDENAU"
+          }
+        ]
+      },
+      "KUPE MANENGUBA": {
+        "name_fr": "KUPE MANENGUBA",
+        "name_en": "Koupe-Manengouba",
+        "councils": [
+          {
+            "name_fr": "BANGEM",
+            "name_en": "BANGEM"
+          },
+          {
+            "name_fr": "NGUTI",
+            "name_en": "NGUTI"
+          },
+          {
+            "name_fr": "TOMBEL",
+            "name_en": "TOMBEL"
+          }
+        ]
+      },
+      "LEBIALEM": {
+        "name_fr": "LEBIALEM",
+        "name_en": "Lebialem",
+        "councils": [
+          {
+            "name_fr": "FONTEM",
+            "name_en": "FONTEM"
+          },
+          {
+            "name_fr": "ALOU",
+            "name_en": "ALOU"
+          },
+          {
+            "name_fr": "WABANE",
+            "name_en": "WABANE"
+          }
+        ]
+      },
+      "MANYU": {
+        "name_fr": "MANYU",
+        "name_en": "Manyu",
+        "councils": [
+          {
+            "name_fr": "AKWAYA",
+            "name_en": "AKWAYA"
+          },
+          {
+            "name_fr": "MAMFE",
+            "name_en": "MAMFE"
+          },
+          {
+            "name_fr": "EYUMODJOCK",
+            "name_en": "EYUMODJOCK"
+          },
+          {
+            "name_fr": "TINTO",
+            "name_en": "TINTO"
+          }
+        ]
+      },
+      "MEME": {
+        "name_fr": "MEME",
+        "name_en": "Meme",
+        "councils": [
+          {
+            "name_fr": "KUMBA 1er",
+            "name_en": "KUMBA 1st"
+          },
+          {
+            "name_fr": "KUMBA 2e",
+            "name_en": "KUMBA 2nd"
+          },
+          {
+            "name_fr": "KUMBA 3e",
+            "name_en": "KUMBA 3rd"
+          },
+          {
+            "name_fr": "KONYE",
+            "name_en": "KONYE"
+          },
+          {
+            "name_fr": "BONGE",
+            "name_en": "BONGE"
+          }
+        ]
+      },
+      "NDIAN": {
+        "name_fr": "NDIAN",
+        "name_en": "Ndian",
+        "councils": [
+          {
+            "name_fr": "BAMUSSO",
+            "name_en": "BAMUSSO"
+          },
+          {
+            "name_fr": "EKONDO-TITI",
+            "name_en": "EKONDO-TITI"
+          },
+          {
+            "name_fr": "ISANGUELE",
+            "name_en": "ISANGUELE"
+          },
+          {
+            "name_fr": "MUNDEMBA",
+            "name_en": "MUNDEMBA"
+          },
+          {
+            "name_fr": "KOMBO ABEDIMO",
+            "name_en": "KOMBO ABEDIMO"
+          },
+          {
+            "name_fr": "KOMBO IDINTI",
+            "name_en": "KOMBO IDINTI"
+          },
+          {
+            "name_fr": "IDABATO",
+            "name_en": "IDABATO"
+          },
+          {
+            "name_fr": "DIKOME-BALUE",
+            "name_en": "DIKOME-BALUE"
+          },
+          {
+            "name_fr": "TOKO",
+            "name_en": "TOKO"
+          }
+        ]
+      }
+    }
+  },
+  "CENTRE": {
+    "name_fr": "CENTRE",
+    "name_en": "Centre",
+    "divisions": {
+      "HAUTE-SANAGA": {
+        "name_fr": "HAUTE-SANAGA",
+        "name_en": "Upper Sanaga",
+        "councils": [
+          {
+            "name_fr": "MBANDJOCK",
+            "name_en": "MBANDJOCK"
+          },
+          {
+            "name_fr": "MINTA",
+            "name_en": "MINTA"
+          },
+          {
+            "name_fr": "NANGA-EBOKO",
+            "name_en": "NANGA-EBOKO"
+          },
+          {
+            "name_fr": "NKOTENG",
+            "name_en": "NKOTENG"
+          },
+          {
+            "name_fr": "BIBEY",
+            "name_en": "BIBEY"
+          },
+          {
+            "name_fr": "NSEM",
+            "name_en": "NSEM"
+          },
+          {
+            "name_fr": "LEMBE-YEZOUM",
+            "name_en": "LEMBE-YEZOUM"
+          }
+        ]
+      },
+      "LEKIE": {
+        "name_fr": "LEKIE",
+        "name_en": "Lekie",
+        "councils": [
+          {
+            "name_fr": "EVODOULA",
+            "name_en": "EVODOULA"
+          },
+          {
+            "name_fr": "MONATELE",
+            "name_en": "MONATELE"
+          },
+          {
+            "name_fr": "OBALA",
+            "name_en": "OBALA"
+          },
+          {
+            "name_fr": "OKOLA",
+            "name_en": "OKOLA"
+          },
+          {
+            "name_fr": "SA'A",
+            "name_en": "SA'A"
+          },
+          {
+            "name_fr": "ELIG-MFOMO",
+            "name_en": "ELIG-MFOMO"
+          },
+          {
+            "name_fr": "EBEBDA",
+            "name_en": "EBEBDA"
+          },
+          {
+            "name_fr": "BATSCHENGA",
+            "name_en": "BATSCHENGA"
+          },
+          {
+            "name_fr": "LOBO",
+            "name_en": "LOBO"
+          }
+        ]
+      },
+      "MBAM & INOUBOU": {
+        "name_fr": "MBAM & INOUBOU",
+        "name_en": "Mbam and Inoubou",
+        "councils": [
+          {
+            "name_fr": "BAFIA",
+            "name_en": "BAFIA"
+          },
+          {
+            "name_fr": "BOKITO",
+            "name_en": "BOKITO"
+          },
+          {
+            "name_fr": "DEUK",
+            "name_en": "DEUK"
+          },
+          {
+            "name_fr": "MAKENENE",
+            "name_en": "MAKENENE"
+          },
+          {
+            "name_fr": "NDIKINIMEKI",
+            "name_en": "NDIKINIMEKI"
+          },
+          {
+            "name_fr": "OMBESSA",
+            "name_en": "OMBESSA"
+          },
+          {
+            "name_fr": "KIIKI",
+            "name_en": "KIIKI"
+          },
+          {
+            "name_fr": "KON-YAMBETTA",
+            "name_en": "KON-YAMBANDTA"
+          },
+          {
+            "name_fr": "NITOUKOU",
+            "name_en": "NITOUKOU"
+          }
+        ]
+      },
+      "MBAM & KIM": {
+        "name_fr": "MBAM & KIM",
+        "name_en": "Mbam and Kim",
+        "councils": [
+          {
+            "name_fr": "NTUI",
+            "name_en": "NTUI"
+          },
+          {
+            "name_fr": "NGAMBE-TIKAR",
+            "name_en": "NGAMBE-TIKAR"
+          },
+          {
+            "name_fr": "NGORO",
+            "name_en": "NGORO"
+          },
+          {
+            "name_fr": "YOKO",
+            "name_en": "YOKO"
+          },
+          {
+            "name_fr": "MBANGASSINA",
+            "name_en": "MBANGASSINA"
+          }
+        ]
+      },
+      "MEFOU & AFAMBA": {
+        "name_fr": "MEFOU & AFAMBA",
+        "name_en": "Mefou and Afamba",
+        "councils": [
+          {
+            "name_fr": "MFOU",
+            "name_en": "MFOU"
+          },
+          {
+            "name_fr": "ESSE",
+            "name_en": "ESSE"
+          },
+          {
+            "name_fr": "AWAE",
+            "name_en": "AWAE"
+          },
+          {
+            "name_fr": "SOA",
+            "name_en": "SOA"
+          },
+          {
+            "name_fr": "AFANLOUM",
+            "name_en": "AFANLOUM"
+          },
+          {
+            "name_fr": "EDZENDOUAN",
+            "name_en": "EDZENDOUAN"
+          },
+          {
+            "name_fr": "NKOLAFAMBA",
+            "name_en": "NKOLAFAMBA"
+          }
+        ]
+      },
+      "MEFOU ET AKONO": {
+        "name_fr": "MEFOU ET AKONO",
+        "name_en": "Mefou and Akono",
+        "councils": [
+          {
+            "name_fr": "NGOUMOU",
+            "name_en": "NGOUMOU"
+          },
+          {
+            "name_fr": "AKONO",
+            "name_en": "AKONO"
+          },
+          {
+            "name_fr": "MBANKOMO",
+            "name_en": "MBANKOMO"
+          },
+          {
+            "name_fr": "BIKOK",
+            "name_en": "BIKOK"
+          }
+        ]
+      },
+      "MFOUNDI": {
+        "name_fr": "MFOUNDI",
+        "name_en": "Mfoundi",
+        "councils": [
+          {
+            "name_fr": "YAOUNDE I",
+            "name_en": "YAOUNDE I"
+          },
+          {
+            "name_fr": "YAOUNDE II",
+            "name_en": "YAOUNDE II"
+          },
+          {
+            "name_fr": "YAOUNDE III",
+            "name_en": "YAOUNDE III"
+          },
+          {
+            "name_fr": "YAOUNDE IV",
+            "name_en": "YAOUNDE IV"
+          },
+          {
+            "name_fr": "YAOUNDE V",
+            "name_en": "YAOUNDE V"
+          },
+          {
+            "name_fr": "YAOUNDE VI",
+            "name_en": "YAOUNDE VI"
+          },
+          {
+            "name_fr": "YAOUNDE VII",
+            "name_en": "YAOUNDE VII"
+          }
+        ]
+      },
+      "NYONG ET KELLE": {
+        "name_fr": "NYONG ET KELLE",
+        "name_en": "Nyong and Kelle",
+        "councils": [
+          {
+            "name_fr": "BOT-MAKAK",
+            "name_en": "BOT-MAKAK"
+          },
+          {
+            "name_fr": "ESEKA",
+            "name_en": "ESEKA"
+          },
+          {
+            "name_fr": "MAKAK",
+            "name_en": "MAKAK"
+          },
+          {
+            "name_fr": "MESSONDO",
+            "name_en": "MESSONDO"
+          },
+          {
+            "name_fr": "NGOG-MAPUBI",
+            "name_en": "NGOG-MAPUBI"
+          },
+          {
+            "name_fr": "MATOMB",
+            "name_en": "MATOMB"
+          },
+          {
+            "name_fr": "DIBANG",
+            "name_en": "DIBANG"
+          },
+          {
+            "name_fr": "NGUIBASSAL",
+            "name_en": "NGUIBASSAL"
+          },
+          {
+            "name_fr": "BONDJOCK",
+            "name_en": "BONDJOCK"
+          },
+          {
+            "name_fr": "BIYOUHA",
+            "name_en": "BIYOUHA"
+          }
+        ]
+      },
+      "NYONG & MFOUMOU": {
+        "name_fr": "NYONG & MFOUMOU",
+        "name_en": "Nyong and Mfoumou",
+        "councils": [
+          {
+            "name_fr": "AKONOLINGA",
+            "name_en": "AKONOLINGA"
+          },
+          {
+            "name_fr": "AYOS",
+            "name_en": "AYOS"
+          },
+          {
+            "name_fr": "ENDOM",
+            "name_en": "ENDOM"
+          },
+          {
+            "name_fr": "MENGANG",
+            "name_en": "MENGANG"
+          }
+        ]
+      },
+      "NYONG ET SO'O": {
+        "name_fr": "NYONG ET SO'O",
+        "name_en": "Nyong and So'o",
+        "councils": [
+          {
+            "name_fr": "DZENG",
+            "name_en": "DZENG"
+          },
+          {
+            "name_fr": "MBALMAYO",
+            "name_en": "MBALMAYO"
+          },
+          {
+            "name_fr": "NGOMEDZAP",
+            "name_en": "NGOMEDZAP"
+          },
+          {
+            "name_fr": "AKOEMAN",
+            "name_en": "AKOEMAN"
+          },
+          {
+            "name_fr": "MENGUEME",
+            "name_en": "MENGUEME"
+          },
+          {
+            "name_fr": "NKOL-METET",
+            "name_en": "NKOL-MANDAND"
+          }
+        ]
+      }
+    }
+  },
+  "EXTREME NORD": {
+    "name_fr": "EXTREME NORD",
+    "name_en": "Far North",
+    "divisions": {
+      "DIAMARE": {
+        "name_fr": "DIAMARE",
+        "name_en": "Diamare",
+        "councils": [
+          {
+            "name_fr": "BOGO",
+            "name_en": "BOGO"
+          },
+          {
+            "name_fr": "MAROUA 1er",
+            "name_en": "MAROUA 1st"
+          },
+          {
+            "name_fr": "MAROUA 2e",
+            "name_en": "MAROUA 2nd"
+          },
+          {
+            "name_fr": "MAROUA 3e",
+            "name_en": "MAROUA 3rd"
+          },
+          {
+            "name_fr": "MERI",
+            "name_en": "MERI"
+          },
+          {
+            "name_fr": "GAZAWA",
+            "name_en": "GAZAWA"
+          },
+          {
+            "name_fr": "PETTE",
+            "name_en": "PANDTE"
+          },
+          {
+            "name_fr": "DARGALA",
+            "name_en": "DARGALA"
+          },
+          {
+            "name_fr": "NDOUKOULA",
+            "name_en": "NDOUKOULA"
+          }
+        ]
+      },
+      "LOGONE ET CHARI": {
+        "name_fr": "LOGONE ET CHARI",
+        "name_en": "Logone and Chari",
+        "councils": [
+          {
+            "name_fr": "KOUSSERI",
+            "name_en": "KOUSSERI"
+          },
+          {
+            "name_fr": "MAKARY",
+            "name_en": "MAKARY"
+          },
+          {
+            "name_fr": "LOGONE-BIRNI",
+            "name_en": "LOGONE-BIRNI"
+          },
+          {
+            "name_fr": "GOULFEY",
+            "name_en": "GOULFEY"
+          },
+          {
+            "name_fr": "WAZA",
+            "name_en": "WAZA"
+          },
+          {
+            "name_fr": "FOTOKOL",
+            "name_en": "FOTOKOL"
+          },
+          {
+            "name_fr": "HILE-HALIFA",
+            "name_en": "HILE-HALIFA"
+          },
+          {
+            "name_fr": "BLANGOUA",
+            "name_en": "BLANGOUA"
+          },
+          {
+            "name_fr": "DARAK",
+            "name_en": "DARAK"
+          },
+          {
+            "name_fr": "ZINA",
+            "name_en": "ZINA"
+          }
+        ]
+      },
+      "MAYO DANAY": {
+        "name_fr": "MAYO DANAY",
+        "name_en": "Mayo-Danay",
+        "councils": [
+          {
+            "name_fr": "KAR-HAY",
+            "name_en": "KAR-HAY"
+          },
+          {
+            "name_fr": "DATCHEKA",
+            "name_en": "DATCHEKA"
+          },
+          {
+            "name_fr": "YAGOUA",
+            "name_en": "YAGOUA"
+          },
+          {
+            "name_fr": "GUERE",
+            "name_en": "GUERE"
+          },
+          {
+            "name_fr": "MAGA",
+            "name_en": "MAGA"
+          },
+          {
+            "name_fr": "KALFOU",
+            "name_en": "KALFOU"
+          },
+          {
+            "name_fr": "WINA",
+            "name_en": "WINA"
+          },
+          {
+            "name_fr": "TCHATIBALI",
+            "name_en": "TCHATIBALI"
+          },
+          {
+            "name_fr": "GOBO",
+            "name_en": "GOBO"
+          },
+          {
+            "name_fr": "KAI-KAI",
+            "name_en": "KAI-KAI"
+          }
+        ]
+      },
+      "MAYO KANI": {
+        "name_fr": "MAYO KANI",
+        "name_en": "Mayo-Kani",
+        "councils": [
+          {
+            "name_fr": "KAELE",
+            "name_en": "KAELE"
+          },
+          {
+            "name_fr": "GUIDIGUIS",
+            "name_en": "GUIDIGUIS"
+          },
+          {
+            "name_fr": "MINDIF",
+            "name_en": "MINDIF"
+          },
+          {
+            "name_fr": "MOUTOURWA",
+            "name_en": "MOUTOURWA"
+          },
+          {
+            "name_fr": "MOULVOUDAYE",
+            "name_en": "MOULVOUDAYE"
+          },
+          {
+            "name_fr": "PORHI",
+            "name_en": "PORHI"
+          },
+          {
+            "name_fr": "TAIBONG",
+            "name_en": "TAIBONG"
+          }
+        ]
+      },
+      "MAYO SAVA": {
+        "name_fr": "MAYO SAVA",
+        "name_en": "Mayo-Sava",
+        "councils": [
+          {
+            "name_fr": "MORA",
+            "name_en": "MORA"
+          },
+          {
+            "name_fr": "TOKOMBERE",
+            "name_en": "TOKOMBERE"
+          },
+          {
+            "name_fr": "KOLOFATA",
+            "name_en": "KOLOFATA"
+          }
+        ]
+      },
+      "MAYO TSANAGA": {
+        "name_fr": "MAYO TSANAGA",
+        "name_en": "Mayo-Tsanaga",
+        "councils": [
+          {
+            "name_fr": "MOKOLO",
+            "name_en": "MOKOLO"
+          },
+          {
+            "name_fr": "BOURRHA",
+            "name_en": "BOURRHA"
+          },
+          {
+            "name_fr": "KOZA",
+            "name_en": "KOZA"
+          },
+          {
+            "name_fr": "HINA",
+            "name_en": "HINA"
+          },
+          {
+            "name_fr": "MOGODE",
+            "name_en": "MOGODE"
+          },
+          {
+            "name_fr": "MAYO-MOSKOTA",
+            "name_en": "MAYO-MOSKOTA"
+          },
+          {
+            "name_fr": "SOULEDE-ROUA",
+            "name_en": "SOULEDE-ROUA"
+          }
+        ]
+      }
+    }
+  },
+  "NORD OUEST": {
+    "name_fr": "NORD OUEST",
+    "name_en": "North West",
+    "divisions": {
+      "BUI": {
+        "name_fr": "BUI",
+        "name_en": "Bui",
+        "councils": [
+          {
+            "name_fr": "JAKIRI",
+            "name_en": "JAKIRI"
+          },
+          {
+            "name_fr": "KUMBO",
+            "name_en": "KUMBO"
+          },
+          {
+            "name_fr": "ELAK-OKU",
+            "name_en": "ELAK-OKU"
+          },
+          {
+            "name_fr": "MBIAME",
+            "name_en": "MBIAME"
+          },
+          {
+            "name_fr": "NKUM",
+            "name_en": "NKUM"
+          }
+        ]
+      },
+      "BOYO": {
+        "name_fr": "BOYO",
+        "name_en": "Boyo",
+        "councils": [
+          {
+            "name_fr": "FUNDONG",
+            "name_en": "FUNDONG"
+          },
+          {
+            "name_fr": "BELO",
+            "name_en": "BELO"
+          },
+          {
+            "name_fr": "BUM",
+            "name_en": "BUM"
+          },
+          {
+            "name_fr": "NJINIKOM",
+            "name_en": "NJINIKOM"
+          }
+        ]
+      },
+      "DONGA-MANTUNG": {
+        "name_fr": "DONGA-MANTUNG",
+        "name_en": "Donga-Mantung",
+        "councils": [
+          {
+            "name_fr": "NKAMBE",
+            "name_en": "NKAMBE"
+          },
+          {
+            "name_fr": "NWA",
+            "name_en": "NWA"
+          },
+          {
+            "name_fr": "AKO",
+            "name_en": "AKO"
+          },
+          {
+            "name_fr": "MISAJE",
+            "name_en": "MISAJE"
+          },
+          {
+            "name_fr": "NDU",
+            "name_en": "NDU"
+          }
+        ]
+      },
+      "MENCHUM": {
+        "name_fr": "MENCHUM",
+        "name_en": "Menchum",
+        "councils": [
+          {
+            "name_fr": "WUM",
+            "name_en": "WUM"
+          },
+          {
+            "name_fr": "FURU-AWA",
+            "name_en": "FURU-AWA"
+          },
+          {
+            "name_fr": "BENAKUMA",
+            "name_en": "BENAKUMA"
+          },
+          {
+            "name_fr": "ZHOA",
+            "name_en": "ZHOA"
+          }
+        ]
+      },
+      "MEZAM": {
+        "name_fr": "MEZAM",
+        "name_en": "Mezam",
+        "councils": [
+          {
+            "name_fr": "BAMENDA 1er",
+            "name_en": "BAMENDA 1st"
+          },
+          {
+            "name_fr": "BAMENDA 2e",
+            "name_en": "BAMENDA 2nd"
+          },
+          {
+            "name_fr": "BAMENDA 3e",
+            "name_en": "BAMENDA 3rd"
+          },
+          {
+            "name_fr": "BALI",
+            "name_en": "BALI"
+          },
+          {
+            "name_fr": "TUBAH",
+            "name_en": "TUBAH"
+          },
+          {
+            "name_fr": "BAFUT",
+            "name_en": "BAFUT"
+          },
+          {
+            "name_fr": "SANTA",
+            "name_en": "SANTA"
+          }
+        ]
+      },
+      "MOMO": {
+        "name_fr": "MOMO",
+        "name_en": "Momo",
+        "councils": [
+          {
+            "name_fr": "BATIBO",
+            "name_en": "BATIBO"
+          },
+          {
+            "name_fr": "MBENGWI",
+            "name_en": "MBENGWI"
+          },
+          {
+            "name_fr": "NJIKWA",
+            "name_en": "NJIKWA"
+          },
+          {
+            "name_fr": "ANDEK",
+            "name_en": "ANDEK"
+          },
+          {
+            "name_fr": "WIDIKUM-BOFFE",
+            "name_en": "WIDIKUM-BOFFE"
+          }
+        ]
+      },
+      "NGO-KENTUNJIA": {
+        "name_fr": "NGO-KENTUNJIA",
+        "name_en": "Ngo-Ketunjia",
+        "councils": [
+          {
+            "name_fr": "NDOP",
+            "name_en": "NDOP"
+          },
+          {
+            "name_fr": "BABESSI",
+            "name_en": "BABESSI"
+          },
+          {
+            "name_fr": "BALIKUMBAT",
+            "name_en": "BALIKUMBAT"
+          }
+        ]
+      }
+    }
+  },
+  "OUEST": {
+    "name_fr": "OUEST",
+    "name_en": "West",
+    "divisions": {
+      "BAMBOUTOS": {
+        "name_fr": "BAMBOUTOS",
+        "name_en": "Bamboutos",
+        "councils": [
+          {
+            "name_fr": "MBOUDA",
+            "name_en": "MBOUDA"
+          },
+          {
+            "name_fr": "GALIM",
+            "name_en": "GALIM"
+          },
+          {
+            "name_fr": "BATCHAM",
+            "name_en": "BATCHAM"
+          },
+          {
+            "name_fr": "BABADJOU",
+            "name_en": "BABADJOU"
+          }
+        ]
+      },
+      "HAUT NKAM": {
+        "name_fr": "HAUT NKAM",
+        "name_en": "Upper Nkam",
+        "councils": [
+          {
+            "name_fr": "BAFANG",
+            "name_en": "BAFANG"
+          },
+          {
+            "name_fr": "BANA",
+            "name_en": "BANA"
+          },
+          {
+            "name_fr": "BANDJA",
+            "name_en": "BANDJA"
+          },
+          {
+            "name_fr": "KEKEM",
+            "name_en": "KEKEM"
+          },
+          {
+            "name_fr": "BAKOU",
+            "name_en": "BAKOU"
+          },
+          {
+            "name_fr": "BANKA",
+            "name_en": "BANKA"
+          },
+          {
+            "name_fr": "BANWA",
+            "name_en": "BANWA"
+          }
+        ]
+      },
+      "HAUTS PLATEAUX": {
+        "name_fr": "HAUTS PLATEAUX",
+        "name_en": "Highlands",
+        "councils": [
+          {
+            "name_fr": "BAHAM",
+            "name_en": "BAHAM"
+          },
+          {
+            "name_fr": "BAMENDJOU",
+            "name_en": "BAMENDJOU"
+          },
+          {
+            "name_fr": "BANGOU",
+            "name_en": "BANGOU"
+          },
+          {
+            "name_fr": "BATIE",
+            "name_en": "BATIE"
+          }
+        ]
+      },
+      "KOUNG KHI": {
+        "name_fr": "KOUNG KHI",
+        "name_en": "Koung-Khi",
+        "councils": [
+          {
+            "name_fr": "POUMOUGNE",
+            "name_en": "POUMOUGNE"
+          },
+          {
+            "name_fr": "BAYANGAM",
+            "name_en": "BAYANGAM"
+          },
+          {
+            "name_fr": "DJEBEM",
+            "name_en": "DJEBEM"
+          }
+        ]
+      },
+      "MENOUA": {
+        "name_fr": "MENOUA",
+        "name_en": "Menoua",
+        "councils": [
+          {
+            "name_fr": "DSCHANG",
+            "name_en": "DSCHANG"
+          },
+          {
+            "name_fr": "PENKA-MICHEl",
+            "name_en": "PENKA-MICHEl"
+          },
+          {
+            "name_fr": "FOKOUE",
+            "name_en": "FOKOUE"
+          },
+          {
+            "name_fr": "NKONG-ZEM",
+            "name_en": "NKONG-ZEM"
+          },
+          {
+            "name_fr": "SANTCHOU",
+            "name_en": "SANTCHOU"
+          },
+          {
+            "name_fr": "FONGO TONGO",
+            "name_en": "FONGO TONGO"
+          }
+        ]
+      },
+      "MIFI": {
+        "name_fr": "MIFI",
+        "name_en": "Mifi",
+        "councils": [
+          {
+            "name_fr": "BAFOUSSAM 1er",
+            "name_en": "BAFOUSSAM 1st"
+          },
+          {
+            "name_fr": "BAFOUSSAM 2e",
+            "name_en": "BAFOUSSAM 2nd"
+          },
+          {
+            "name_fr": "BAFOUSSAM 3e",
+            "name_en": "BAFOUSSAM 3rd"
+          }
+        ]
+      },
+      "NDE": {
+        "name_fr": "NDE",
+        "name_en": "Nde",
+        "councils": [
+          {
+            "name_fr": "BANGANGTE",
+            "name_en": "BANGANGTE"
+          },
+          {
+            "name_fr": "BAZOU",
+            "name_en": "BAZOU"
+          },
+          {
+            "name_fr": "TONGA",
+            "name_en": "TONGA"
+          },
+          {
+            "name_fr": "BASSAMBA",
+            "name_en": "BASSAMBA"
+          }
+        ]
+      },
+      "NOUN": {
+        "name_fr": "NOUN",
+        "name_en": "Noun",
+        "councils": [
+          {
+            "name_fr": "FOUMBAN",
+            "name_en": "FOUMBAN"
+          },
+          {
+            "name_fr": "FOUMBOT",
+            "name_en": "FOUMBOT"
+          },
+          {
+            "name_fr": "MALENTOUEN",
+            "name_en": "MALENTOUEN"
+          },
+          {
+            "name_fr": "MASSANGAM",
+            "name_en": "MASSANGAM"
+          },
+          {
+            "name_fr": "MAGBA",
+            "name_en": "MAGBA"
+          },
+          {
+            "name_fr": "KOUTABA",
+            "name_en": "KOUTABA"
+          },
+          {
+            "name_fr": "KOUOPTAMO",
+            "name_en": "KOUOPTAMO"
+          },
+          {
+            "name_fr": "NJIMON",
+            "name_en": "NJIMON"
+          }
+        ]
+      }
+    }
+  }
+}

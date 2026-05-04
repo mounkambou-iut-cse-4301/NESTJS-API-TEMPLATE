@@ -1,29 +1,29 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsJWT, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class ResetPasswordDto {
   @ApiProperty({
-    description: 'Token de réinitialisation',
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    example: 'jwt-reset-token',
+    description: 'Token de réinitialisation reçu après forgot-password.',
   })
-  @IsJWT()
+  @IsString()
   @IsNotEmpty()
   token: string;
 
   @ApiProperty({
-    description: 'Code de vérification à 6 chiffres',
     example: '123456',
+    description: 'Code de vérification reçu par email.',
   })
   @IsString()
   @IsNotEmpty()
   code: string;
 
   @ApiProperty({
-    description: 'Nouveau mot de passe',
-    example: 'MonNouveauMotDePasse@2026',
-    minLength: 8,
+    example: 'new-password-123',
+    description: 'Nouveau mot de passe.',
   })
   @IsString()
-  @MinLength(8)
+  @IsNotEmpty()
+  @MinLength(4)
   new_password: string;
 }

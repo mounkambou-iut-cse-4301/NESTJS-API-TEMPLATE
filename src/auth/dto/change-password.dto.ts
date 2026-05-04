@@ -3,20 +3,19 @@ import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class ChangePasswordDto {
   @ApiProperty({
-    description: 'Ancien mot de passe',
-    example: 'AncienMDP!234',
+    example: '1234',
+    description: 'Ancien mot de passe.',
   })
   @IsString()
   @IsNotEmpty()
   old_password: string;
 
   @ApiProperty({
-    description: 'Nouveau mot de passe',
-    example: 'NouveauMDP!234',
-    minLength: 8,
+    example: 'new-password-123',
+    description: 'Nouveau mot de passe.',
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(8)
+  @MinLength(4)
   new_password: string;
 }
