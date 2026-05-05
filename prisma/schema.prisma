@@ -904,6 +904,13 @@ model FichePhoto {
 // =====================
 // TABLE AUTHENTIFICATION
 // =====================
+enum TypeUtilisateur {
+  SUPERADMIN
+  ADMIN
+  AGENT_COLLECTE
+  POINT_FOCAL
+  COORDINATION
+}
 
 model Utilisateur {
   // Identifiant unique de l'utilisateur.
@@ -930,6 +937,9 @@ model Utilisateur {
   // Indique si le compte est vérifié.
   isVerified Boolean @default(false)
 
+  // Type métier de l'utilisateur.
+  // Exemple : AGENT_COLLECTE, POINT_FOCAL, COORDINATION, ADMIN, SUPERADMIN.
+  type    TypeUtilisateur @default(AGENT_COLLECTE)
   // Photo de profil de l'utilisateur.
   picture String?
 

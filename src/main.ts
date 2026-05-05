@@ -50,8 +50,8 @@ async function bootstrap() {
 
   // --- Swagger ---
   const config = new DocumentBuilder()
-    .setTitle('MARIE PAIE API')
-    .setDescription('API de gestion de MARIE PAIE')
+    .setTitle('SEPTENTRIONIST PLATEFORME DE COLLECTE DE DONNÉES DES FEMMES ENTREPRENEURES')
+    .setDescription('API de collecte de données des femmes entrepreneures au Cameroun')
     .setVersion('1.0')
     .addBearerAuth(
       {
