@@ -28,14 +28,8 @@ export class AuthUserDto {
   @ApiProperty({ example: 1 })
   id: number;
 
-  @ApiProperty({ example: 'Super' })
-  firstName: string;
-
-  @ApiProperty({ example: 'Administrateur' })
-  lastName: string;
-
   @ApiProperty({ example: 'Super Administrateur' })
-  fullName: string;
+  name: string;
 
   @ApiProperty({ example: 'superadmin@collect-femme.com' })
   email: string;

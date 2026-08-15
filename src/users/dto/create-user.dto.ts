@@ -26,20 +26,12 @@ function trimString({ value }: { value: unknown }) {
 
 export class CreateUserDto {
   @ApiProperty({
-    example: 'Agent',
-    description: 'Prénom de l’utilisateur.',
+    example: 'Agent Collecte Un',
+    description: 'Nom complet de l’utilisateur.',
   })
   @IsString()
   @Transform(trimString)
-  firstName: string;
-
-  @ApiProperty({
-    example: 'Collecte Un',
-    description: 'Nom de l’utilisateur.',
-  })
-  @IsString()
-  @Transform(trimString)
-  lastName: string;
+  name: string;
 
   @ApiProperty({
     example: 'agent1@collect-femme.com',
@@ -67,9 +59,9 @@ export class CreateUserDto {
 
   @ApiProperty({
     enum: TypeUtilisateur,
-    example: TypeUtilisateur.AGENT_COLLECTE,
+    example: TypeUtilisateur.INSPECTEUR,
     description:
-      'Type métier de l’utilisateur : AGENT_COLLECTE, POINT_FOCAL, COORDINATION, ADMIN ou SUPERADMIN.',
+      'Type métier de l’utilisateur : SUPERADMIN, ADMIN ou INSPECTEUR.',
   })
   @IsEnum(TypeUtilisateur)
   type: TypeUtilisateur;
@@ -95,28 +87,6 @@ export class CreateUserDto {
   @IsInt()
   @Min(1)
   departementId?: number | null;
-
-  @ApiPropertyOptional({
-    example: 1,
-    nullable: true,
-    description: 'ID du groupe. Peut être null ou absent au début.',
-  })
-  @IsOptional()
-  @Transform(toOptionalInt)
-  @IsInt()
-  @Min(1)
-  groupeId?: number | null;
-
-  @ApiPropertyOptional({
-    example: 1,
-    nullable: true,
-    description: 'ID de la zone. Peut être null ou absent au début.',
-  })
-  @IsOptional()
-  @Transform(toOptionalInt)
-  @IsInt()
-  @Min(1)
-  zoneId?: number | null;
 
   @ApiPropertyOptional({
     example: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...',

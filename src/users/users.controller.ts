@@ -68,16 +68,14 @@ export class UsersController {
       - email et phone doivent être uniques.
       - On ne crée pas de rôle ici.
       - Le type métier est envoyé dans le champ "type".
-      - regionId, departementId, groupeId et zoneId peuvent être null ou absents au début.
+      - regionId et departementId peuvent être null ou absents au début.
       - La photo peut être envoyée en URL, base64 ou multipart/form-data.
       - L’upload Cloudinary se fait en arrière-plan pour ne pas bloquer la requête.
 
       TYPES POSSIBLES :
-      - AGENT_COLLECTE
-      - POINT_FOCAL
-      - COORDINATION
-      - ADMIN
       - SUPERADMIN
+      - ADMIN
+      - INSPECTEUR
     `,
   })
   @ApiCreatedResponse({
@@ -114,16 +112,13 @@ export class UsersController {
       LISTE PAGINÉE DES UTILISATEURS
 
       FILTRES DISPONIBLES :
-      - search : recherche globale sur prénom, nom, email, téléphone et type.
-      - firstName : filtre par prénom.
-      - lastName : filtre par nom.
+      - search : recherche globale sur nom, email, téléphone et type.
+      - name : filtre par nom.
       - email : filtre par email.
       - phone : filtre par téléphone.
-      - type : AGENT_COLLECTE, POINT_FOCAL, COORDINATION, ADMIN, SUPERADMIN.
+      - type : SUPERADMIN, ADMIN, INSPECTEUR.
       - regionId : filtre par région.
       - departementId : filtre par département.
-      - groupeId : filtre par groupe.
-      - zoneId : filtre par zone.
       - isBlock : true ou false.
       - isVerified : true ou false.
       - isDeleted : true ou false.
@@ -135,8 +130,8 @@ export class UsersController {
       - limit : nombre d’éléments par page, par défaut 10, maximum 100.
 
       EXEMPLES :
-      - /api/v1/users?type=AGENT_COLLECTE
-      - /api/v1/users?type=POINT_FOCAL&regionId=1
+      - /api/v1/users?type=INSPECTEUR
+      - /api/v1/users?type=ADMIN&regionId=1
       - /api/v1/users?search=agent
       - /api/v1/users?isBlock=false
     `,
@@ -209,22 +204,19 @@ export class UsersController {
       MISE À JOUR D'UN UTILISATEUR
 
       Champs modifiables :
-      - firstName
-      - lastName
+      - name
       - email
       - phone
       - password
       - type
       - regionId
       - departementId
-      - groupeId
-      - zoneId
       - picture en URL ou base64
       - pictureFile en multipart/form-data
 
       IMPORTANT :
       - Si password est fourni, il est hashé.
-      - Si regionId, departementId, groupeId ou zoneId vaut null, la relation est supprimée.
+      - Si regionId ou departementId vaut null, la relation est supprimée.
       - Si picture vaut null ou chaîne vide, la photo est supprimée.
       - Si picture est base64 ou pictureFile est fourni, l’upload Cloudinary se fait en arrière-plan.
     `,

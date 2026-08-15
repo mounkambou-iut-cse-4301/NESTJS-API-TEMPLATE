@@ -23,34 +23,12 @@ export class UserDepartementDto {
   nameEn?: string | null;
 }
 
-export class UserGroupeDto {
-  @ApiProperty({ example: 1 })
-  id: number;
-
-  @ApiProperty({ example: 'GROUPE 1' })
-  name: string;
-}
-
-export class UserZoneDto {
-  @ApiProperty({ example: 1 })
-  id: number;
-
-  @ApiPropertyOptional({ example: 'ZONE GAROUA', nullable: true })
-  name?: string | null;
-}
-
 export class UserResponseDto {
   @ApiProperty({ example: 1 })
   id: number;
 
-  @ApiProperty({ example: 'Jean' })
-  firstName: string;
-
-  @ApiProperty({ example: 'Tchinda' })
-  lastName: string;
-
-  @ApiProperty({ example: 'Jean Tchinda' })
-  fullName: string;
+  @ApiProperty({ example: 'Agent Collecte Un' })
+  name: string;
 
   @ApiProperty({ example: 'agent1@collect-femme.com' })
   email: string;
@@ -60,7 +38,7 @@ export class UserResponseDto {
 
   @ApiProperty({
     enum: TypeUtilisateur,
-    example: TypeUtilisateur.AGENT_COLLECTE,
+    example: TypeUtilisateur.INSPECTEUR,
   })
   type: TypeUtilisateur;
 
@@ -85,23 +63,11 @@ export class UserResponseDto {
   @ApiPropertyOptional({ example: 1, nullable: true })
   departementId?: number | null;
 
-  @ApiPropertyOptional({ example: 1, nullable: true })
-  groupeId?: number | null;
-
-  @ApiPropertyOptional({ example: 1, nullable: true })
-  zoneId?: number | null;
-
   @ApiPropertyOptional({ type: UserRegionDto, nullable: true })
   region?: UserRegionDto | null;
 
   @ApiPropertyOptional({ type: UserDepartementDto, nullable: true })
   departement?: UserDepartementDto | null;
-
-  @ApiPropertyOptional({ type: UserGroupeDto, nullable: true })
-  groupe?: UserGroupeDto | null;
-
-  @ApiPropertyOptional({ type: UserZoneDto, nullable: true })
-  zone?: UserZoneDto | null;
 
   @ApiProperty({ example: '2026-05-04T10:00:00.000Z' })
   createdAt: string;

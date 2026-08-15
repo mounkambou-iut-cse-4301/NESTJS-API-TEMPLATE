@@ -72,21 +72,13 @@ export class UsersService {
       departement: {
         select: { id: true, name: true, nameEn: true },
       },
-      groupe: {
-        select: { id: true, name: true },
-      },
-      zone: {
-        select: { id: true, name: true },
-      },
     };
   }
 
   private mapUser(user: any) {
     return {
       id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      name: user.name,
       email: user.email,
       phone: user.phone,
       type: user.type,
@@ -97,8 +89,6 @@ export class UsersService {
       loginAttempt: user.loginAttempt,
       regionId: user.regionId,
       departementId: user.departementId,
-      groupeId: user.groupeId,
-      zoneId: user.zoneId,
       region: user.region
         ? {
             id: user.region.id,
@@ -111,18 +101,6 @@ export class UsersService {
             id: user.departement.id,
             name: user.departement.name,
             nameEn: user.departement.nameEn,
-          }
-        : null,
-      groupe: user.groupe
-        ? {
-            id: user.groupe.id,
-            name: user.groupe.name,
-          }
-        : null,
-      zone: user.zone
-        ? {
-            id: user.zone.id,
-            name: user.zone.name,
           }
         : null,
       createdAt: user.createdAt?.toISOString(),
@@ -169,8 +147,6 @@ export class UsersService {
   private async validateGeographie(dto: {
     regionId?: number | null;
     departementId?: number | null;
-    groupeId?: number | null;
-    zoneId?: number | null;
   }) {
     if (dto.regionId) {
       const region = await this.prisma.region.findUnique({
@@ -203,71 +179,6 @@ export class UsersService {
         throw new BadRequestException({
           message: 'Le département ne correspond pas à la région indiquée.',
           messageE: 'The division does not belong to the selected region.',
-        });
-      }
-    }
-
-    if (dto.groupeId) {
-      const groupe = await this.prisma.groupe.findUnique({
-        where: { id: dto.groupeId },
-        select: { id: true, regionId: true },
-      });
-
-      if (!groupe) {
-        throw new NotFoundException({
-          message: 'Groupe introuvable.',
-          messageE: 'Group not found.',
-        });
-      }
-
-      if (dto.regionId && groupe.regionId !== dto.regionId) {
-        throw new BadRequestException({
-          message: 'Le groupe ne correspond pas à la région indiquée.',
-          messageE: 'The group does not belong to the selected region.',
-        });
-      }
-    }
-
-    if (dto.zoneId) {
-      const zone = await this.prisma.zone.findUnique({
-        where: { id: dto.zoneId },
-        select: {
-          id: true,
-          groupeId: true,
-          departementId: true,
-          groupe: {
-            select: {
-              regionId: true,
-            },
-          },
-        },
-      });
-
-      if (!zone) {
-        throw new NotFoundException({
-          message: 'Zone introuvable.',
-          messageE: 'Zone not found.',
-        });
-      }
-
-      if (dto.groupeId && zone.groupeId !== dto.groupeId) {
-        throw new BadRequestException({
-          message: 'La zone ne correspond pas au groupe indiqué.',
-          messageE: 'The zone does not belong to the selected group.',
-        });
-      }
-
-      if (dto.departementId && zone.departementId !== dto.departementId) {
-        throw new BadRequestException({
-          message: 'La zone ne correspond pas au département indiqué.',
-          messageE: 'The zone does not belong to the selected division.',
-        });
-      }
-
-      if (dto.regionId && zone.groupe.regionId !== dto.regionId) {
-        throw new BadRequestException({
-          message: 'La zone ne correspond pas à la région indiquée.',
-          messageE: 'The zone does not belong to the selected region.',
         });
       }
     }
@@ -395,15 +306,14 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto, pictureFile?: Express.Multer.File) {
-    const firstName = this.normalizeText(dto.firstName);
-    const lastName = this.normalizeText(dto.lastName);
+    const name = this.normalizeText(dto.name);
     const email = this.normalizeEmail(dto.email);
     const phone = this.normalizePhone(dto.phone);
 
-    if (!firstName || !lastName || !email || !phone) {
+    if (!name || !email || !phone) {
       throw new BadRequestException({
-        message: 'Le prénom, le nom, l’email et le téléphone sont obligatoires.',
-        messageE: 'First name, last name, email and phone are required.',
+        message: 'Le nom, l’email et le téléphone sont obligatoires.',
+        messageE: 'Name, email and phone are required.',
       });
     }
 
@@ -421,8 +331,7 @@ export class UsersService {
       : this.preparePictureForCreate(dto.picture);
 
     const createData: Prisma.UtilisateurUncheckedCreateInput = {
-      firstName,
-      lastName,
+      name,
       email,
       phone,
       password: hashedPassword,
@@ -434,8 +343,6 @@ export class UsersService {
       loginAttempt: 0,
       regionId: dto.regionId ?? null,
       departementId: dto.departementId ?? null,
-      groupeId: dto.groupeId ?? null,
-      zoneId: dto.zoneId ?? null,
     };
 
     const user = await this.prisma.utilisateur.create({
@@ -475,8 +382,7 @@ export class UsersService {
       const typeValues = Object.values(TypeUtilisateur) as string[];
 
       const OR: Prisma.UtilisateurWhereInput[] = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } },
       ];
@@ -490,15 +396,9 @@ export class UsersService {
       AND.push({ OR });
     }
 
-    if (query.firstName?.trim()) {
+    if (query.name?.trim()) {
       AND.push({
-        firstName: { contains: query.firstName.trim(), mode: 'insensitive' },
-      });
-    }
-
-    if (query.lastName?.trim()) {
-      AND.push({
-        lastName: { contains: query.lastName.trim(), mode: 'insensitive' },
+        name: { contains: query.name.trim(), mode: 'insensitive' },
       });
     }
 
@@ -524,14 +424,6 @@ export class UsersService {
 
     if (query.departementId) {
       AND.push({ departementId: query.departementId });
-    }
-
-    if (query.groupeId) {
-      AND.push({ groupeId: query.groupeId });
-    }
-
-    if (query.zoneId) {
-      AND.push({ zoneId: query.zoneId });
     }
 
     if (query.isBlock !== undefined) {
@@ -635,8 +527,6 @@ export class UsersService {
     await this.validateGeographie({
       regionId: dto.regionId ?? existing.regionId,
       departementId: dto.departementId ?? existing.departementId,
-      groupeId: dto.groupeId ?? existing.groupeId,
-      zoneId: dto.zoneId ?? existing.zoneId,
     });
 
     const picturePreparation = this.preparePictureForUpdate(
@@ -646,12 +536,8 @@ export class UsersService {
 
     const data: Prisma.UtilisateurUpdateInput = {};
 
-    if (dto.firstName !== undefined) {
-      data.firstName = this.normalizeText(dto.firstName);
-    }
-
-    if (dto.lastName !== undefined) {
-      data.lastName = this.normalizeText(dto.lastName);
+    if (dto.name !== undefined) {
+      data.name = this.normalizeText(dto.name);
     }
 
     if (email !== undefined) {
@@ -684,18 +570,6 @@ export class UsersService {
     if (dto.departementId !== undefined) {
       data.departement = dto.departementId
         ? { connect: { id: dto.departementId } }
-        : { disconnect: true };
-    }
-
-    if (dto.groupeId !== undefined) {
-      data.groupe = dto.groupeId
-        ? { connect: { id: dto.groupeId } }
-        : { disconnect: true };
-    }
-
-    if (dto.zoneId !== undefined) {
-      data.zone = dto.zoneId
-        ? { connect: { id: dto.zoneId } }
         : { disconnect: true };
     }
 

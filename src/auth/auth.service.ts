@@ -34,10 +34,6 @@ export class AuthService {
     return (email || '').trim().toLowerCase();
   }
 
-  private getFullName(user: { firstName: string; lastName: string }): string {
-    return `${user.firstName || ''} ${user.lastName || ''}`.trim();
-  }
-
   /**
    * Construit les rôles et permissions de l'utilisateur connecté.
    *
@@ -143,8 +139,7 @@ export class AuthService {
   /**
    * LOGIN
    *
-   * Ton nouveau schéma n'a plus TypeUtilisateur.
-   * Donc la connexion se fait simplement avec :
+   * La connexion se fait avec :
    * - telephone
    * - mot_de_passe
    */
@@ -164,8 +159,7 @@ export class AuthService {
       },
       select: {
         id: true,
-        firstName: true,
-        lastName: true,
+        name: true,
         email: true,
         phone: true,
         password: true,
@@ -215,9 +209,7 @@ export class AuthService {
 
     const payloadUser = {
       id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      fullName: this.getFullName(user),
+      name: user.name,
       email: user.email,
       phone: user.phone,
       picture: user.picture,
@@ -297,8 +289,7 @@ export class AuthService {
       },
       select: {
         id: true,
-        firstName: true,
-        lastName: true,
+        name: true,
         email: true,
         phone: true,
         isBlock: true,
@@ -349,18 +340,18 @@ export class AuthService {
     );
 
     if (user.email) {
-      const fullName = this.getFullName(user);
+      const name = user.name;
 
       const subject =
         'Réinitialisation du mot de passe / Password reset';
 
       const message =
-        `Bonjour ${fullName},\n\n` +
+        `Bonjour ${name},\n\n` +
         `Code de vérification : ${code}\n` +
         `Token de réinitialisation :\n${token}\n\n` +
         `Expire dans ${resetExpires}.\n\n` +
         `---\n` +
-        `Hello ${fullName},\n\n` +
+        `Hello ${name},\n\n` +
         `Verification code: ${code}\n` +
         `Reset token:\n${token}\n\n` +
         `Expires in ${resetExpires}.\n`;

@@ -47,24 +47,18 @@ export class QueryUserDto {
 
   @ApiPropertyOptional({
     example: 'agent',
-    description: 'Recherche globale sur prénom, nom, email, téléphone et type.',
+    description: 'Recherche globale sur nom, email, téléphone et type.',
   })
   @IsOptional()
   @IsString()
   @Transform(trimValue)
   search?: string;
 
-  @ApiPropertyOptional({ example: 'Jean' })
+  @ApiPropertyOptional({ example: 'Agent Collecte Un' })
   @IsOptional()
   @IsString()
   @Transform(trimValue)
-  firstName?: string;
-
-  @ApiPropertyOptional({ example: 'Tchinda' })
-  @IsOptional()
-  @IsString()
-  @Transform(trimValue)
-  lastName?: string;
+  name?: string;
 
   @ApiPropertyOptional({ example: 'agent1@collect-femme.com' })
   @IsOptional()
@@ -80,9 +74,8 @@ export class QueryUserDto {
 
   @ApiPropertyOptional({
     enum: TypeUtilisateur,
-    example: TypeUtilisateur.AGENT_COLLECTE,
-    description:
-      'Filtre par type métier : AGENT_COLLECTE, POINT_FOCAL, COORDINATION, ADMIN, SUPERADMIN.',
+    example: TypeUtilisateur.INSPECTEUR,
+    description: 'Filtre par type métier : SUPERADMIN, ADMIN, INSPECTEUR.',
   })
   @IsOptional()
   @IsEnum(TypeUtilisateur)
@@ -107,26 +100,6 @@ export class QueryUserDto {
   @IsInt()
   @Min(1)
   departementId?: number;
-
-  @ApiPropertyOptional({
-    example: 1,
-    description: 'Filtre par groupe.',
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  groupeId?: number;
-
-  @ApiPropertyOptional({
-    example: 1,
-    description: 'Filtre par zone.',
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  zoneId?: number;
 
   @ApiPropertyOptional({
     example: false,

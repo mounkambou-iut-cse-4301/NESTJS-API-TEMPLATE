@@ -5,50 +5,16 @@ const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
-function splitFullName(fullName) {
-  const cleanName = String(fullName || '').trim();
-
-  if (!cleanName) {
-    return {
-      firstName: 'Super',
-      lastName: 'Administrateur',
-    };
-  }
-
-  const parts = cleanName.split(/\s+/);
-
-  if (parts.length === 1) {
-    return {
-      firstName: parts[0],
-      lastName: 'Administrateur',
-    };
-  }
-
-  return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(' '),
-  };
-}
-
 async function main() {
   const email = (process.env.SUPERADMIN_EMAIL || 'superadmin@collect-femme.com').trim();
   const phone = (process.env.SUPERADMIN_PHONE || '+237692473511').trim();
   const password = process.env.SUPERADMIN_PASSWORD || '1234';
-
-  const fullName = process.env.SUPERADMIN_NAME || 'Super Administrateur';
-
-  const firstNameEnv = process.env.SUPERADMIN_FIRST_NAME;
-  const lastNameEnv = process.env.SUPERADMIN_LAST_NAME;
-
-  const nameParts = splitFullName(fullName);
-
-  const firstName = (firstNameEnv || nameParts.firstName).trim();
-  const lastName = (lastNameEnv || nameParts.lastName).trim();
+  const name = (process.env.SUPERADMIN_NAME || 'Super Administrateur').trim();
 
   console.log('🚀 Démarrage du seed SUPERADMIN...');
   console.log(`📧 Email: ${email}`);
   console.log(`📱 Téléphone: ${phone}`);
-  console.log(`👤 Nom: ${firstName} ${lastName}`);
+  console.log(`👤 Nom: ${name}`);
 
   // 1) Créer le rôle SUPERADMIN s'il n'existe pas
   let role = await prisma.role.findUnique({
@@ -113,11 +79,11 @@ async function main() {
         id: existingUser.id,
       },
       data: {
-        firstName,
-        lastName,
+        name,
         email,
         phone,
         password: hashedPassword,
+        type: 'SUPERADMIN',
         isVerified: true,
         isBlock: false,
         isDeleted: false,
@@ -131,11 +97,11 @@ async function main() {
 
     user = await prisma.utilisateur.create({
       data: {
-        firstName,
-        lastName,
+        name,
         email,
         phone,
         password: hashedPassword,
+        type: 'SUPERADMIN',
         isVerified: true,
         isBlock: false,
         isDeleted: false,
@@ -165,7 +131,7 @@ async function main() {
   console.log('🎉 SUPERADMIN PRÊT À ÊTRE UTILISÉ');
   console.log('====================================');
   console.log(`🆔 ID: ${user.id}`);
-  console.log(`👤 Nom: ${user.firstName} ${user.lastName}`);
+  console.log(`👤 Nom: ${user.name}`);
   console.log(`📧 Email: ${user.email}`);
   console.log(`📱 Téléphone: ${user.phone}`);
   console.log(`🔑 Mot de passe: ${password}`);
